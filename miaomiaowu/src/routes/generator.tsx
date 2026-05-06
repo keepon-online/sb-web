@@ -201,7 +201,6 @@ type SavedNode = {
   enabled: boolean
   tag: string
   tags: string[]
-  probe_server: string
   created_at: string
   updated_at: string
 }
@@ -389,15 +388,6 @@ function SubscriptionGeneratorPage() {
 
   // 获取探针服务器配置（用于流量统计服务器选择）
   const { data: probeConfigData } = useQuery({
-    queryKey: ['probe-config'],
-    queryFn: async () => {
-      const response = await api.get('/api/admin/probe-config')
-      return response.data as { config: { servers: Array<{ id: number; name: string; server_id: string }> } }
-    },
-    enabled: Boolean(auth.accessToken),
-  })
-  const probeServers = probeConfigData?.config?.servers ?? []
-
   // 获取用户订阅 token（用于代理集合 URL）
   const { data: userTokenData } = useQuery({
     queryKey: ['user-token'],
@@ -2429,10 +2419,8 @@ function SubscriptionGeneratorPage() {
                                 {t}
                               </Badge>
                             ))}
-                            {node.probe_server && (
                               <Badge variant='secondary' className='text-xs flex items-center gap-1'>
                                 <Activity className='size-3' />
-                                {node.probe_server}
                               </Badge>
                             )}
                           </div>
@@ -2458,17 +2446,14 @@ function SubscriptionGeneratorPage() {
                           {/* 第二行：标签 + 服务器地址 */}
                           <div className='flex items-center gap-2 text-xs'>
                             {/* 标签部分 */}
-                            {((node.tags?.length || node.tag) || node.probe_server) && (
                               <div className='flex items-center gap-1 shrink-0'>
                                 {(node.tags?.length ? node.tags : node.tag ? [node.tag] : []).map(t => (
                                   <Badge key={t} variant='secondary' className='text-xs'>
                                     {t}
                                   </Badge>
                                 ))}
-                                {node.probe_server && (
                                   <Badge variant='secondary' className='text-xs flex items-center gap-1'>
                                     <Activity className='size-3' />
-                                    {node.probe_server}
                                   </Badge>
                                 )}
                               </div>
@@ -2745,11 +2730,9 @@ function SubscriptionGeneratorPage() {
                     手动指定总流量上限，留空表示使用探针返回的总流量
                   </p>
                 </div>
-                {probeServers.length > 0 && (
                   <div className='space-y-2'>
                     <Label>统计服务器</Label>
                     <div className='flex flex-wrap gap-2'>
-                      {probeServers.map((server) => {
                         const isSelected = statsServerIds.includes(server.server_id)
                         return (
                           <Button

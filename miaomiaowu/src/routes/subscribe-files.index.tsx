@@ -433,14 +433,12 @@ function SubscribeFilesPage() {
 
   const files = filesData?.files ?? []
 
-  // 获取订阅流量数据（含探针总流量）
   const { data: subscribeTrafficData } = useQuery({
     queryKey: ['subscribe-traffic'],
     queryFn: async () => {
       const response = await api.get('/api/traffic/subscribe')
       return response.data as {
         items: Array<{ id: number; limit_gb: number; used_gb: number }>
-        probe_total?: { limit_gb: number; used_gb: number }
       }
     },
     enabled: Boolean(auth.accessToken),
@@ -455,7 +453,6 @@ function SubscribeFilesPage() {
     }
     return map
   }, [subscribeTrafficData])
-  const probeTotal = subscribeTrafficData?.probe_total
 
   // 获取 V3 模板列表
   const { data: templatesData } = useQuery({
@@ -514,11 +511,8 @@ function SubscribeFilesPage() {
   })
   const proxyProviderConfigs = proxyProviderConfigsData ?? []
 
-  // 获取探针服务器列表（用于统计服务器选择）
   const { data: probeConfigData } = useQuery({
-    queryKey: ['probe-config'],
     queryFn: async () => {
-      const response = await api.get('/api/admin/probe-config')
       return response.data as {
         config: {
           servers: Array<{ id: number; name: string; server_id: string }>
@@ -527,7 +521,6 @@ function SubscribeFilesPage() {
     },
     enabled: Boolean(auth.accessToken),
   })
-  const probeServers = probeConfigData?.config?.servers ?? []
 
   // 绑定v3模板
   const hasTemplateBindings = files.some(f => f.template_filename)
@@ -1314,7 +1307,6 @@ function SubscribeFilesPage() {
         match_rule: string
         cache_expire_minutes: number
         sync_traffic: boolean
-        enable_probe_binding: boolean
         node_order: number[]
       }
     },
@@ -3114,7 +3106,6 @@ function SubscribeFilesPage() {
 
                       const progressBar = (() => {
                         if (!displayTraffic || displayTraffic.limit_gb === 0) {
-                          return <span className='text-muted-foreground text-xs'>未配置探针</span>
                         }
                         const percentage = Math.min((displayTraffic.used_gb / displayTraffic.limit_gb) * 100, 100)
                         const remainingGB = Math.max(displayTraffic.limit_gb - displayTraffic.used_gb, 0)
@@ -3161,7 +3152,6 @@ function SubscribeFilesPage() {
                                 type='number'
                                 min='0'
                                 step='0.01'
-                                placeholder='留空则使用探针总流量'
                                 defaultValue={file.traffic_limit != null ? String(file.traffic_limit) : ''}
                                 ref={(el) => { trafficInputRef = el }}
                                 className='h-8 text-sm'
@@ -3169,9 +3159,7 @@ function SubscribeFilesPage() {
                             </div>
                             <div className='space-y-1'>
                               <Label className='text-xs'>统计服务器</Label>
-                              {probeServers.length > 0 ? (
                                 <div className='flex flex-wrap gap-1'>
-                                  {probeServers.map((srv) => {
                                     const currentIds = file.stats_server_ids ? file.stats_server_ids.split(',').map(s => s.trim()).filter(Boolean) : []
                                     const isSelected = currentIds.includes(srv.server_id)
                                     return (
@@ -3206,7 +3194,6 @@ function SubscribeFilesPage() {
                                   })}
                                 </div>
                               ) : (
-                                <p className='text-xs text-muted-foreground'>未配置探针</p>
                               )}
                             </div>
                             <Button
@@ -4792,18 +4779,14 @@ function SubscribeFilesPage() {
                 step='0.01'
                 value={metadataForm.traffic_limit}
                 onChange={(e) => setMetadataForm({ ...metadataForm, traffic_limit: e.target.value })}
-                placeholder='留空则使用探针服务器的总流量'
               />
               <p className='text-xs text-muted-foreground'>
-                手动设置总流量上限，订阅信息中的总流量将使用此值。留空则跟随探针。
               </p>
             </div>
             <div className='space-y-2'>
               <Label>统计服务器（可选）</Label>
-              {probeServers.length > 0 ? (
                 <>
                   <div className='flex flex-wrap gap-2'>
-                    {probeServers.map((srv) => {
                       const selectedIds = metadataForm.stats_server_ids ? metadataForm.stats_server_ids.split(',').map(s => s.trim()).filter(Boolean) : []
                       const isSelected = selectedIds.includes(srv.server_id)
                       return (
@@ -4829,7 +4812,6 @@ function SubscribeFilesPage() {
                 </>
               ) : (
                 <p className='text-xs text-muted-foreground'>
-                  未配置探针服务器，请先在节点管理中配置探针。
                 </p>
               )}
             </div>

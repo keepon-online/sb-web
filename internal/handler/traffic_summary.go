@@ -86,34 +86,14 @@ func (h *TrafficSummaryHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 	username := auth.UsernameFromContext(ctx)
 
 	var totalLimit, totalRemaining, totalUsed int64
-	var probeErr error
 
-	totalLimit, totalRemaining, totalUsed, probeErr = h.fetchTotals(ctx, username, nil)
-	if probeErr != nil {
-		// Log the error but continue to try external subscription traffic
-		if errors.Is(probeErr, storage.ErrProbeConfigNotFound) {
-			logger.Info("[Traffic] Probe not configured, will use external subscription traffic only")
-		} else {
-			logger.Info("[流量] 获取探针流量失败", "error", probeErr)
-		}
-		// Reset values in case of error
-		totalLimit, totalRemaining, totalUsed = 0, 0, 0
-	}
-
-	// Add external subscription traffic if sync_traffic is enabled
+	// Fetch external subscription traffic if sync_traffic is enabled
 	if username != "" {
 		externalLimit, externalUsed := h.fetchExternalSubscriptionTraffic(ctx, username)
 		totalLimit += externalLimit
 		totalUsed += externalUsed
 		// Recalculate remaining
 		totalRemaining = totalLimit - totalUsed
-	}
-
-	// If no traffic data from either source, return appropriate response
-	if totalLimit == 0 && totalUsed == 0 && probeErr != nil && !errors.Is(probeErr, storage.ErrProbeConfigNotFound) {
-		// Only return error if probe failed (not just not configured) and no external traffic
-		writeError(w, http.StatusBadGateway, probeErr)
-		return
 	}
 
 	if err := h.recordSnapshot(ctx, totalLimit, totalUsed, totalRemaining); err != nil {
@@ -145,29 +125,6 @@ func (h *TrafficSummaryHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 // RecordDailyUsage fetches the latest traffic summary and persists the snapshot.
 func (h *TrafficSummaryHandler) RecordDailyUsage(ctx context.Context) error {
 	var totalLimit, totalRemaining, totalUsed int64
-	var probeErr error
-
-	totalLimit, totalRemaining, totalUsed, probeErr = h.fetchTotals(ctx, "", nil)
-	if probeErr != nil {
-		if errors.Is(probeErr, storage.ErrProbeConfigNotFound) {
-			logger.Info("[流量记录] 探针未配置，仅使用外部订阅流量")
-		} else {
-			logger.Warn("[流量记录] 获取探针流量失败", "error", probeErr)
-		}
-		totalLimit, totalRemaining, totalUsed = 0, 0, 0
-	} else {
-		// Log fetched probe data
-		limitGB := roundUpTwoDecimals(bytesToGigabytes(totalLimit))
-		usedGB := roundUpTwoDecimals(bytesToGigabytes(totalUsed))
-		remainingGB := roundUpTwoDecimals(bytesToGigabytes(totalRemaining))
-		usagePercent := roundUpTwoDecimals(usagePercentage(totalUsed, totalLimit))
-
-		logger.Info("[流量记录] 从探针获取流量",
-			"limit_gb", limitGB,
-			"used_gb", usedGB,
-			"remaining_gb", remainingGB,
-			"usage_percent", usagePercent)
-	}
 
 	// Sync and add external subscription traffic
 	externalLimit, externalUsed := h.syncAndFetchExternalSubscriptionTraffic(ctx)
@@ -179,14 +136,9 @@ func (h *TrafficSummaryHandler) RecordDailyUsage(ctx context.Context) error {
 			totalRemaining = 0
 		}
 
-		logger.Info("[流量记录] 添加外部订阅流量",
+		logger.Info("[流量记录] 外部订阅流量",
 			"limit_gb", bytesToGigabytes(externalLimit),
 			"used_gb", bytesToGigabytes(externalUsed))
-	}
-
-	// If no traffic data from either source, return error only if probe failed (not just not configured)
-	if totalLimit == 0 && totalUsed == 0 && probeErr != nil && !errors.Is(probeErr, storage.ErrProbeConfigNotFound) {
-		return probeErr
 	}
 
 	// Log total traffic
@@ -352,7 +304,6 @@ func (h *TrafficSummaryHandler) fetchExternalSubscriptionTrafficInfo(ctx context
 	return sub, nil
 }
 
-func (h *TrafficSummaryHandler) fetchTotals(ctx context.Context, username string, allowedProbeServers map[string]struct{}) (int64, int64, int64, error) {
 	if h.repo == nil {
 		return 0, 0, 0, errors.New("traffic repository not configured")
 	}
@@ -446,28 +397,15 @@ func (h *TrafficSummaryHandler) fetchTotals(ctx context.Context, username string
 	}
 
 	logger.Info("[流量获取] 探针信息",
-		"type", cfg.ProbeType,
 		"address", cfg.Address,
 		"server_count", len(cfg.Servers),
 		"server_ids", serverIDs)
 
-	switch cfg.ProbeType {
-	case storage.ProbeTypeNezha:
-		return h.fetchNezhaTotals(ctx, cfg)
-	case storage.ProbeTypeNezhaV0:
-		return h.fetchNezhaV0Totals(ctx, cfg)
-	case storage.ProbeTypeDstatus:
 		return h.fetchBatchSummary(ctx, cfg.Address, serverIDs)
-	case storage.ProbeTypeKomari:
-		return h.fetchKomariTotals(ctx, cfg)
 	default:
-		return 0, 0, 0, fmt.Errorf("unsupported probe type: %s", cfg.ProbeType)
 	}
 }
 
-// fetchTotalsByServerIDs fetches traffic totals filtered by probe server IDs directly.
-// Unlike fetchTotals which filters by server name, this filters by server_id field.
-func (h *TrafficSummaryHandler) fetchTotalsByServerIDs(ctx context.Context, serverIDList []string) (int64, int64, int64, error) {
 	if h.repo == nil {
 		return 0, 0, 0, errors.New("traffic repository not configured")
 	}
@@ -509,21 +447,11 @@ func (h *TrafficSummaryHandler) fetchTotalsByServerIDs(ctx context.Context, serv
 		}
 	}
 
-	switch cfg.ProbeType {
-	case storage.ProbeTypeNezha:
-		return h.fetchNezhaTotals(ctx, cfg)
-	case storage.ProbeTypeNezhaV0:
-		return h.fetchNezhaV0Totals(ctx, cfg)
-	case storage.ProbeTypeDstatus:
 		return h.fetchBatchSummary(ctx, cfg.Address, serverIDs)
-	case storage.ProbeTypeKomari:
-		return h.fetchKomariTotals(ctx, cfg)
 	default:
-		return 0, 0, 0, fmt.Errorf("unsupported probe type: %s", cfg.ProbeType)
 	}
 }
 
-func (h *TrafficSummaryHandler) fetchNezhaTotals(ctx context.Context, cfg storage.ProbeConfig) (int64, int64, int64, error) {
 	baseAddress := strings.TrimSpace(cfg.Address)
 	if baseAddress == "" {
 		return 0, 0, 0, errors.New("invalid probe address")
@@ -703,7 +631,6 @@ func (h *TrafficSummaryHandler) fetchNezhaTotals(ctx context.Context, cfg storag
 	return totalLimit, totalRemaining, totalUsed, nil
 }
 
-func (h *TrafficSummaryHandler) fetchNezhaV0Totals(ctx context.Context, cfg storage.ProbeConfig) (int64, int64, int64, error) {
 	baseAddress := strings.TrimSpace(cfg.Address)
 	if baseAddress == "" {
 		return 0, 0, 0, errors.New("invalid probe address")
@@ -790,7 +717,6 @@ func (h *TrafficSummaryHandler) fetchNezhaV0Totals(ctx context.Context, cfg stor
 
 	// 如果 HTTP 接口失败或没有数据，尝试使用 WebSocket
 	if !httpSuccess {
-		wsObserved, wsErr := h.fetchNezhaV0TotalsViaWebSocket(ctx, base)
 		if wsErr != nil {
 			// WebSocket 也失败了，返回综合错误信息
 			if httpErr != nil {
@@ -871,7 +797,6 @@ func (h *TrafficSummaryHandler) fetchBatchSummary(ctx context.Context, address s
 	return h.fetchBatchTraffic(ctx, base, serverIDs)
 }
 
-func (h *TrafficSummaryHandler) fetchKomariTotals(ctx context.Context, cfg storage.ProbeConfig) (int64, int64, int64, error) {
 	baseAddress := strings.TrimSpace(cfg.Address)
 	if baseAddress == "" {
 		return 0, 0, 0, errors.New("invalid probe address")
@@ -1278,7 +1203,6 @@ func (h *TrafficSummaryHandler) fetchExternalSubscriptionTraffic(ctx context.Con
 	return totalLimit, totalUsed
 }
 
-func (h *TrafficSummaryHandler) fetchNezhaV0TotalsViaWebSocket(ctx context.Context, base *url.URL) (map[string]struct {
 	NetIn  int64
 	NetOut int64
 }, error) {
@@ -1410,9 +1334,6 @@ func writeError(w http.ResponseWriter, status int, err error) {
 	})
 }
 
-// HandleSubscribeTraffic returns traffic data for subscribe files that have
-// traffic_limit or stats_server_ids configured, plus the overall probe totals.
-func (h *TrafficSummaryHandler) HandleSubscribeTraffic(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		writeError(w, http.StatusMethodNotAllowed, errors.New("only GET is supported"))
 		return
@@ -1452,7 +1373,6 @@ func (h *TrafficSummaryHandler) HandleSubscribeTraffic(w http.ResponseWriter, r 
 
 		if f.StatsServerIDs != "" {
 			idList := strings.Split(f.StatsServerIDs, ",")
-			statsLimit, _, statsUsed, statsErr := h.fetchTotalsByServerIDs(ctx, idList)
 			if statsErr == nil {
 				if f.TrafficLimit != nil {
 					limitBytes = int64(*f.TrafficLimit * bytesPerGigabyte)
@@ -1463,7 +1383,6 @@ func (h *TrafficSummaryHandler) HandleSubscribeTraffic(w http.ResponseWriter, r 
 			}
 		} else if f.TrafficLimit != nil {
 			limitBytes = int64(*f.TrafficLimit * bytesPerGigabyte)
-			_, _, totalUsed, probeErr := h.fetchTotals(ctx, "", nil)
 			if probeErr == nil {
 				usedBytes = totalUsed
 			}
@@ -1479,7 +1398,6 @@ func (h *TrafficSummaryHandler) HandleSubscribeTraffic(w http.ResponseWriter, r 
 	resp := response{Items: items}
 
 	// Fetch probe total traffic as default
-	probeLimit, _, probeUsed, probeErr := h.fetchTotals(ctx, "", nil)
 	if probeErr == nil {
 		resp.ProbeTotal = &probeTotal{
 			LimitGB: roundUpTwoDecimals(bytesToGigabytes(probeLimit)),

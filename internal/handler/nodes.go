@@ -186,9 +186,6 @@ func (h *nodesHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.handleBatchCreate(w, r)
 	case path == "fetch-subscription" && r.Method == http.MethodPost:
 		h.handleFetchSubscription(w, r)
-	case strings.HasSuffix(path, "/probe-binding") && r.Method == http.MethodPut:
-		idSegment := strings.TrimSuffix(path, "/probe-binding")
-		h.handleUpdateProbeBinding(w, r, idSegment)
 	case strings.HasSuffix(path, "/server") && r.Method == http.MethodPut:
 		idSegment := strings.TrimSuffix(path, "/server")
 		h.handleUpdateServer(w, r, idSegment)
@@ -198,7 +195,6 @@ func (h *nodesHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case strings.HasSuffix(path, "/config") && r.Method == http.MethodPut:
 		idSegment := strings.TrimSuffix(path, "/config")
 		h.handleUpdateConfig(w, r, idSegment)
-	case path != "" && path != "batch" && path != "fetch-subscription" && !strings.HasSuffix(path, "/probe-binding") && !strings.HasSuffix(path, "/server") && !strings.HasSuffix(path, "/restore-server") && !strings.HasSuffix(path, "/config") && (r.Method == http.MethodPut || r.Method == http.MethodPatch):
 		h.handleUpdate(w, r, path)
 	case path != "" && path != "batch" && path != "fetch-subscription" && r.Method == http.MethodDelete:
 		h.handleDelete(w, r, path)
@@ -999,7 +995,6 @@ type nodeDTO struct {
 	Tag            string    `json:"tag"`
 	Tags           []string  `json:"tags"`
 	OriginalServer string    `json:"original_server"`
-	ProbeServer    string    `json:"probe_server"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
 }
@@ -1020,7 +1015,6 @@ func convertNode(node storage.Node) nodeDTO {
 		Tag:            node.Tag,
 		Tags:           tags,
 		OriginalServer: node.OriginalServer,
-		ProbeServer:    node.ProbeServer,
 		CreatedAt:      node.CreatedAt,
 		UpdatedAt:      node.UpdatedAt,
 	}
@@ -1301,8 +1295,6 @@ func (h *nodesHandler) handleFetchSubscription(w http.ResponseWriter, r *http.Re
 	respondJSON(w, http.StatusOK, response)
 }
 
-// handleUpdateProbeBinding updates the probe server binding for a node.
-func (h *nodesHandler) handleUpdateProbeBinding(w http.ResponseWriter, r *http.Request, idSegment string) {
 	username := auth.UsernameFromContext(r.Context())
 	if username == "" {
 		writeError(w, http.StatusUnauthorized, errors.New("用户未认证"))
@@ -1316,14 +1308,12 @@ func (h *nodesHandler) handleUpdateProbeBinding(w http.ResponseWriter, r *http.R
 	}
 
 	var req struct {
-		ProbeServer string `json:"probe_server"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeBadRequest(w, "请求格式不正确")
 		return
 	}
 
-	if err := h.repo.UpdateNodeProbeServer(r.Context(), nodeID, username, req.ProbeServer); err != nil {
 		if errors.Is(err, storage.ErrNodeNotFound) {
 			writeError(w, http.StatusNotFound, errors.New("节点不存在"))
 			return

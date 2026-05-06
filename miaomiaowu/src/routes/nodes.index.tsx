@@ -83,7 +83,6 @@ type ParsedNode = {
   tag: string
   tags: string[]
   original_server: string
-  probe_server: string
   created_at: string
   updated_at: string
 }
@@ -447,9 +446,6 @@ function NodesPage() {
   const [editingNode, setEditingNode] = useState<{ id: string; value: string } | null>(null)
   const [resolvingIpFor, setResolvingIpFor] = useState<string | null>(null) // 正在解析IP的节点ID
   const [ipMenuState, setIpMenuState] = useState<{ nodeId: string; ips: string[] } | null>(null) // IP选择菜单状态
-  const [probeBindingDialogOpen, setProbeBindingDialogOpen] = useState(false)
-  const [probeSearchQuery, setProbeSearchQuery] = useState('')
-  const [selectedNodeForProbe, setSelectedNodeForProbe] = useState<ParsedNode | null>(null)
   const [exchangeDialogOpen, setExchangeDialogOpen] = useState(false)
   const [sourceNodeForExchange, setSourceNodeForExchange] = useState<ParsedNode | null>(null)
   const [exchangeFilterText, setExchangeFilterText] = useState<string>('')
@@ -587,7 +583,6 @@ function NodesPage() {
         match_rule: string
         cache_expire_minutes: number
         sync_traffic: boolean
-        enable_probe_binding: boolean
         node_order: number[]
       }
     },
@@ -694,11 +689,7 @@ function NodesPage() {
     }
   }, [])
 
-  // 获取探针服务器列表
-  const { data: probeConfigResponse, refetch: refetchProbeConfig } = useQuery({
-    queryKey: ['probe-config'],
     queryFn: async () => {
-      const response = await api.get('/api/admin/probe-config')
       return response.data as {
         config: {
           probe_type: string
@@ -710,7 +701,6 @@ function NodesPage() {
     enabled: false, // 手动触发，不自动执行
   })
 
-  const probeConfig = probeConfigResponse?.config
 
   // 获取已保存的节点
   const { data: nodesData } = useQuery({
@@ -866,22 +856,16 @@ function NodesPage() {
     },
   })
 
-  // 更新节点探针绑定
-  const updateProbeBindingMutation = useMutation({
     mutationFn: async (payload: { nodeId: number; probeServer: string }) => {
-      const response = await api.put(`/api/admin/nodes/${payload.nodeId}/probe-binding`, {
-        probe_server: payload.probeServer
       })
       return response.data
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['nodes'] })
-      toast.success('探针绑定已更新')
       setProbeBindingDialogOpen(false)
       setSelectedNodeForProbe(null)
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.error || '探针绑定更新失败')
     },
   })
 
@@ -1912,7 +1896,6 @@ function NodesPage() {
         tag: '链式代理',
         tags: ['链式代理'],
         original_server: sourceNode.original_server,
-        probe_server: sourceNode.probe_server || '',
       })
       return response.data
     },
@@ -2930,7 +2913,6 @@ vless://uuid@example.com:443?type=ws&security=tls&path=/websocket#VLESS节点
                     <p className='mt-2 text-xs text-primary flex flex-wrap items-center gap-1'>
                       <Pencil className='h-4 w-4 inline' /> 编辑节点名称，
                       <img src={ExchangeIcon} alt='链式代理' className='h-4 w-4 inline [filter:invert(63%)_sepia(45%)_saturate(1068%)_hue-rotate(327deg)_brightness(95%)_contrast(88%)]' /> 创建链式代理，
-                      <Activity className='h-4 w-4 inline' /> 绑定探针，
                       <Zap className='h-4 w-4 inline' /> TCPing延迟测试，
                       <Flag className='h-4 w-4 inline' /> 添加地区emoji，
                       <img src={IpIcon} alt='解析IP地址' className='h-4 w-4 inline [filter:invert(63%)_sepia(45%)_saturate(1068%)_hue-rotate(327deg)_brightness(95%)_contrast(88%)]' /> 解析IP地址，
@@ -3337,7 +3319,6 @@ vless://uuid@example.com:443?type=ws&security=tls&path=/websocket#VLESS节点
                                   <Check className='size-4 text-green-600' />
                                 )}
                               </div>
-                            {/* 编辑、交换和探针绑定按钮 */}
                             {editingNode?.id !== node.id && (
                               <div className='flex items-center gap-1 shrink-0' onClick={(e) => e.stopPropagation()}>
                                 <Button
@@ -3366,7 +3347,6 @@ vless://uuid@example.com:443?type=ws&security=tls&path=/websocket#VLESS节点
                                     />
                                   </Button>
                                 )}
-                                {userConfig?.enable_probe_binding && node.isSaved && node.dbNode && (
                                   <Button
                                     variant='ghost'
                                     size='icon'
@@ -3374,10 +3354,8 @@ vless://uuid@example.com:443?type=ws&security=tls&path=/websocket#VLESS节点
                                     onClick={() => {
                                       setSelectedNodeForProbe(node.dbNode!)
                                       setProbeBindingDialogOpen(true)
-                                      refetchProbeConfig()
                                     }}
                                   >
-                                    <Activity className={`size-4 ${node.dbNode.probe_server ? 'text-green-600' : ''}`} />
                                   </Button>
                                 )}
                                 {/* TCPing 测试按钮 - 平板视图 */}
@@ -3554,10 +3532,8 @@ vless://uuid@example.com:443?type=ws&security=tls&path=/websocket#VLESS节点
                                   }
                                 }}>{t}</Badge>
                               ))}
-                              {node.isSaved && node.dbNode?.probe_server && (
                                 <Badge variant='secondary' className='text-xs flex items-center gap-1'>
                                   <Activity className='size-3' />
-                                  {node.dbNode.probe_server}
                                 </Badge>
                               )}
                             </div>
@@ -4100,7 +4076,6 @@ vless://uuid@example.com:443?type=ws&security=tls&path=/websocket#VLESS节点
                                             {node.parsed.mode}
                                           </Badge>
                                         )}
-                                        {/* 平板端操作按钮: IP解析、绑定探针、TCPing测试、临时订阅 */}
                                         {node.parsed?.server && (
                                           (() => {
                                             const nodeKey = node.isSaved ? String(node.dbId) : node.id
@@ -4195,19 +4170,15 @@ vless://uuid@example.com:443?type=ws&security=tls&path=/websocket#VLESS节点
                                             <Undo2 className='size-3' />
                                           </Button>
                                         )}
-                                        {userConfig?.enable_probe_binding && node.isSaved && node.dbNode && (
                                           <Button
                                             variant='ghost'
                                             size='sm'
                                             className='size-5 p-0 border border-primary/50 hover:border-primary shrink-0'
-                                            title={node.dbNode.probe_server ? `当前绑定: ${node.dbNode.probe_server}` : '绑定探针服务器'}
                                             onClick={() => {
                                               setSelectedNodeForProbe(node.dbNode!)
                                               setProbeBindingDialogOpen(true)
-                                              refetchProbeConfig()
                                             }}
                                           >
-                                            <Activity className={`size-3 ${node.dbNode.probe_server ? 'text-green-600' : 'text-[#d97757]'}`} />
                                           </Button>
                                         )}
                                         {/* TCPing 测试按钮 */}
@@ -4336,7 +4307,6 @@ vless://uuid@example.com:443?type=ws&security=tls&path=/websocket#VLESS节点
                                     }
                                   }}>{t}</Badge>
                                 ))}
-                                {node.isSaved && node.dbNode?.probe_server && (
                                   <Badge variant='secondary' className='text-xs flex items-center gap-1'>
                                     <Activity className='size-3' />
                                   </Badge>
@@ -4544,10 +4514,6 @@ vless://uuid@example.com:443?type=ws&security=tls&path=/websocket#VLESS节点
                                           }
                                           return <Button variant='ghost' size='sm' className='size-5 p-0 border border-primary/50 shrink-0' disabled={resolvingIpFor === nodeKey} onClick={() => handleResolveIp(node)}><img src={IpIcon} alt='IP' className='size-3 [filter:invert(63%)_sepia(45%)_saturate(1068%)_hue-rotate(327deg)_brightness(95%)_contrast(88%)]' /></Button>
                                         })()}
-                                        {/* 探针 */}
-                                        {userConfig?.enable_probe_binding && node.isSaved && node.dbNode && (
-                                          <Button variant='ghost' size='sm' className='size-5 p-0 border border-primary/50 shrink-0' onClick={() => { setSelectedNodeForProbe(node.dbNode!); setProbeBindingDialogOpen(true); refetchProbeConfig() }}>
-                                            <Activity className={`size-3 ${node.dbNode.probe_server ? 'text-green-600' : 'text-[#d97757]'}`} />
                                           </Button>
                                         )}
                                         {/* TCPing */}
@@ -4815,10 +4781,8 @@ vless://uuid@example.com:443?type=ws&security=tls&path=/websocket#VLESS节点
                                     }
                                   }}>{t}</Badge>
                                 ))}
-                                {node.isSaved && node.dbNode?.probe_server && (
                                   <Badge variant='secondary' className='text-xs flex items-center gap-1'>
                                     <Activity className='size-3' />
-                                    {node.dbNode.probe_server}
                                   </Badge>
                                 )}
                               </div>
@@ -4936,19 +4900,15 @@ vless://uuid@example.com:443?type=ws&security=tls&path=/websocket#VLESS节点
                                         <Undo2 className='size-3' />
                                       </Button>
                                     )}
-                                    {userConfig?.enable_probe_binding && node.isSaved && node.dbNode && (
                                       <Button
                                         variant='ghost'
                                         size='sm'
                                         className='size-6 p-0 border border-primary/50 hover:border-primary ml-1 shrink-0'
-                                        title={node.dbNode.probe_server ? `当前绑定: ${node.dbNode.probe_server}` : '绑定探针服务器'}
                                         onClick={() => {
                                           setSelectedNodeForProbe(node.dbNode!)
                                           setProbeBindingDialogOpen(true)
-                                          refetchProbeConfig() // 打开对话框时查询探针配置
                                         }}
                                       >
-                                        <Activity className={`size-4 ${node.dbNode.probe_server ? 'text-green-600' : 'text-[#d97757]'}`} />
                                       </Button>
                                     )}
                                     {/* TCPing 测试按钮 */}
@@ -5411,10 +5371,6 @@ vless://uuid@example.com:443?type=ws&security=tls&path=/websocket#VLESS节点
                                             <Undo2 className='size-3' />
                                           </Button>
                                         )}
-                                        {/* 探针绑定 */}
-                                        {userConfig?.enable_probe_binding && node.isSaved && node.dbNode && (
-                                          <Button variant='ghost' size='sm' className='size-6 p-0 border border-primary/50 hover:border-primary shrink-0' title={node.dbNode.probe_server ? `当前绑定: ${node.dbNode.probe_server}` : '绑定探针服务器'} onClick={() => { setSelectedNodeForProbe(node.dbNode!); setProbeBindingDialogOpen(true); refetchProbeConfig() }}>
-                                            <Activity className={`size-3 ${node.dbNode.probe_server ? 'text-green-600' : 'text-[#d97757]'}`} />
                                           </Button>
                                         )}
                                         {/* TCPing */}
@@ -5664,16 +5620,12 @@ vless://uuid@example.com:443?type=ws&security=tls&path=/websocket#VLESS节点
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* 探针绑定对话框 */}
-      <Dialog open={probeBindingDialogOpen} onOpenChange={(open) => {
         setProbeBindingDialogOpen(open)
         if (!open) setProbeSearchQuery('')
       }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>绑定探针服务器</DialogTitle>
             <DialogDescription>
-              为节点 "{selectedNodeForProbe?.node_name}" 选择要绑定的探针服务器
             </DialogDescription>
           </DialogHeader>
           <div className='space-y-4 py-4'>
@@ -5681,27 +5633,20 @@ vless://uuid@example.com:443?type=ws&security=tls&path=/websocket#VLESS节点
               <div className='space-y-2'>
                 <Input
                   placeholder='搜索服务器...'
-                  value={probeSearchQuery}
                   onChange={(e) => setProbeSearchQuery(e.target.value)}
                   className='text-sm'
                 />
                 <div className='max-h-[300px] overflow-y-auto space-y-2 pr-1'>
                 {probeConfig.servers
-                  .filter((s) => !probeSearchQuery || s.name.toLowerCase().includes(probeSearchQuery.toLowerCase()) || s.server_id.toLowerCase().includes(probeSearchQuery.toLowerCase()))
                   .map((server) => (
                   <Button
                     key={server.id}
-                    variant={selectedNodeForProbe?.probe_server === server.name ? 'default' : 'outline'}
                     className='w-full justify-start'
                     onClick={() => {
-                      if (selectedNodeForProbe) {
-                        updateProbeBindingMutation.mutate({
-                          nodeId: selectedNodeForProbe.id,
                           probeServer: server.name
                         })
                       }
                     }}
-                    disabled={updateProbeBindingMutation.isPending}
                   >
                     <div className='flex items-center gap-2'>
                       <Activity className='size-4' />
@@ -5713,19 +5658,14 @@ vless://uuid@example.com:443?type=ws&security=tls&path=/websocket#VLESS节点
                   </Button>
                 ))}
                 </div>
-                {selectedNodeForProbe?.probe_server && (
                   <Button
                     variant='ghost'
                     className='w-full'
                     onClick={() => {
-                      if (selectedNodeForProbe) {
-                        updateProbeBindingMutation.mutate({
-                          nodeId: selectedNodeForProbe.id,
                           probeServer: ''
                         })
                       }
                     }}
-                    disabled={updateProbeBindingMutation.isPending}
                   >
                     <X className='size-4 mr-2' />
                     取消绑定
@@ -5734,7 +5674,6 @@ vless://uuid@example.com:443?type=ws&security=tls&path=/websocket#VLESS节点
               </div>
             ) : (
               <div className='text-center text-sm text-muted-foreground py-8'>
-                暂无可用的探针服务器
               </div>
             )}
           </div>

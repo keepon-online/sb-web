@@ -29,7 +29,6 @@ interface UserConfig {
   keep_node_name: boolean
   cache_expire_minutes: number
   sync_traffic: boolean
-  enable_probe_binding: boolean
   enable_short_link: boolean
   template_version: string
   enable_proxy_provider: boolean
@@ -98,7 +97,6 @@ function SystemSettingsPage() {
       setKeepNodeName(userConfig.keep_node_name !== false) // 默认为 true
       setCacheExpireMinutes(userConfig.cache_expire_minutes)
       setSyncTraffic(userConfig.sync_traffic)
-      setEnableProbeBinding(userConfig.enable_probe_binding || false)
       setEnableShortLink(userConfig.enable_short_link || false)
       setTemplateVersion((userConfig.template_version as 'v1' | 'v2' | 'v3') || 'v2')
       setEnableProxyProvider(userConfig.enable_proxy_provider || false)
@@ -130,7 +128,6 @@ function SystemSettingsPage() {
       setKeepNodeName(variables.keep_node_name)
       setCacheExpireMinutes(variables.cache_expire_minutes)
       setSyncTraffic(variables.sync_traffic)
-      setEnableProbeBinding(variables.enable_probe_binding)
       setEnableShortLink(variables.enable_short_link)
       setTemplateVersion(variables.template_version as 'v1' | 'v2' | 'v3')
       setEnableProxyProvider(variables.enable_proxy_provider)
@@ -160,7 +157,6 @@ function SystemSettingsPage() {
       keep_node_name: keepNodeName,
       cache_expire_minutes: cacheExpireMinutes,
       sync_traffic: syncTraffic,
-      enable_probe_binding: enableProbeBinding,
       enable_short_link: enableShortLink,
       template_version: templateVersion,
       enable_proxy_provider: enableProxyProvider,
@@ -402,7 +398,6 @@ function SystemSettingsPage() {
                   <Switch
                     id='enable-probe-binding'
                     checked={enableProbeBinding}
-                    onCheckedChange={(checked) => updateConfig({ enable_probe_binding: checked })}
                     disabled={loadingConfig || updateConfigMutation.isPending}
                   />
                 </div>

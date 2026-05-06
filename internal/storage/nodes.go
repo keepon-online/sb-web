@@ -92,7 +92,7 @@ func (r *TrafficRepository) ListNodes(ctx context.Context, username string) ([]N
 		return nil, errors.New("username is required")
 	}
 
-	rows, err := r.db.QueryContext(ctx, `SELECT id, username, raw_url, node_name, protocol, parsed_config, clash_config, enabled, COALESCE(tag, 'personal'), COALESCE(original_server, ''), COALESCE(probe_server, ''), COALESCE(tags, '[]'), created_at, updated_at FROM nodes WHERE username = ? ORDER BY created_at DESC`, username)
+	rows, err := r.db.QueryContext(ctx, `SELECT id, username, raw_url, node_name, protocol, parsed_config, clash_config, enabled, COALESCE(tag, 'personal'), COALESCE(original_server, ''), COALESCE(tags, '[]'), created_at, updated_at FROM nodes WHERE username = ? ORDER BY created_at DESC`, username)
 	if err != nil {
 		return nil, fmt.Errorf("list nodes: %w", err)
 	}
@@ -103,7 +103,7 @@ func (r *TrafficRepository) ListNodes(ctx context.Context, username string) ([]N
 		var node Node
 		var enabled int
 		var tagsJSON string
-		if err := rows.Scan(&node.ID, &node.Username, &node.RawURL, &node.NodeName, &node.Protocol, &node.ParsedConfig, &node.ClashConfig, &enabled, &node.Tag, &node.OriginalServer, &node.ProbeServer, &tagsJSON, &node.CreatedAt, &node.UpdatedAt); err != nil {
+		if err := rows.Scan(&node.ID, &node.Username, &node.RawURL, &node.NodeName, &node.Protocol, &node.ParsedConfig, &node.ClashConfig, &enabled, &node.Tag, &node.OriginalServer, &tagsJSON, &node.CreatedAt, &node.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scan node: %w", err)
 		}
 		node.Enabled = enabled != 0
@@ -136,8 +136,8 @@ func (r *TrafficRepository) GetNode(ctx context.Context, id int64, username stri
 
 	var enabled int
 	var tagsJSON string
-	row := r.db.QueryRowContext(ctx, `SELECT id, username, raw_url, node_name, protocol, parsed_config, clash_config, enabled, COALESCE(tag, 'personal'), COALESCE(original_server, ''), COALESCE(probe_server, ''), COALESCE(tags, '[]'), created_at, updated_at FROM nodes WHERE id = ? AND username = ? LIMIT 1`, id, username)
-	if err := row.Scan(&node.ID, &node.Username, &node.RawURL, &node.NodeName, &node.Protocol, &node.ParsedConfig, &node.ClashConfig, &enabled, &node.Tag, &node.OriginalServer, &node.ProbeServer, &tagsJSON, &node.CreatedAt, &node.UpdatedAt); err != nil {
+	row := r.db.QueryRowContext(ctx, `SELECT id, username, raw_url, node_name, protocol, parsed_config, clash_config, enabled, COALESCE(tag, 'personal'), COALESCE(original_server, ''), COALESCE(tags, '[]'), created_at, updated_at FROM nodes WHERE id = ? AND username = ? LIMIT 1`, id, username)
+	if err := row.Scan(&node.ID, &node.Username, &node.RawURL, &node.NodeName, &node.Protocol, &node.ParsedConfig, &node.ClashConfig, &enabled, &node.Tag, &node.OriginalServer, &tagsJSON, &node.CreatedAt, &node.UpdatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return node, ErrNodeNotFound
 		}
@@ -238,7 +238,6 @@ func (r *TrafficRepository) UpdateNode(ctx context.Context, node Node) (Node, er
 		enabled = 1
 	}
 
-	res, err := r.db.ExecContext(ctx, `UPDATE nodes SET raw_url = ?, node_name = ?, protocol = ?, parsed_config = ?, clash_config = ?, enabled = ?, tag = ?, tags = ?, original_server = ?, probe_server = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND username = ?`, node.RawURL, node.NodeName, node.Protocol, node.ParsedConfig, node.ClashConfig, enabled, node.Tag, tagsJSON, node.OriginalServer, node.ProbeServer, node.ID, node.Username)
 	if err != nil {
 		return Node{}, fmt.Errorf("update node: %w", err)
 	}
@@ -458,35 +457,3 @@ func (r *TrafficRepository) DeleteAllUserNodes(ctx context.Context, username str
 	return nil
 }
 
-// UpdateNodeProbeServer updates the probe server binding for a node.
-func (r *TrafficRepository) UpdateNodeProbeServer(ctx context.Context, nodeID int64, username, probeServer string) error {
-	if r == nil || r.db == nil {
-		return errors.New("traffic repository not initialized")
-	}
-
-	if nodeID <= 0 {
-		return errors.New("node id is required")
-	}
-
-	username = strings.TrimSpace(username)
-	if username == "" {
-		return errors.New("username is required")
-	}
-
-	probeServer = strings.TrimSpace(probeServer)
-
-	res, err := r.db.ExecContext(ctx, `UPDATE nodes SET probe_server = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND username = ?`, probeServer, nodeID, username)
-	if err != nil {
-		return fmt.Errorf("update node probe server: %w", err)
-	}
-
-	affected, err := res.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("node probe server update rows affected: %w", err)
-	}
-	if affected == 0 {
-		return ErrNodeNotFound
-	}
-
-	return nil
-}

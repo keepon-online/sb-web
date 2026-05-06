@@ -39,6 +39,11 @@ func main() {
 	}
 	defer repo.Close()
 
+	// 初始化 Sing-box 相关数据表
+	if err := repo.InitSingBoxTables(); err != nil {
+		logger.Warn("Sing-box 数据表初始化失败（非致命错误）", "error", err)
+	}
+
 	authManager, err := auth.NewManager(repo)
 	if err != nil {
 		logger.Error("认证管理器加载失败", "error", err)
@@ -140,8 +145,6 @@ func main() {
 	mux.Handle("/api/admin/subscriptions/", auth.RequireAdmin(tokenStore, userRepo, handler.NewSubscriptionAdminHandler(subscribeDir, repo)))
 	mux.Handle("/api/admin/subscribe-files", auth.RequireAdmin(tokenStore, userRepo, handler.NewSubscribeFilesHandler(repo)))
 	mux.Handle("/api/admin/subscribe-files/", auth.RequireAdmin(tokenStore, userRepo, handler.NewSubscribeFilesHandler(repo)))
-	mux.Handle("/api/admin/probe-config", auth.RequireAdmin(tokenStore, userRepo, handler.NewProbeConfigHandler(repo)))
-	mux.Handle("/api/admin/probe-sync", auth.RequireAdmin(tokenStore, userRepo, handler.NewProbeSyncHandler(repo)))
 	mux.Handle("/api/admin/rules/", auth.RequireAdmin(tokenStore, userRepo, http.StripPrefix("/api/admin/rules/", handler.NewRuleEditorHandler(subscribeDir, repo))))
 	mux.Handle("/api/admin/rule-templates", auth.RequireAdmin(tokenStore, userRepo, handler.NewRuleTemplatesHandler(repo)))
 	mux.Handle("/api/admin/rule-templates/", auth.RequireAdmin(tokenStore, userRepo, handler.NewRuleTemplatesHandler(repo)))
@@ -165,9 +168,108 @@ func main() {
 	mux.Handle("/api/admin/update/apply-sse", auth.RequireAdmin(tokenStore, userRepo, handler.NewUpdateApplySSEHandler()))
 	mux.Handle("/api/admin/proxy-groups/sync", auth.RequireAdmin(tokenStore, userRepo, handler.NewProxyGroupsSyncHandler(repo, proxyGroupsStore)))
 
+	// Sing-box management endpoints (admin only)
+	mux.Handle("/api/admin/singbox/install", auth.RequireAdmin(tokenStore, userRepo, handler.NewSingboxInstallHandler(repo)))
+	mux.Handle("/api/admin/singbox/install-sse", auth.RequireAdmin(tokenStore, userRepo, handler.NewSingboxInstallSSEHandler(repo)))
+	mux.Handle("/api/admin/singbox/uninstall", auth.RequireAdmin(tokenStore, userRepo, handler.NewSingboxUninstallHandler(repo)))
+	mux.Handle("/api/admin/singbox/install-status", auth.RequireAdmin(tokenStore, userRepo, handler.NewSingboxInstallStatusHandler(repo)))
+	mux.Handle("/api/admin/singbox/service/start", auth.RequireAdmin(tokenStore, userRepo, handler.NewSingboxServiceStartHandler(repo)))
+	mux.Handle("/api/admin/singbox/service/stop", auth.RequireAdmin(tokenStore, userRepo, handler.NewSingboxServiceStopHandler(repo)))
+	mux.Handle("/api/admin/singbox/service/restart", auth.RequireAdmin(tokenStore, userRepo, handler.NewSingboxServiceRestartHandler(repo)))
+	mux.Handle("/api/admin/singbox/service/enable", auth.RequireAdmin(tokenStore, userRepo, handler.NewSingboxServiceEnableHandler(repo)))
+	mux.Handle("/api/admin/singbox/service/disable", auth.RequireAdmin(tokenStore, userRepo, handler.NewSingboxServiceDisableHandler(repo)))
+	mux.Handle("/api/admin/singbox/service/status", auth.RequireAdmin(tokenStore, userRepo, handler.NewSingboxServiceStatusHandler(repo)))
+	mux.Handle("/api/admin/singbox/service/logs", auth.RequireAdmin(tokenStore, userRepo, handler.NewSingboxServiceLogsHandler(repo)))
+	mux.Handle("/api/admin/singbox/service/logs/stream", auth.RequireAdmin(tokenStore, userRepo, handler.NewSingboxServiceLogsStreamHandler(repo)))
+	mux.Handle("/api/admin/singbox/system/status", auth.RequireAdmin(tokenStore, userRepo, handler.NewSingboxSystemStatusHandler(repo)))
+	mux.Handle("/api/admin/singbox/environment", auth.RequireAdmin(tokenStore, userRepo, handler.NewSingboxEnvironmentHandler(repo)))
+
+	// Sing-box 配置管理 endpoints (admin only)
+	mux.Handle("/api/admin/singbox/config/generate", auth.RequireAdmin(tokenStore, userRepo, handler.NewSingboxConfigGenerateHandler(repo)))
+	mux.Handle("/api/admin/singbox/config/save", auth.RequireAdmin(tokenStore, userRepo, handler.NewSingboxConfigSaveHandler(repo)))
+	mux.Handle("/api/admin/singbox/config/list", auth.RequireAdmin(tokenStore, userRepo, handler.NewSingboxConfigListHandler(repo)))
+
+	// Sing-box 端口管理 endpoints (admin only)
+	mux.Handle("/api/admin/singbox/port/allocate", auth.RequireAdmin(tokenStore, userRepo, handler.NewSingboxPortAllocateHandler(repo)))
+	mux.Handle("/api/admin/singbox/port/check", auth.RequireAdmin(tokenStore, userRepo, handler.NewSingboxPortCheckHandler(repo)))
+	mux.Handle("/api/admin/singbox/port/status", auth.RequireAdmin(tokenStore, userRepo, handler.NewSingboxPortStatusHandler(repo)))
+
 	// TCPing endpoint (admin only)
 	mux.Handle("/api/admin/tcping", auth.RequireAdmin(tokenStore, userRepo, handler.NewTCPingHandler()))
 	mux.Handle("/api/admin/tcping/batch", auth.RequireAdmin(tokenStore, userRepo, handler.NewTCPingBatchHandler()))
+
+	// Certificate management endpoints (admin only)
+	mux.Handle("/api/admin/cert/generate", auth.RequireAdmin(tokenStore, userRepo, handler.NewCertificateGenerateHandler(repo)))
+	mux.Handle("/api/admin/cert/renew", auth.RequireAdmin(tokenStore, userRepo, handler.NewCertificateRenewHandler(repo)))
+	mux.Handle("/api/admin/cert/list", auth.RequireAdmin(tokenStore, userRepo, handler.NewCertificateListHandler(repo)))
+	mux.Handle("/api/admin/cert/delete", auth.RequireAdmin(tokenStore, userRepo, handler.NewCertificateDeleteHandler(repo)))
+	mux.Handle("/api/admin/cert/check", auth.RequireAdmin(tokenStore, userRepo, handler.NewCertificateCheckHandler(repo)))
+	mux.Handle("/api/admin/cert/auto-renew", auth.RequireAdmin(tokenStore, userRepo, handler.NewAutoRenewCertificatesHandler(repo)))
+
+	// Argo tunnel management endpoints (admin only)
+	mux.Handle("/api/admin/argo/list", auth.RequireAdmin(tokenStore, userRepo, handler.NewArgoTunnelListHandler(repo)))
+	mux.Handle("/api/admin/argo/create", auth.RequireAdmin(tokenStore, userRepo, handler.NewArgoTunnelCreateHandler(repo)))
+	mux.Handle("/api/admin/argo/action", auth.RequireAdmin(tokenStore, userRepo, handler.NewArgoTunnelActionHandler(repo)))
+	mux.Handle("/api/admin/argo/status", auth.RequireAdmin(tokenStore, userRepo, handler.NewArgoTunnelStatusHandler(repo)))
+	mux.Handle("/api/admin/argo/logs", auth.RequireAdmin(tokenStore, userRepo, handler.NewArgoTunnelLogsHandler(repo)))
+	mux.Handle("/api/admin/argo/install", auth.RequireAdmin(tokenStore, userRepo, handler.NewArgoTunnelInstallHandler(repo)))
+	mux.Handle("/api/admin/argo/validate-token", auth.RequireAdmin(tokenStore, userRepo, handler.NewArgoTokenValidatorHandler(repo)))
+	mux.Handle("/api/admin/argo/quick", auth.RequireAdmin(tokenStore, userRepo, handler.NewArgoQuickTunnelHandler(repo)))
+	mux.Handle("/api/admin/argo/metrics", auth.RequireAdmin(tokenStore, userRepo, handler.NewArgoMetricsHandler(repo)))
+	mux.Handle("/api/admin/argo/logs/stream", auth.RequireAdmin(tokenStore, userRepo, handler.NewArgoTunnelStreamLogsHandler(repo)))
+
+	// WARP management endpoints (admin only)
+	mux.Handle("/api/admin/warp/status", auth.RequireAdmin(tokenStore, userRepo, handler.NewWARPStatusHandler(repo)))
+	mux.Handle("/api/admin/warp/enable", auth.RequireAdmin(tokenStore, userRepo, handler.NewWARPEnableHandler(repo)))
+	mux.Handle("/api/admin/warp/disable", auth.RequireAdmin(tokenStore, userRepo, handler.NewWARPDisableHandler(repo)))
+	mux.Handle("/api/admin/warp/configs", auth.RequireAdmin(tokenStore, userRepo, handler.NewWARPConfigsHandler(repo)))
+	mux.Handle("/api/admin/warp/update", auth.RequireAdmin(tokenStore, userRepo, handler.NewWARPUpdateHandler(repo)))
+	mux.Handle("/api/admin/warp/delete", auth.RequireAdmin(tokenStore, userRepo, handler.NewWARPDeleteHandler(repo)))
+	mux.Handle("/api/admin/warp/check-connection", auth.RequireAdmin(tokenStore, userRepo, handler.NewWARPConnectionCheckHandler(repo)))
+	mux.Handle("/api/admin/warp/generate-config", auth.RequireAdmin(tokenStore, userRepo, handler.NewWARPConfigGenerateHandler(repo)))
+	mux.Handle("/api/admin/warp/install", auth.RequireAdmin(tokenStore, userRepo, handler.NewWARPInstallHandler(repo)))
+	mux.Handle("/api/admin/warp/validate-license", auth.RequireAdmin(tokenStore, userRepo, handler.NewWARPLicenseValidateHandler(repo)))
+	mux.Handle("/api/admin/warp/check-port", auth.RequireAdmin(tokenStore, userRepo, handler.NewWARPPortCheckHandler(repo)))
+
+	// System optimization endpoints (admin only)
+	mux.Handle("/api/admin/system/optimize", auth.RequireAdmin(tokenStore, userRepo, handler.NewSystemOptimizationHandler(repo)))
+	mux.Handle("/api/admin/system/bbr-status", auth.RequireAdmin(tokenStore, userRepo, handler.NewBBRStatusHandler(repo)))
+	mux.Handle("/api/admin/system/network-performance", auth.RequireAdmin(tokenStore, userRepo, handler.NewNetworkPerformanceHandler(repo)))
+	mux.Handle("/api/admin/system/speed-test", auth.RequireAdmin(tokenStore, userRepo, handler.NewNetworkSpeedTestHandler(repo)))
+	mux.Handle("/api/admin/system/resource-usage", auth.RequireAdmin(tokenStore, userRepo, handler.NewSystemResourceUsageHandler(repo)))
+	mux.Handle("/api/admin/system/report", auth.RequireAdmin(tokenStore, userRepo, handler.NewSystemReportHandler(repo)))
+	mux.Handle("/api/admin/system/kernel-param", auth.RequireAdmin(tokenStore, userRepo, handler.NewKernelParameterHandler(repo)))
+	mux.Handle("/api/admin/system/interfaces", auth.RequireAdmin(tokenStore, userRepo, handler.NewNetworkInterfacesHandler(repo)))
+	mux.Handle("/api/admin/system/routing", auth.RequireAdmin(tokenStore, userRepo, handler.NewRoutingTableHandler(repo)))
+	mux.Handle("/api/admin/system/dns", auth.RequireAdmin(tokenStore, userRepo, handler.NewDNSConfigurationHandler(repo)))
+	mux.Handle("/api/admin/system/connections", auth.RequireAdmin(tokenStore, userRepo, handler.NewActiveConnectionsHandler(repo)))
+
+	// Subscription management endpoints (admin only)
+	mux.Handle("/api/admin/subscription/generate", auth.RequireAdmin(tokenStore, userRepo, handler.NewSubscriptionGenerateHandler(repo)))
+	mux.Handle("/api/admin/subscription/list", auth.RequireAdmin(tokenStore, userRepo, handler.NewSubscriptionListHandler(repo)))
+	mux.Handle("/api/admin/subscription/detail", auth.RequireAdmin(tokenStore, userRepo, handler.NewSubscriptionDetailHandler(repo)))
+	mux.Handle("/api/admin/subscription/export", auth.RequireAdmin(tokenStore, userRepo, handler.NewSubscriptionExportHandler(repo)))
+	mux.Handle("/api/admin/subscription/update", auth.RequireAdmin(tokenStore, userRepo, handler.NewSubscriptionUpdateHandler(repo)))
+	mux.Handle("/api/admin/subscription/delete", auth.RequireAdmin(tokenStore, userRepo, handler.NewSubscriptionDeleteHandler(repo)))
+	mux.Handle("/api/admin/subscription/url", auth.RequireAdmin(tokenStore, userRepo, handler.NewSubscriptionURLHandler(repo)))
+	mux.Handle("/api/admin/subscription/node-link", auth.RequireAdmin(tokenStore, userRepo, handler.NewNodeLinkGenerateHandler(repo)))
+	mux.Handle("/api/admin/subscription/qrcode", auth.RequireAdmin(tokenStore, userRepo, handler.NewQRCodeGenerateHandler(repo)))
+	mux.Handle("/api/admin/subscription/encrypt", auth.RequireAdmin(tokenStore, userRepo, handler.NewSubscriptionEncryptHandler(repo)))
+	mux.Handle("/api/admin/subscription/decrypt", auth.RequireAdmin(tokenStore, userRepo, handler.NewSubscriptionDecryptHandler(repo)))
+
+	// Share management endpoints (admin only)
+	mux.Handle("/api/admin/share/create", auth.RequireAdmin(tokenStore, userRepo, handler.NewShareCreateHandler(repo)))
+	mux.Handle("/api/admin/share/node", auth.RequireAdmin(tokenStore, userRepo, handler.NewShareNodeHandler(repo)))
+	mux.Handle("/api/admin/share/list", auth.RequireAdmin(tokenStore, userRepo, handler.NewShareListHandler(repo)))
+	mux.Handle("/api/admin/share/detail", auth.RequireAdmin(tokenStore, userRepo, handler.NewShareDetailHandler(repo)))
+	mux.Handle("/api/admin/share/update", auth.RequireAdmin(tokenStore, userRepo, handler.NewShareUpdateHandler(repo)))
+	mux.Handle("/api/admin/share/delete", auth.RequireAdmin(tokenStore, userRepo, handler.NewShareDeleteHandler(repo)))
+	mux.Handle("/api/admin/gitlab/sync", auth.RequireAdmin(tokenStore, userRepo, handler.NewGitLabSyncHandler(repo)))
+	mux.Handle("/api/admin/github/sync", auth.RequireAdmin(tokenStore, userRepo, handler.NewGitHubSyncHandler(repo)))
+	mux.Handle("/api/admin/pastebin/share", auth.RequireAdmin(tokenStore, userRepo, handler.NewPastebinShareHandler(repo)))
+
+	// Monitoring endpoints (admin only)
+	mux.Handle("/api/admin/monitoring/status", auth.RequireAdmin(tokenStore, userRepo, handler.NewMonitoringStatusHandler(repo)))
 
 	// User endpoints (all authenticated users)
 	mux.Handle("/api/proxy-groups", auth.RequireToken(tokenStore, handler.NewProxyGroupsHandler(proxyGroupsStore)))
@@ -337,7 +439,6 @@ func startTrafficCollector(ctx context.Context, trafficHandler *handler.TrafficS
 			logger.Warn("[流量收集器] 每日流量收集失败", "attempt", attempt, "max_retries", maxRetries, "error", err)
 
 			// 如果是探针配置未找到错误，不需要重试
-			if errors.Is(err, storage.ErrProbeConfigNotFound) {
 				logger.Info("[流量收集器] 探针未配置，跳过重试")
 				return
 			}

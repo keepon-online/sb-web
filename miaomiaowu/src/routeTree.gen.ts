@@ -16,7 +16,6 @@ import { Route as SubscriptionRouteImport } from './routes/subscription'
 import { Route as SubscribeFilesRouteImport } from './routes/subscribe-files'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as RulesRouteImport } from './routes/rules'
-import { Route as ProbeRouteImport } from './routes/probe'
 import { Route as NodesRouteImport } from './routes/nodes'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as GeneratorRouteImport } from './routes/generator'
@@ -67,7 +66,6 @@ const RulesRoute = RulesRouteImport.update({
   path: '/rules',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ProbeRoute = ProbeRouteImport.update({
   id: '/probe',
   path: '/probe',
   getParentRoute: () => rootRouteImport,
@@ -151,7 +149,6 @@ export interface FileRoutesByFullPath {
   '/generator': typeof GeneratorRoute
   '/login': typeof LoginRoute
   '/nodes': typeof NodesRouteWithChildren
-  '/probe': typeof ProbeRoute
   '/rules': typeof RulesRoute
   '/settings': typeof SettingsRoute
   '/subscribe-files': typeof SubscribeFilesRouteWithChildren
@@ -173,7 +170,6 @@ export interface FileRoutesByTo {
   '/change-password': typeof ChangePasswordRoute
   '/generator': typeof GeneratorRoute
   '/login': typeof LoginRoute
-  '/probe': typeof ProbeRoute
   '/rules': typeof RulesRoute
   '/settings': typeof SettingsRoute
   '/system-settings': typeof SystemSettingsRoute
@@ -195,7 +191,6 @@ export interface FileRoutesById {
   '/generator': typeof GeneratorRoute
   '/login': typeof LoginRoute
   '/nodes': typeof NodesRouteWithChildren
-  '/probe': typeof ProbeRoute
   '/rules': typeof RulesRoute
   '/settings': typeof SettingsRoute
   '/subscribe-files': typeof SubscribeFilesRouteWithChildren
@@ -289,7 +284,6 @@ export interface RootRouteChildren {
   GeneratorRoute: typeof GeneratorRoute
   LoginRoute: typeof LoginRoute
   NodesRoute: typeof NodesRouteWithChildren
-  ProbeRoute: typeof ProbeRoute
   RulesRoute: typeof RulesRoute
   SettingsRoute: typeof SettingsRoute
   SubscribeFilesRoute: typeof SubscribeFilesRouteWithChildren
@@ -351,11 +345,9 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RulesRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/probe': {
       id: '/probe'
       path: '/probe'
       fullPath: '/probe'
-      preLoaderRoute: typeof ProbeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/nodes': {
@@ -527,7 +519,6 @@ const rootRouteChildren: RootRouteChildren = {
   GeneratorRoute: GeneratorRoute,
   LoginRoute: LoginRoute,
   NodesRoute: NodesRouteWithChildren,
-  ProbeRoute: ProbeRoute,
   RulesRoute: RulesRoute,
   SettingsRoute: SettingsRoute,
   SubscribeFilesRoute: SubscribeFilesRouteWithChildren,

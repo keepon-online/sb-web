@@ -19,7 +19,6 @@ type userConfigRequest struct {
 	KeepNodeName            bool    `json:"keep_node_name"`
 	CacheExpireMinutes      int     `json:"cache_expire_minutes"`
 	SyncTraffic             bool    `json:"sync_traffic"`
-	EnableProbeBinding      bool    `json:"enable_probe_binding"`
 	CustomRulesEnabled      bool    `json:"custom_rules_enabled"`
 	EnableShortLink         bool    `json:"enable_short_link"`
 	TemplateVersion         string  `json:"template_version"` // "v1", "v2", or "v3"
@@ -43,7 +42,6 @@ type userConfigResponse struct {
 	KeepNodeName            bool    `json:"keep_node_name"`
 	CacheExpireMinutes      int     `json:"cache_expire_minutes"`
 	SyncTraffic             bool    `json:"sync_traffic"`
-	EnableProbeBinding      bool    `json:"enable_probe_binding"`
 	CustomRulesEnabled      bool    `json:"custom_rules_enabled"`
 	EnableShortLink         bool    `json:"enable_short_link"`
 	TemplateVersion         string  `json:"template_version"` // "v1", "v2", or "v3"
@@ -102,7 +100,6 @@ func handleGetUserConfig(w http.ResponseWriter, r *http.Request, repo *storage.T
 				KeepNodeName:            true,
 				CacheExpireMinutes:      0,
 				SyncTraffic:             false,
-				EnableProbeBinding:      false,
 				CustomRulesEnabled:      true, // 自定义规则始终启用
 				EnableShortLink:         systemConfig.EnableShortLink,
 				TemplateVersion:         "v2", // 默认使用v2模板系统
@@ -134,7 +131,6 @@ func handleGetUserConfig(w http.ResponseWriter, r *http.Request, repo *storage.T
 		KeepNodeName:            settings.KeepNodeName,
 		CacheExpireMinutes:      settings.CacheExpireMinutes,
 		SyncTraffic:             settings.SyncTraffic,
-		EnableProbeBinding:      settings.EnableProbeBinding,
 		CustomRulesEnabled:      true, // 自定义规则始终启用
 		EnableShortLink:         systemConfig.EnableShortLink,
 		TemplateVersion:         settings.TemplateVersion,
@@ -214,7 +210,6 @@ func handleUpdateUserConfig(w http.ResponseWriter, r *http.Request, repo *storag
 		KeepNodeName:        payload.KeepNodeName,
 		CacheExpireMinutes:  cacheExpireMinutes,
 		SyncTraffic:         payload.SyncTraffic,
-		EnableProbeBinding:  payload.EnableProbeBinding,
 		CustomRulesEnabled:  true, // 自定义规则始终启用
 		TemplateVersion:     templateVersion,
 		EnableProxyProvider: payload.EnableProxyProvider,
@@ -263,7 +258,6 @@ func handleUpdateUserConfig(w http.ResponseWriter, r *http.Request, repo *storag
 		KeepNodeName:            settings.KeepNodeName,
 		CacheExpireMinutes:      settings.CacheExpireMinutes,
 		SyncTraffic:             settings.SyncTraffic,
-		EnableProbeBinding:      settings.EnableProbeBinding,
 		CustomRulesEnabled:      true, // 自定义规则始终启用
 		EnableShortLink:         payload.EnableShortLink,
 		TemplateVersion:         settings.TemplateVersion,

@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { Activity, Link as LinkIcon, Radar, Users, Files, Zap, Network, Menu, FileCode, Settings, FileStack } from 'lucide-react'
+import { Activity, Link as LinkIcon, Radar, Users, Files, Zap, Network, Menu, FileCode, Settings, FileStack, Shield, Rocket, Database, Share2, Cpu } from 'lucide-react'
 import { ThemeSwitch } from '@/components/theme-switch'
 import { UserMenu } from './user-menu'
 import { useAuthStore } from '@/stores/auth-store'
@@ -55,14 +55,39 @@ const adminNavLinks = [
     icon: FileCode,
   },
   {
-    title: '探针管理',
-    to: '/probe',
-    icon: Radar,
-  },
-  {
     title: '用户管理',
     to: '/users',
     icon: Users,
+  },
+  {
+    title: 'Sing-box',
+    to: '/singbox/certificates',
+    icon: Shield,
+  },
+  {
+    title: 'Argo隧道',
+    to: '/singbox/argo',
+    icon: Rocket,
+  },
+  {
+    title: 'WARP管理',
+    to: '/singbox/warp',
+    icon: Cpu,
+  },
+  {
+    title: '系统优化',
+    to: '/singbox/optimize',
+    icon: Database,
+  },
+  {
+    title: '订阅生成',
+    to: '/singbox/subscription',
+    icon: Zap,
+  },
+  {
+    title: 'Git同步',
+    to: '/singbox/sync',
+    icon: Share2,
   },
   {
     title: '系统设置',

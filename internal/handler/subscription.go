@@ -489,9 +489,6 @@ func (h *SubscriptionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	// 在转换订阅格式之前，先收集探针服务器和外部订阅流量信息
 	// 这样可以确保无论订阅被转换成什么格式，都能正确收集信息
 	externalTrafficLimit, externalTrafficUsed := int64(0), int64(0)
-	usesProbeNodes := false                  // 是否使用了探针节点
-	probeBindingEnabled := false             // 是否开启了探针服务器绑定
-	var usedProbeServers map[string]struct{} // 订阅文件中使用的探针服务器列表
 
 	// 读取系统配置，判断是否启用订阅响应头流量信息
 	enableSubTrafficHeader := true
@@ -504,10 +501,8 @@ func (h *SubscriptionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	if enableSubTrafficHeader && username != "" && h.repo != nil {
 		settings, err := h.repo.GetUserSettings(r.Context(), username)
 		if err == nil {
-			probeBindingEnabled = settings.EnableProbeBinding
 
 			// 如果开启了探针绑定或流量同步，需要解析 YAML 获取节点信息
-			if probeBindingEnabled || settings.SyncTraffic {
 				// 解析 YAML 文件，获取其中使用的节点名称
 				var yamlConfig map[string]any
 				if err := yaml.Unmarshal(data, &yamlConfig); err == nil {
@@ -534,15 +529,8 @@ func (h *SubscriptionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 								for _, node := range nodes {
 									// 检查节点是否在订阅文件中
 									if usedNodeNames[node.NodeName] {
-										// 检测是否为探针节点（有绑定探针服务器）
-										if probeBindingEnabled && node.ProbeServer != "" {
-											usesProbeNodes = true
 											// 收集订阅文件中使用的探针服务器
-											if usedProbeServers == nil {
-												usedProbeServers = make(map[string]struct{})
 											}
-											usedProbeServers[node.ProbeServer] = struct{}{}
-											logger.Info("[Subscription] 检测到探针节点绑定服务器", "node_name", node.NodeName, "probe_server", node.ProbeServer)
 										}
 
 										// 如果开启了流量同步，通过 RawURL 收集外部订阅节点
@@ -709,7 +697,6 @@ func (h *SubscriptionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	if enableSubTrafficHeader {
 		// 尝试获取流量信息，如果探针报错则跳过流量统计，不影响订阅输出
 		// 如果开启了探针绑定，只统计订阅文件中使用的节点绑定的探针服务器流量
-		totalLimit, _, totalUsed, err = h.summary.fetchTotals(r.Context(), username, usedProbeServers)
 		hasTrafficInfo = err == nil
 	}
 	logger.Info("[⏱️ 耗时监测] 流量统计获取完成", "step", "traffic_fetch", "duration_ms", time.Since(stepStart).Milliseconds())
@@ -749,8 +736,6 @@ func (h *SubscriptionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 									// 计算剩余流量
 									var remainingTraffic int64
 									if hasTrafficInfo || externalTrafficLimit > 0 {
-										includeProbeTraffic := !probeBindingEnabled || usesProbeNodes
-										if includeProbeTraffic && hasTrafficInfo {
 											remainingTraffic = (totalLimit + externalTrafficLimit) - (totalUsed + externalTrafficUsed)
 										} else {
 											remainingTraffic = externalTrafficLimit - externalTrafficUsed
@@ -842,17 +827,13 @@ func (h *SubscriptionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 			}
 		} else if hasSubscribeFile && subscribeFile.TrafficLimit != nil {
 			// 仅配置了总流量上限，已用流量走原有逻辑
-			includeProbeTraffic := !probeBindingEnabled || usesProbeNodes
 			finalLimit = int64(*subscribeFile.TrafficLimit*1024*1024*1024) + externalTrafficLimit
-			if includeProbeTraffic && hasTrafficInfo {
 				finalUsed = totalUsed + externalTrafficUsed
 			} else {
 				finalUsed = externalTrafficUsed
 			}
 		} else {
 			// 原有逻辑
-			includeProbeTraffic := !probeBindingEnabled || usesProbeNodes
-			if includeProbeTraffic && hasTrafficInfo {
 				finalLimit = totalLimit + externalTrafficLimit
 				finalUsed = totalUsed + externalTrafficUsed
 			} else {
