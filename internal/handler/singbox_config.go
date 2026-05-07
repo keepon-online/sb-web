@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"miaomiaowu/internal/logger"
 	"miaomiaowu/internal/singbox"
@@ -31,6 +32,31 @@ type ConfigGenerateResponse struct {
 type ConfigSaveRequest struct {
 	Name   string                 `json:"name"`
 	Config *singbox.SingboxConfig `json:"config"`
+}
+
+// ConfigPublishRequest 配置发布请求
+type ConfigPublishRequest struct {
+	ConfigID         int64    `json:"config_id"`
+	Protocols        []string `json:"protocols"`
+	Tags             []string `json:"tags"`
+	Enabled          bool     `json:"enabled"`
+	ExternalHost     string   `json:"external_host"`
+	RealityPublicKey string   `json:"reality_public_key"`
+}
+
+// ConfigPublishResponse 配置发布响应
+type ConfigPublishResponse struct {
+	Success      bool           `json:"success"`
+	Message      string         `json:"message"`
+	CreatedCount int            `json:"created_count"`
+	UpdatedCount int            `json:"updated_count"`
+	Created      []storage.Node `json:"created"`
+	Updated      []storage.Node `json:"updated"`
+}
+
+// PublishedNodesResponse 已发布节点响应
+type PublishedNodesResponse struct {
+	Nodes []singbox.PublishedNode `json:"nodes"`
 }
 
 // PortAllocateRequest 端口分配请求
@@ -159,6 +185,110 @@ func NewSingboxConfigListHandler(repo *storage.TrafficRepository) http.Handler {
 
 		writeJSON(w, http.StatusOK, map[string]interface{}{
 			"configs": configs,
+		})
+	})
+}
+
+// NewSingboxConfigPublishHandler 创建配置发布处理器
+func NewSingboxConfigPublishHandler(repo *storage.TrafficRepository) http.Handler {
+	publisher := singbox.NewNodePublisher(repo)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			writeError(w, http.StatusMethodNotAllowed, errors.New("only POST is supported"))
+			return
+		}
+
+		var req ConfigPublishRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeError(w, http.StatusBadRequest, fmt.Errorf("invalid request: %w", err))
+			return
+		}
+		if req.ConfigID <= 0 {
+			writeError(w, http.StatusBadRequest, errors.New("config_id is required"))
+			return
+		}
+
+		username := getUsernameFromContext(r.Context())
+		logOperation(repo, username, "singbox_config_publish", fmt.Sprintf("发布配置到订阅: %d", req.ConfigID))
+
+		result, err := publisher.PublishConfig(r.Context(), singbox.PublishRequest{
+			ConfigID:         req.ConfigID,
+			Protocols:        req.Protocols,
+			Tags:             req.Tags,
+			Enabled:          req.Enabled,
+			ExternalHost:     req.ExternalHost,
+			RealityPublicKey: req.RealityPublicKey,
+		})
+		if err != nil {
+			logger.Error("[Singbox API] 配置发布失败", "error", err)
+			logOperationWithError(repo, username, "singbox_config_publish", err.Error())
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+
+		writeJSON(w, http.StatusOK, ConfigPublishResponse{
+			Success:      true,
+			Message:      "发布成功",
+			CreatedCount: len(result.Created),
+			UpdatedCount: len(result.Updated),
+			Created:      result.Created,
+			Updated:      result.Updated,
+		})
+	})
+}
+
+// NewSingboxPublishedNodesHandler 创建已发布节点列表处理器
+func NewSingboxPublishedNodesHandler(repo *storage.TrafficRepository) http.Handler {
+	publisher := singbox.NewNodePublisher(repo)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			writeError(w, http.StatusMethodNotAllowed, errors.New("only GET is supported"))
+			return
+		}
+
+		configID, err := strconv.ParseInt(r.URL.Query().Get("config_id"), 10, 64)
+		if err != nil || configID <= 0 {
+			writeError(w, http.StatusBadRequest, errors.New("valid config_id is required"))
+			return
+		}
+
+		nodes, err := publisher.ListPublishedNodes(r.Context(), configID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, fmt.Errorf("list published nodes: %w", err))
+			return
+		}
+		writeJSON(w, http.StatusOK, PublishedNodesResponse{Nodes: nodes})
+	})
+}
+
+// NewSingboxPublishedNodeDeleteHandler 创建已发布节点删除处理器
+func NewSingboxPublishedNodeDeleteHandler(repo *storage.TrafficRepository) http.Handler {
+	publisher := singbox.NewNodePublisher(repo)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodDelete {
+			writeError(w, http.StatusMethodNotAllowed, errors.New("only DELETE is supported"))
+			return
+		}
+
+		nodeID, err := strconv.ParseInt(r.URL.Query().Get("id"), 10, 64)
+		if err != nil || nodeID <= 0 {
+			writeError(w, http.StatusBadRequest, errors.New("valid id is required"))
+			return
+		}
+
+		username := getUsernameFromContext(r.Context())
+		logOperation(repo, username, "singbox_published_node_delete", fmt.Sprintf("取消发布节点: %d", nodeID))
+
+		if err := publisher.DeletePublishedNode(r.Context(), nodeID); err != nil {
+			logger.Error("[Singbox API] 取消发布失败", "error", err)
+			logOperationWithError(repo, username, "singbox_published_node_delete", err.Error())
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+
+		writeJSON(w, http.StatusOK, map[string]interface{}{
+			"success": true,
+			"message": "取消发布成功",
 		})
 	})
 }

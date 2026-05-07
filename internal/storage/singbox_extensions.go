@@ -1,6 +1,8 @@
 package storage
 
 import (
+	"database/sql"
+	"errors"
 	"fmt"
 )
 
@@ -258,6 +260,30 @@ func (r *TrafficRepository) GetSingboxConfigs() ([]SingboxConfig, error) {
 	}
 
 	return configs, nil
+}
+
+// GetSingboxConfig 获取单个 Sing-box 配置
+func (r *TrafficRepository) GetSingboxConfig(id int64) (SingboxConfig, error) {
+	if r == nil || r.db == nil {
+		return SingboxConfig{}, fmt.Errorf("traffic repository not initialized")
+	}
+
+	row := r.db.QueryRow(`
+		SELECT id, name, protocol, port, config_json, enabled, created_at, updated_at
+		FROM singbox_configs
+		WHERE id = ?
+		LIMIT 1
+	`, id)
+	var config SingboxConfig
+	var enabled int
+	if err := row.Scan(&config.ID, &config.Name, &config.Protocol, &config.Port, &config.ConfigJSON, &enabled, &config.CreatedAt, &config.UpdatedAt); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return SingboxConfig{}, ErrNodeNotFound
+		}
+		return SingboxConfig{}, fmt.Errorf("get singbox config: %w", err)
+	}
+	config.Enabled = enabled == 1
+	return config, nil
 }
 
 // CreateCertificate 创建证书记录
