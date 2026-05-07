@@ -269,6 +269,14 @@ func main() {
 	mux.Handle("/api/admin/github/sync", auth.RequireAdmin(tokenStore, userRepo, handler.NewGitHubSyncHandler(repo)))
 	mux.Handle("/api/admin/pastebin/share", auth.RequireAdmin(tokenStore, userRepo, handler.NewPastebinShareHandler(repo)))
 
+	// Certificate management endpoints (admin only)
+	mux.Handle("/api/admin/certificate/generate", auth.RequireAdmin(tokenStore, userRepo, handler.NewCertificateGenerateHandler(repo)))
+	mux.Handle("/api/admin/certificate/renew", auth.RequireAdmin(tokenStore, userRepo, handler.NewCertificateRenewHandler(repo)))
+	mux.Handle("/api/admin/certificate/auto-renew", auth.RequireAdmin(tokenStore, userRepo, handler.NewAutoRenewCertificatesHandler(repo)))
+	mux.Handle("/api/admin/certificate/list", auth.RequireAdmin(tokenStore, userRepo, handler.NewCertificateListHandler(repo)))
+	mux.Handle("/api/admin/certificate/delete", auth.RequireAdmin(tokenStore, userRepo, handler.NewCertificateDeleteHandler(repo)))
+	mux.Handle("/api/admin/certificate/check", auth.RequireAdmin(tokenStore, userRepo, handler.NewCertificateCheckHandler(repo)))
+
 	// Monitoring endpoints (admin only)
 	mux.Handle("/api/admin/monitoring/status", auth.RequireAdmin(tokenStore, userRepo, handler.NewMonitoringStatusHandler(repo)))
 

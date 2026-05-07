@@ -45,7 +45,7 @@ function CertificatesPage() {
 
   const loadCertificates = async () => {
     try {
-      const response = await api.get('/api/admin/cert/list')
+      const response = await api.get('/api/admin/certificate/list')
       setCerts(response.data.certs || [])
       setCertStatuses(response.data.cert_status || {})
     } catch (err) {
@@ -66,7 +66,7 @@ function CertificatesPage() {
     setError(null)
 
     try {
-      const response = await api.post('/api/admin/cert/generate', {
+      const response = await api.post('/api/admin/certificate/generate', {
         domain: domain,
         cert_type: certType,
         validity_days: validityDays,
@@ -91,7 +91,7 @@ function CertificatesPage() {
     if (!confirm(`确定要删除证书 "${domain}" 吗？`)) return
 
     try {
-      await api.delete('/api/admin/cert/delete', {
+      await api.delete('/api/admin/certificate/delete', {
         params: { domain: domain },
       })
 
@@ -104,7 +104,7 @@ function CertificatesPage() {
 
   const handleRenewCert = async (domain: string) => {
     try {
-      const response = await api.post('/api/admin/cert/renew', {
+      const response = await api.post('/api/admin/certificate/renew', {
         domain: domain,
         warn_days: 30,
         force: false,
@@ -121,7 +121,7 @@ function CertificatesPage() {
 
   const handleAutoRenew = async () => {
     try {
-      const response = await api.post('/api/admin/cert/auto-renew', {
+      const response = await api.post('/api/admin/certificate/auto-renew', {
         warn_days: 30,
       })
 
