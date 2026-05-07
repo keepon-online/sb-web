@@ -322,12 +322,11 @@ func (am *ArgoManager) GetTunnelStatus(tunnelID string) (*ArgoTunnelStatus, erro
 
 // ListTunnels 列出所有隧道
 func (am *ArgoManager) ListTunnels() ([]*ArgoTunnel, error) {
-	if err := os.MkdirAll(am.tunnelDir, 0755); err != nil {
-		return nil, fmt.Errorf("创建隧道目录失败: %w", err)
-	}
-
 	files, err := os.ReadDir(am.tunnelDir)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return []*ArgoTunnel{}, nil
+		}
 		return nil, fmt.Errorf("读取隧道目录失败: %w", err)
 	}
 

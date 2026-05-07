@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useState, useEffect } from 'react'
-import axios from 'axios'
+import { api } from '@/lib/api'
 
 interface Subscription {
   id: string
@@ -51,7 +51,7 @@ function SubscriptionPage() {
 
   const loadSubscriptions = async () => {
     try {
-      const response = await axios.get('/api/admin/subscription/list')
+      const response = await api.get('/api/admin/subscription/list')
       setSubscriptions(response.data.subscriptions || [])
       setError(null)
     } catch (err) {
@@ -72,7 +72,7 @@ function SubscriptionPage() {
     setError(null)
 
     try {
-      const response = await axios.post('/api/admin/subscription/generate', {
+      const response = await api.post('/api/admin/subscription/generate', {
         name: formData.name,
         format: formData.format,
       })
@@ -93,7 +93,7 @@ function SubscriptionPage() {
 
   const handleUpdateSubscription = async (subscriptionId: string) => {
     try {
-      await axios.post('/api/admin/subscription/update', {
+      await api.post('/api/admin/subscription/update', {
         subscription_id: subscriptionId,
       })
 
@@ -109,7 +109,7 @@ function SubscriptionPage() {
     if (!confirm('确定要删除此订阅吗？')) return
 
     try {
-      await axios.delete('/api/admin/subscription/delete', {
+      await api.delete('/api/admin/subscription/delete', {
         params: { subscription_id: subscriptionId },
       })
 
@@ -123,7 +123,7 @@ function SubscriptionPage() {
 
   const handleExportSubscription = async (subscription: Subscription, format: string) => {
     try {
-      const response = await axios.get('/api/admin/subscription/export', {
+      const response = await api.get('/api/admin/subscription/export', {
         params: {
           subscription_id: subscription.id,
           format: format,
@@ -186,7 +186,7 @@ function SubscriptionPage() {
 
   const handleShowNodeLinks = async (subscription: Subscription) => {
     try {
-      const response = await axios.post('/api/admin/subscription/node-link', {
+      const response = await api.post('/api/admin/subscription/node-link', {
         subscription_id: subscription.id,
       })
 

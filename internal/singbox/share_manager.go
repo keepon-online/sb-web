@@ -249,12 +249,11 @@ func (sm *ShareManager) DeleteShareConfig(shareID string) error {
 
 // ListShareConfigs 列出分享配置
 func (sm *ShareManager) ListShareConfigs() ([]*ShareConfig, error) {
-	if err := os.MkdirAll(sm.configDir, 0755); err != nil {
-		return nil, fmt.Errorf("创建配置目录失败: %w", err)
-	}
-
 	files, err := os.ReadDir(sm.configDir)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return []*ShareConfig{}, nil
+		}
 		return nil, fmt.Errorf("读取配置目录失败: %w", err)
 	}
 

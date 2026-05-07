@@ -314,7 +314,7 @@ func NewSingboxServiceLogsStreamHandler(repo *storage.TrafficRepository) http.Ha
 		err = manager.FollowLogs(ctx, func(logLine string) {
 			sendSSEMessage(w, flusher, map[string]string{
 				"type": "log",
-				"log": logLine,
+				"log":  logLine,
 			})
 		})
 
@@ -348,7 +348,7 @@ func NewSingboxSystemStatusHandler(repo *storage.TrafficRepository) http.Handler
 		tunSupported, _ := singbox.CheckTUNSupport()
 
 		// 检查 Sing-box 安装状态
-		installer, _ := singbox.NewInstaller()
+		installer := singbox.NewReadOnlyInstaller()
 		installed := installer.IsInstalled()
 		var version string
 		if installed {
@@ -361,15 +361,15 @@ func NewSingboxSystemStatusHandler(repo *storage.TrafficRepository) http.Handler
 
 		// 构建响应
 		status := map[string]interface{}{
-			"environment":      env.String(),
-			"is_root":          singbox.IsRoot(),
-			"tun_supported":    tunSupported,
+			"environment":       env.String(),
+			"is_root":           singbox.IsRoot(),
+			"tun_supported":     tunSupported,
 			"singbox_installed": installed,
-			"singbox_version":  version,
-			"service_status":   serviceStatus,
-			"system_info":      sysInfo,
-			"config_paths":     paths,
-			"timestamp":        time.Now().Unix(),
+			"singbox_version":   version,
+			"service_status":    serviceStatus,
+			"system_info":       sysInfo,
+			"config_paths":      paths,
+			"timestamp":         time.Now().Unix(),
 		}
 
 		writeJSON(w, http.StatusOK, status)

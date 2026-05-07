@@ -39,14 +39,25 @@ type Installer struct {
 	onProgress func(InstallProgress)
 }
 
-// NewInstaller 创建安装器
+// NewInstaller 创建安装器，并确保安装所需目录存在。
 func NewInstaller() (*Installer, error) {
+	return newInstaller(true)
+}
+
+// NewReadOnlyInstaller 创建只读安装器，用于状态查询等不应改动系统目录的场景。
+func NewReadOnlyInstaller() *Installer {
+	installer, _ := newInstaller(false)
+	return installer
+}
+
+func newInstaller(ensureDirectories bool) (*Installer, error) {
 	env := DetectEnvironment()
 	paths := GetConfigPaths(env)
 
-	// 确保目录存在
-	if err := EnsureDirectories(paths); err != nil {
-		return nil, fmt.Errorf("ensure directories: %w", err)
+	if ensureDirectories {
+		if err := EnsureDirectories(paths); err != nil {
+			return nil, fmt.Errorf("ensure directories: %w", err)
+		}
 	}
 
 	return &Installer{

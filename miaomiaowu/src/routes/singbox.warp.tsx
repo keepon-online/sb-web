@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useState, useEffect } from 'react'
-import axios from 'axios'
+import { api } from '@/lib/api'
 
 interface WARPConfig {
   id: string
@@ -51,8 +51,8 @@ function WARPPage() {
   const loadData = async () => {
     try {
       const [configsRes, statusRes] = await Promise.all([
-        axios.get('/api/admin/warp/configs'),
-        axios.get('/api/admin/warp/status'),
+        api.get('/api/admin/warp/configs'),
+        api.get('/api/admin/warp/status'),
       ])
 
       setConfigs(configsRes.data.configs || [])
@@ -71,7 +71,7 @@ function WARPPage() {
     setError(null)
 
     try {
-      const response = await axios.post('/api/admin/warp/enable', {
+      const response = await api.post('/api/admin/warp/enable', {
         type: formData.type,
         license_key: formData.license_key,
         port: formData.port,
@@ -101,7 +101,7 @@ function WARPPage() {
     if (!confirm('确定要禁用WARP吗？')) return
 
     try {
-      await axios.post('/api/admin/warp/disable')
+      await api.post('/api/admin/warp/disable')
 
       setSuccessMessage('WARP已禁用')
       await loadData()
@@ -113,7 +113,7 @@ function WARPPage() {
 
   const handleCheckConnection = async () => {
     try {
-      const response = await axios.get('/api/admin/warp/check-connection')
+      const response = await api.get('/api/admin/warp/check-connection')
       const { connected, ip_address, message } = response.data
 
       if (connected) {
@@ -131,7 +131,7 @@ function WARPPage() {
     if (!confirm('确定要删除此配置吗？')) return
 
     try {
-      await axios.delete('/api/admin/warp/delete', {
+      await api.delete('/api/admin/warp/delete', {
         params: { config_id: configId },
       })
 

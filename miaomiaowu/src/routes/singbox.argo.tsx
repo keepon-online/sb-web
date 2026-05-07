@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useState, useEffect } from 'react'
-import axios from 'axios'
+import { api } from '@/lib/api'
 
 interface ArgoTunnel {
   id: string
@@ -49,7 +49,7 @@ function ArgoTunnelsPage() {
 
   const loadTunnels = async () => {
     try {
-      const response = await axios.get('/api/admin/argo/list')
+      const response = await api.get('/api/admin/argo/list')
       setTunnels(response.data.tunnels || [])
       setError(null)
     } catch (err) {
@@ -70,7 +70,7 @@ function ArgoTunnelsPage() {
     setError(null)
 
     try {
-      const response = await axios.post('/api/admin/argo/create', {
+      const response = await api.post('/api/admin/argo/create', {
         name: formData.name,
         type: formData.type,
         domain: formData.domain,
@@ -100,7 +100,7 @@ function ArgoTunnelsPage() {
 
   const handleTunnelAction = async (tunnelId: string, action: string) => {
     try {
-      await axios.post('/api/admin/argo/action', {
+      await api.post('/api/admin/argo/action', {
         tunnel_id: tunnelId,
         action: action,
       })
@@ -123,7 +123,7 @@ function ArgoTunnelsPage() {
     setError(null)
 
     try {
-      const response = await axios.post('/api/admin/argo/quick', {
+      const response = await api.post('/api/admin/argo/quick', {
         name: formData.name,
         local_port: formData.local_port,
       })

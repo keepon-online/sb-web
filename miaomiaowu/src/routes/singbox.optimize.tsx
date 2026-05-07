@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useState, useEffect } from 'react'
-import axios from 'axios'
+import { api } from '@/lib/api'
 
 interface BBRStatus {
   enabled: boolean
@@ -37,9 +37,9 @@ function SystemOptimizePage() {
   const loadData = async () => {
     try {
       const [bbrRes, resourcesRes, networkRes] = await Promise.all([
-        axios.get('/api/admin/system/bbr-status'),
-        axios.get('/api/admin/system/resource-usage'),
-        axios.get('/api/admin/system/network-performance'),
+        api.get('/api/admin/system/bbr-status'),
+        api.get('/api/admin/system/resource-usage'),
+        api.get('/api/admin/system/network-performance'),
       ])
 
       setBbrStatus(bbrRes.data)
@@ -59,7 +59,7 @@ function SystemOptimizePage() {
     setError(null)
 
     try {
-      const response = await axios.post('/api/admin/system/optimize', {
+      const response = await api.post('/api/admin/system/optimize', {
         action: action,
         version: version,
       })
@@ -81,7 +81,7 @@ function SystemOptimizePage() {
     setError(null)
 
     try {
-      const response = await axios.post('/api/admin/system/speed-test', {
+      const response = await api.post('/api/admin/system/speed-test', {
         target: 'www.google.com',
       })
 
@@ -98,7 +98,7 @@ function SystemOptimizePage() {
   const generateSystemReport = async () => {
     setLoading(true)
     try {
-      const response = await axios.get('/api/admin/system/report')
+      const response = await api.get('/api/admin/system/report')
       const reportData = response.data
 
       // 创建并下载报告

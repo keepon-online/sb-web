@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import { useState, useEffect } from 'react'
-import axios from 'axios'
+import { api } from '@/lib/api'
 
 interface SingboxStatus {
   installed: boolean
@@ -43,7 +43,7 @@ export function SingboxPage() {
 
   const loadStatus = async () => {
     try {
-      const response = await axios.get('/api/admin/singbox/install-status')
+      const response = await api.get('/api/admin/singbox/install-status')
       setStatus(response.data)
     } catch (err) {
       setError('加载状态失败')
@@ -55,7 +55,7 @@ export function SingboxPage() {
 
   const loadServiceStatus = async () => {
     try {
-      const response = await axios.get('/api/admin/singbox/service/status')
+      const response = await api.get('/api/admin/singbox/service/status')
       setServiceStatus(response.data)
     } catch (err) {
       console.error('加载服务状态失败:', err)
@@ -66,7 +66,7 @@ export function SingboxPage() {
     setInstalling(true)
     setError(null)
     try {
-      const response = await axios.post('/api/admin/singbox/install', { version: '' })
+      const response = await api.post('/api/admin/singbox/install', { version: '' })
       if (response.data.status === 'success') {
         await loadStatus()
         await loadServiceStatus()
@@ -85,7 +85,7 @@ export function SingboxPage() {
     setInstalling(true)
     setError(null)
     try {
-      const response = await axios.post('/api/admin/singbox/uninstall')
+      const response = await api.post('/api/admin/singbox/uninstall')
       if (response.data.status === 'success') {
         await loadStatus()
         await loadServiceStatus()
@@ -101,7 +101,7 @@ export function SingboxPage() {
   const handleServiceAction = async (action: 'start' | 'stop' | 'restart' | 'enable' | 'disable') => {
     setError(null)
     try {
-      const response = await axios.post(`/api/admin/singbox/service/${action}`)
+      const response = await api.post(`/api/admin/singbox/service/${action}`)
       if (response.data.status === 'success') {
         await loadServiceStatus()
       }

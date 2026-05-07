@@ -51,6 +51,17 @@ func TestExtractSingboxBinaryFromTarGz(t *testing.T) {
 	}
 }
 
+func TestNewReadOnlyInstallerDoesNotEnsureSystemDirectories(t *testing.T) {
+	installer := NewReadOnlyInstaller()
+	if installer == nil {
+		t.Fatal("NewReadOnlyInstaller returned nil")
+	}
+
+	// This constructor is used by status endpoints and must stay safe in
+	// non-root development environments where /etc and /usr/local are read-only.
+	_ = installer.IsInstalled()
+}
+
 func writeTestSingboxArchive(path, content string) error {
 	file, err := os.Create(path)
 	if err != nil {

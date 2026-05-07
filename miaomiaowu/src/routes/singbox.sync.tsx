@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useState, useEffect } from 'react'
-import axios from 'axios'
+import { api } from '@/lib/api'
 
 interface ShareConfig {
   id: string
@@ -48,8 +48,8 @@ function GitLabSyncPage() {
   const loadData = async () => {
     try {
       const [sharesRes, subsRes] = await Promise.all([
-        axios.get('/api/admin/share/list'),
-        axios.get('/api/admin/subscription/list'),
+        api.get('/api/admin/share/list'),
+        api.get('/api/admin/subscription/list'),
       ])
 
       setShareConfigs(sharesRes.data.share_configs || [])
@@ -96,7 +96,7 @@ function GitLabSyncPage() {
           endpoint = '/api/admin/gitlab/sync'
       }
 
-      const response = await axios.post(endpoint, {
+      const response = await api.post(endpoint, {
         subscription_id: syncFormData.subscription_id,
         token: syncFormData.token,
         repo_url: syncFormData.repo_url,
@@ -130,7 +130,7 @@ function GitLabSyncPage() {
     if (!confirm('确定要删除此分享配置吗？')) return
 
     try {
-      await axios.delete('/api/admin/share/delete', {
+      await api.delete('/api/admin/share/delete', {
         params: { share_id: shareId },
       })
 

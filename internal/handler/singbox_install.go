@@ -130,12 +130,8 @@ func NewSingboxInstallStatusHandler(repo *storage.TrafficRepository) http.Handle
 			return
 		}
 
-		// 创建安装器
-		installer, err := singbox.NewInstaller()
-		if err != nil {
-			writeError(w, http.StatusInternalServerError, fmt.Errorf("create installer: %w", err))
-			return
-		}
+		// 状态查询不能创建或修改系统目录，否则普通用户环境会直接失败。
+		installer := singbox.NewReadOnlyInstaller()
 
 		// 检查安装状态
 		installed := installer.IsInstalled()

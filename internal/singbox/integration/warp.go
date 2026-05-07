@@ -595,12 +595,11 @@ func (wm *WARPManager) loadConfig(configID string) (*WARPConfig, error) {
 }
 
 func (wm *WARPManager) listConfigs() ([]*WARPConfig, error) {
-	if err := os.MkdirAll(wm.configDir, 0755); err != nil {
-		return nil, fmt.Errorf("创建配置目录失败: %w", err)
-	}
-
 	files, err := os.ReadDir(wm.configDir)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return []*WARPConfig{}, nil
+		}
 		return nil, fmt.Errorf("读取配置目录失败: %w", err)
 	}
 

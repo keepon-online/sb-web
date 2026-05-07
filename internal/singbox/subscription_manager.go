@@ -246,12 +246,11 @@ func (sm *SubscriptionManager) UpdateSubscription(subscriptionID string) error {
 
 // ListSubscriptions 列出所有订阅
 func (sm *SubscriptionManager) ListSubscriptions() ([]*SubscriptionConfig, error) {
-	if err := os.MkdirAll(sm.configDir, 0755); err != nil {
-		return nil, fmt.Errorf("创建配置目录失败: %w", err)
-	}
-
 	files, err := os.ReadDir(sm.configDir)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return []*SubscriptionConfig{}, nil
+		}
 		return nil, fmt.Errorf("读取配置目录失败: %w", err)
 	}
 

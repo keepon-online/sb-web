@@ -12,9 +12,10 @@ import {
   Trash2,
 } from 'lucide-react'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import axios, { AxiosError } from 'axios'
+import { AxiosError } from 'axios'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { api } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
 interface Config {
@@ -171,7 +172,7 @@ function SingboxConfigPage() {
 
   const loadConfigs = async () => {
     try {
-      const response = await axios.get('/api/admin/singbox/config/list')
+      const response = await api.get('/api/admin/singbox/config/list')
       setConfigs(response.data.configs || [])
     } catch (err) {
       console.error('加载配置失败:', err)
@@ -182,7 +183,7 @@ function SingboxConfigPage() {
 
   const loadPortStatus = async () => {
     try {
-      const response = await axios.get('/api/admin/singbox/port/status')
+      const response = await api.get('/api/admin/singbox/port/status')
       setPortStatus(response.data)
     } catch (err) {
       console.error('加载端口状态失败:', err)
@@ -225,7 +226,7 @@ function SingboxConfigPage() {
     setError(null)
 
     try {
-      const response = await axios.post<GenerateResponse>('/api/admin/singbox/config/generate', {
+      const response = await api.post<GenerateResponse>('/api/admin/singbox/config/generate', {
         protocol: 'server',
         options: {
           external_host: serverForm.externalHost.trim(),
@@ -287,7 +288,7 @@ function SingboxConfigPage() {
         host: domain.trim() || serverAddress.trim(),
       }
 
-      const response = await axios.post<GenerateResponse>('/api/admin/singbox/config/generate', {
+      const response = await api.post<GenerateResponse>('/api/admin/singbox/config/generate', {
         protocol: selectedProtocol,
         options: options,
       })
@@ -318,7 +319,7 @@ function SingboxConfigPage() {
   }
 
   const saveConfig = async (config: Record<string, unknown>, name: string) => {
-    await axios.post('/api/admin/singbox/config/save', {
+    await api.post('/api/admin/singbox/config/save', {
       name: name,
       config: config,
     })
@@ -328,7 +329,7 @@ function SingboxConfigPage() {
     if (!confirm(`确定要删除配置 "${name}" 吗？`)) return
 
     try {
-      await axios.delete(`/api/admin/singbox/config/${id}`)
+      await api.delete(`/api/admin/singbox/config/${id}`)
       await loadConfigs()
       await loadPortStatus()
       toast.success('配置已删除')
@@ -340,7 +341,7 @@ function SingboxConfigPage() {
 
   const handleAllocatePort = async () => {
     try {
-      const response = await axios.post('/api/admin/singbox/port/allocate', {
+      const response = await api.post('/api/admin/singbox/port/allocate', {
         count: 1,
         min_port: 10000,
         max_port: 65535,
