@@ -13,15 +13,6 @@ export const api = axios.create({
   withCredentials: false,
 })
 
-if (!api.defaults.baseURL && typeof window !== 'undefined' && window.location) {
-  const { protocol, host, hostname } = window.location
-  if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1') {
-    api.defaults.baseURL = `${protocol}//${hostname}:8080`
-  } else {
-    api.defaults.baseURL = `${protocol}//${host}`
-  }
-}
-
 api.interceptors.request.use((config) => {
   const token = useAuthStore.getState().auth.accessToken
   if (token) {

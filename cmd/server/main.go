@@ -246,7 +246,7 @@ func main() {
 
 	// Subscription management endpoints (admin only)
 	mux.Handle("/api/admin/subscription/generate", auth.RequireAdmin(tokenStore, userRepo, handler.NewSubscriptionGenerateHandler(repo)))
-	mux.Handle("/api/admin/subscription/list", auth.RequireAdmin(tokenStore, userRepo, handler.NewSubscriptionListHandler(repo)))
+	mux.Handle("/api/admin/subscription/list", auth.RequireAdmin(tokenStore, userRepo, handler.NewSingBoxSubscriptionListHandler(repo)))
 	mux.Handle("/api/admin/subscription/detail", auth.RequireAdmin(tokenStore, userRepo, handler.NewSubscriptionDetailHandler(repo)))
 	mux.Handle("/api/admin/subscription/export", auth.RequireAdmin(tokenStore, userRepo, handler.NewSubscriptionExportHandler(repo)))
 	mux.Handle("/api/admin/subscription/update", auth.RequireAdmin(tokenStore, userRepo, handler.NewSubscriptionUpdateHandler(repo)))
@@ -291,7 +291,6 @@ func main() {
 	mux.Handle("/api/user/debug/", auth.RequireToken(tokenStore, handler.NewDebugHandler(repo)))
 
 	mux.Handle("/api/traffic/summary", auth.RequireToken(tokenStore, trafficHandler))
-	mux.Handle("/api/traffic/subscribe", auth.RequireToken(tokenStore, http.HandlerFunc(trafficHandler.HandleSubscribeTraffic)))
 	mux.Handle("/api/subscriptions", auth.RequireToken(tokenStore, handler.NewSubscriptionListHandler(repo)))
 	mux.Handle("/api/dns/resolve", auth.RequireToken(tokenStore, handler.NewDNSHandler()))
 	mux.Handle("/api/subscribe-files", auth.RequireToken(tokenStore, handler.NewSubscribeFilesListHandler(repo)))
@@ -375,7 +374,7 @@ func main() {
 func getAddr() string {
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "8080"
+		port = "8150"
 	}
 	return ":" + port
 }
@@ -437,11 +436,6 @@ func startTrafficCollector(ctx context.Context, trafficHandler *handler.TrafficS
 			}
 
 			logger.Warn("[流量收集器] 每日流量收集失败", "attempt", attempt, "max_retries", maxRetries, "error", err)
-
-			// 如果是探针配置未找到错误，不需要重试
-				logger.Info("[流量收集器] 探针未配置，跳过重试")
-				return
-			}
 
 			if attempt < maxRetries {
 				logger.Info("[流量收集器] 准备重试", "delay", retryDelay)

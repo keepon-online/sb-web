@@ -8,6 +8,7 @@ import (
 	"math/big"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"time"
 
@@ -17,12 +18,14 @@ import (
 
 // ACMEClient ACME客户端
 type ACMEClient struct {
-	paths         singbox.ConfigPaths
-	email         string
-	caURL         string // CA服务器URL
-	stagingURL    string // 测试环境URL
-	accountKey    string
+	paths          singbox.ConfigPaths
+	email          string
+	caURL          string // CA服务器URL
+	stagingURL     string // 测试环境URL
+	accountKey     string
 	accountKeyPath string
+	staging        bool
+	acmePath       string
 }
 
 // NewACMEClient 创建ACME客户端
@@ -31,17 +34,19 @@ func NewACMEClient(email string) *ACMEClient {
 	paths := singbox.GetConfigPaths(env)
 
 	return &ACMEClient{
-		paths:       paths,
-		email:       email,
-		caURL:       "https://acme-v02.api.letsencrypt.org/directory",
-		stagingURL:  "https://acme-staging-v02.api.letsencrypt.org/directory",
-		accountKey:   "",
+		paths:          paths,
+		email:          email,
+		caURL:          "https://acme-v02.api.letsencrypt.org/directory",
+		stagingURL:     "https://acme-staging-v02.api.letsencrypt.org/directory",
+		accountKey:     "",
 		accountKeyPath: filepath.Join(paths.ConfigDir, "acme", "account.key"),
+		acmePath:       "/root/.acme.sh/acme.sh",
 	}
 }
 
 // SetStaging 设置使用测试环境
 func (ac *ACMEClient) SetStaging(staging bool) {
+	ac.staging = staging
 	if staging {
 		ac.caURL = ac.stagingURL
 	}
@@ -52,10 +57,11 @@ func (ac *ACMEClient) RegisterAccount() error {
 	logger.Info("[ACME] 注册账户", "email", ac.email)
 
 	// 生成账户密钥
-	privateKey, err := ecdsa.GenerateKey(elliptic.P256())
+	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		return fmt.Errorf("generate account key: %w", err)
 	}
+	_ = privateKey
 
 	// 保存账户密钥
 	acDir := filepath.Dir(ac.accountKeyPath)
@@ -86,32 +92,46 @@ func (ac *ACMEClient) RequestCertificate(domain string) (*CertInfo, error) {
 
 	logger.Info("[ACME] 申请证书", "domain", domain)
 
-	// 验证域名解析
-	if err := ac.validateDomain(domain); err != nil {
-		return nil, fmt.Errorf("domain validation failed: %w", err)
+	certDir := filepath.Join(ac.paths.ConfigDir, "certs")
+	if err := os.MkdirAll(certDir, 0755); err != nil {
+		return nil, fmt.Errorf("create cert dir: %w", err)
 	}
 
-	// 检查80端口是否可用
-	if err := ac.checkHTTPPort(); err != nil {
-		return nil, fmt.Errorf("HTTP port check failed: %w", err)
+	certPath := filepath.Join(certDir, domain+".crt")
+	keyPath := filepath.Join(certDir, domain+".key")
+	commands := buildACMEShellCommands(acmeShellOptions{
+		ACMEPath: ac.acmePath,
+		Domain:   domain,
+		Email:    ac.email,
+		CertPath: certPath,
+		KeyPath:  keyPath,
+		Staging:  ac.staging,
+	})
+	for _, command := range commands {
+		if err := runACMEShellCommand(command); err != nil {
+			return nil, fmt.Errorf("run acme.sh %v: %w", command.Args, err)
+		}
 	}
 
-	// 这里应该实现完整的ACME流程：
-	// 1. 创建订单
-	// 2. 准备挑战（HTTP-01或DNS-01）
-	// 3. 完成挑战
-	// 4. 下载证书
-	// 5. 保存证书
+	cm := NewCertificateManager()
+	loaded, err := cm.LoadCert(domain)
+	if err == nil {
+		loaded.CertType = CertTypeACME
+		loaded.ACMEEmail = ac.email
+		loaded.AutoRenew = true
+		return loaded, nil
+	}
 
-	// 由于完整实现较复杂，这里提供一个框架
 	certInfo := &CertInfo{
-		Domain:     domain,
-		CertType:   CertTypeACME,
+		Domain:    domain,
+		CertType:  CertTypeACME,
+		CertPath:  certPath,
+		KeyPath:   keyPath,
 		ACMEEmail: ac.email,
-		AutoRenew:  true,
+		AutoRenew: true,
 	}
 
-	logger.Info("[ACME] 证书申请框架已创建", "domain", domain)
+	logger.Info("[ACME] 证书申请完成", "domain", domain, "cert_path", certPath)
 	return certInfo, nil
 }
 
@@ -175,10 +195,11 @@ func (ac *ACMEClient) PrepareHTTPChallenge(domain string) error {
 // GenerateCSR 生成证书签名请求
 func (ac *ACMEClient) GenerateCSR(domain string) (string, error) {
 	// 生成私钥和CSR
-	privateKey, err := ecdsa.GenerateKey(elliptic.P256())
+	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		return "", fmt.Errorf("generate private key: %w", err)
 	}
+	_ = privateKey
 
 	// 这里应该生成CSR
 	// 简化实现，返回空字符串
@@ -263,6 +284,60 @@ func (ac *ACMEClient) GetACMEEmail() string {
 // SetACMEEmail 设置ACME邮箱
 func (ac *ACMEClient) SetACMEEmail(email string) {
 	ac.email = email
+}
+
+type acmeShellOptions struct {
+	ACMEPath string
+	Domain   string
+	Email    string
+	CertPath string
+	KeyPath  string
+	Staging  bool
+}
+
+type acmeShellCommand struct {
+	Name string
+	Args []string
+}
+
+func buildACMEShellCommands(opts acmeShellOptions) []acmeShellCommand {
+	acmePath := opts.ACMEPath
+	if acmePath == "" {
+		acmePath = "/root/.acme.sh/acme.sh"
+	}
+
+	issueArgs := []string{
+		"--issue",
+		"--standalone",
+		"-d", opts.Domain,
+		"--accountemail", opts.Email,
+	}
+	if opts.Staging {
+		issueArgs = append(issueArgs, "--server", "letsencrypt_test")
+	}
+	issueArgs = append(issueArgs, "--keylength", "ec-256", "--force")
+
+	installArgs := []string{
+		"--install-cert",
+		"-d", opts.Domain,
+		"--ecc",
+		"--fullchain-file", opts.CertPath,
+		"--key-file", opts.KeyPath,
+	}
+
+	return []acmeShellCommand{
+		{Name: acmePath, Args: issueArgs},
+		{Name: acmePath, Args: installArgs},
+	}
+}
+
+func runACMEShellCommand(command acmeShellCommand) error {
+	cmd := exec.Command(command.Name, command.Args...)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("%w: %s", err, string(output))
+	}
+	return nil
 }
 
 // IsAccountRegistered 检查账户是否已注册

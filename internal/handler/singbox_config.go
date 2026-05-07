@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -20,11 +19,12 @@ type ConfigGenerateRequest struct {
 
 // ConfigGenerateResponse 配置生成响应
 type ConfigGenerateResponse struct {
-	Success  bool                   `json:"success"`
-	Message  string                 `json:"message"`
-	Config   *singbox.SingboxConfig `json:"config,omitempty"`
-	Link     string                 `json:"link,omitempty"`
-	Port     int                    `json:"port,omitempty"`
+	Success bool                   `json:"success"`
+	Message string                 `json:"message"`
+	Config  *singbox.SingboxConfig `json:"config,omitempty"`
+	Link    string                 `json:"link,omitempty"`
+	Links   map[string]string      `json:"links,omitempty"`
+	Port    int                    `json:"port,omitempty"`
 }
 
 // ConfigSaveRequest 配置保存请求
@@ -60,12 +60,18 @@ func NewSingboxConfigGenerateHandler(repo *storage.TrafficRepository) http.Handl
 		logOperation(repo, username, "singbox_config_generate", fmt.Sprintf("生成配置: %s", req.Protocol))
 
 		// 生成配置
-		config, link, port, err := generateConfig(req.Protocol, req.Options)
+		config, links, port, err := generateConfigWithLinks(req.Protocol, req.Options)
 		if err != nil {
 			logger.Error("[Singbox API] 配置生成失败", "error", err)
 			logOperationWithError(repo, username, "singbox_config_generate", err.Error())
 			writeError(w, http.StatusInternalServerError, fmt.Errorf("generate config failed: %w", err))
 			return
+		}
+		link := ""
+		if len(links) == 1 {
+			for _, value := range links {
+				link = value
+			}
 		}
 
 		writeJSON(w, http.StatusOK, ConfigGenerateResponse{
@@ -73,6 +79,7 @@ func NewSingboxConfigGenerateHandler(repo *storage.TrafficRepository) http.Handl
 			Message: "配置生成成功",
 			Config:  config,
 			Link:    link,
+			Links:   links,
 			Port:    port,
 		})
 
@@ -292,8 +299,8 @@ func NewSingboxPortStatusHandler(repo *storage.TrafficRepository) http.Handler {
 		availableCount := pm.GetAvailablePortCount(minPort, maxPort)
 
 		writeJSON(w, http.StatusOK, map[string]interface{}{
-			"used_ports":       usedPorts,
-			"available_count":  availableCount,
+			"used_ports":      usedPorts,
+			"available_count": availableCount,
 			"range": map[string]int{
 				"min": minPort,
 				"max": maxPort,
@@ -305,6 +312,50 @@ func NewSingboxPortStatusHandler(repo *storage.TrafficRepository) http.Handler {
 // 辅助函数
 
 func generateConfig(protocol string, options map[string]interface{}) (*singbox.SingboxConfig, string, int, error) {
+	config, links, port, err := generateConfigWithLinks(protocol, options)
+	if err != nil {
+		return nil, "", 0, err
+	}
+	link := ""
+	if len(links) == 1 {
+		for _, value := range links {
+			link = value
+		}
+	}
+	return config, link, port, nil
+}
+
+func generateConfigWithLinks(protocol string, options map[string]interface{}) (*singbox.SingboxConfig, map[string]string, int, error) {
+	if protocol == "server" || protocol == "multi" || protocol == "sb-server" {
+		opts := singbox.ServerConfigOptions{
+			ExternalHost:       getStringOption(options, "external_host", ""),
+			Hostname:           getStringOption(options, "hostname", ""),
+			UUID:               getStringOption(options, "uuid", ""),
+			Password:           getStringOption(options, "password", ""),
+			RealitySNI:         getStringOption(options, "reality_sni", "apple.com"),
+			RealityPrivateKey:  getStringOption(options, "reality_private_key", ""),
+			RealityPublicKey:   getStringOption(options, "reality_public_key", ""),
+			RealityShortID:     getStringOption(options, "reality_short_id", ""),
+			WebSocketPath:      getStringOption(options, "websocket_path", "/vmessws"),
+			CertificatePath:    getStringOption(options, "certificate_path", "/etc/s-box/cert.pem"),
+			PrivateKeyPath:     getStringOption(options, "private_key_path", "/etc/s-box/private.key"),
+			VlessRealityPort:   getIntOption(options, "vless_reality_port", 10000),
+			VmessWebSocketPort: getIntOption(options, "vmess_websocket_port", 10001),
+			Hysteria2Port:      getIntOption(options, "hysteria2_port", 10002),
+			TUICPort:           getIntOption(options, "tuic_port", 10003),
+			AnyTLSPort:         getIntOption(options, "anytls_port", 10004),
+		}
+		config, err := singbox.BuildServerConfig(opts)
+		if err != nil {
+			return nil, nil, 0, err
+		}
+		links, err := singbox.GenerateShareLinks(opts)
+		if err != nil {
+			return nil, nil, 0, err
+		}
+		return config, links, opts.VlessRealityPort, nil
+	}
+
 	generator := singbox.NewConfigGenerator()
 
 	// 构建协议选项
@@ -327,7 +378,7 @@ func generateConfig(protocol string, options map[string]interface{}) (*singbox.S
 		pm := singbox.NewPortManager()
 		port, err := pm.AllocatePort()
 		if err != nil {
-			return nil, "", 0, fmt.Errorf("allocate port: %w", err)
+			return nil, nil, 0, fmt.Errorf("allocate port: %w", err)
 		}
 		protocolOpts.ServerPort = port
 	}
@@ -335,14 +386,14 @@ func generateConfig(protocol string, options map[string]interface{}) (*singbox.S
 	// 生成配置
 	config, err := generator.GenerateProtocolConfig(singbox.ProtocolType(protocol), protocolOpts)
 	if err != nil {
-		return nil, "", 0, fmt.Errorf("generate protocol config: %w", err)
+		return nil, nil, 0, fmt.Errorf("generate protocol config: %w", err)
 	}
 
 	// 生成链接 (暂时返回空字符串)
-	link := ""
+	links := map[string]string{}
 	port := protocolOpts.ServerPort
 
-	return config, link, port, nil
+	return config, links, port, nil
 }
 
 func extractProtocol(config *singbox.SingboxConfig) string {

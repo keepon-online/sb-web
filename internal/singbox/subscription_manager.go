@@ -1,7 +1,6 @@
 package singbox
 
 import (
-	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
 	"encoding/base64"
@@ -20,24 +19,24 @@ import (
 // NodeInfo 节点信息
 type NodeInfo struct {
 	Name        string            `json:"name"`
-	Type        string            `json:"type"`         // vless, vmess, hysteria2, tuic, etc.
+	Type        string            `json:"type"` // vless, vmess, hysteria2, tuic, etc.
 	Host        string            `json:"host"`
 	Port        int               `json:"port"`
 	UUID        string            `json:"uuid"`
 	Password    string            `json:"password,omitempty"`
 	Cipher      string            `json:"cipher,omitempty"`
-	Network     string            `json:"network,omitempty"`      // tcp, ws, h2, grpc
-	Security    string            `json:"security,omitempty"`     // tls, reality
-	Path        string            `json:"path,omitempty"`         // ws path
-	HostHeader  string            `json:"host_header,omitempty"`  // ws host
-	SNI         string            `json:"sni,omitempty"`          // tls sni
-	Fingerprint string            `json:"fingerprint,omitempty"`  // reality fingerprint
-	PublicKey   string            `json:"public_key,omitempty"`   // reality public key
-	ShortID     string            `json:"short_id,omitempty"`     // reality short id
-	Obfs        string            `json:"obfs,omitempty"`         // hysteria2 obfs
+	Network     string            `json:"network,omitempty"`     // tcp, ws, h2, grpc
+	Security    string            `json:"security,omitempty"`    // tls, reality
+	Path        string            `json:"path,omitempty"`        // ws path
+	HostHeader  string            `json:"host_header,omitempty"` // ws host
+	SNI         string            `json:"sni,omitempty"`         // tls sni
+	Fingerprint string            `json:"fingerprint,omitempty"` // reality fingerprint
+	PublicKey   string            `json:"public_key,omitempty"`  // reality public key
+	ShortID     string            `json:"short_id,omitempty"`    // reality short id
+	Obfs        string            `json:"obfs,omitempty"`        // hysteria2 obfs
 	Up          int               `json:"up,omitempty"`          // hysteria2 up
 	Down        int               `json:"down,omitempty"`        // hysteria2 down
-	Extra       map[string]string `json:"extra,omitempty"`        // extra parameters
+	Extra       map[string]string `json:"extra,omitempty"`       // extra parameters
 	CreatedAt   time.Time         `json:"created_at"`
 }
 
@@ -46,22 +45,22 @@ type SubscriptionConfig struct {
 	ID              string     `json:"id"`
 	Name            string     `json:"name"`
 	Nodes           []NodeInfo `json:"nodes"`
-	Format          string     `json:"format"`            // clash, v2ray, singbox, etc.
+	Format          string     `json:"format"` // clash, v2ray, singbox, etc.
 	UpdateTime      time.Time  `json:"update_time"`
 	Enabled         bool       `json:"enabled"`
 	AutoUpdate      bool       `json:"auto_update"`
-	UpdateInterval  int        `json:"update_interval"`   // minutes
-	ShareCode       string     `json:"share_code"`        // 短链接代码
-	UserCode        string     `json:"user_code"`         // 用户代码
-	SubscriptionURL string     `json:"subscription_url"`  // 完整订阅URL
+	UpdateInterval  int        `json:"update_interval"`  // minutes
+	ShareCode       string     `json:"share_code"`       // 短链接代码
+	UserCode        string     `json:"user_code"`        // 用户代码
+	SubscriptionURL string     `json:"subscription_url"` // 完整订阅URL
 }
 
 // SubscriptionManager 订阅管理器
 type SubscriptionManager struct {
-	paths       ConfigPaths
-	subDir      string
-	configDir   string
-	baseURL     string // 订阅基础URL
+	paths     ConfigPaths
+	subDir    string
+	configDir string
+	baseURL   string // 订阅基础URL
 }
 
 // NewSubscriptionManager 创建订阅管理器
@@ -680,9 +679,9 @@ func (sm *SubscriptionManager) exportSingboxFormat(subscription *SubscriptionCon
 		},
 		"inbounds": []map[string]interface{}{
 			{
-				"type": "tun",
-				"tag":  "tun-in",
-				"interface_name": "tun0",
+				"type":                "tun",
+				"tag":                 "tun-in",
+				"interface_name":      "tun0",
 				"inet4_route_address": []string{"0.0.0.0/1", "128.0.0.0/1"},
 			},
 		},
@@ -711,10 +710,10 @@ func (sm *SubscriptionManager) exportSingboxFormat(subscription *SubscriptionCon
 	}
 
 	outbounds = append(outbounds, map[string]interface{}{
-		"type":  "selector",
-		"tag":   "proxy",
+		"type":      "selector",
+		"tag":       "proxy",
 		"outbounds": append([]string{"direct"}, selectorNames...),
-		"default": subscription.Nodes[0].Name,
+		"default":   subscription.Nodes[0].Name,
 	})
 
 	singboxConfig["outbounds"] = outbounds
@@ -727,7 +726,7 @@ func (sm *SubscriptionManager) exportSingboxFormat(subscription *SubscriptionCon
 	return string(configData), nil
 }
 
-func (sm *SubscriptionManager) exportBase64Format(subscription *SubscriptionConfig) (string, error {
+func (sm *SubscriptionManager) exportBase64Format(subscription *SubscriptionConfig) (string, error) {
 	// 导出Base64格式的节点链接
 	links := make([]string, 0)
 	for _, node := range subscription.Nodes {
@@ -895,7 +894,7 @@ func (sm *SubscriptionManager) convertNodeToClashProxy(node NodeInfo) map[string
 		}
 		if node.Network == "ws" {
 			proxy["ws-opts"] = map[string]interface{}{
-				"path":   node.Path,
+				"path":    node.Path,
 				"headers": map[string]string{"Host": node.HostHeader},
 			}
 		}
@@ -948,14 +947,14 @@ func (sm *SubscriptionManager) convertNodeToSingboxOutbound(node NodeInfo) map[s
 		}
 		if node.Security == "tls" {
 			outbound["tls"] = map[string]interface{}{
-				"enabled":    true,
+				"enabled":     true,
 				"server_name": node.SNI,
 			}
 		}
 		if node.Network == "ws" {
 			outbound["transport"] = map[string]interface{}{
-				"type": "ws",
-				"path": node.Path,
+				"type":    "ws",
+				"path":    node.Path,
 				"headers": map[string]string{"Host": node.HostHeader},
 			}
 		}
@@ -966,7 +965,7 @@ func (sm *SubscriptionManager) convertNodeToSingboxOutbound(node NodeInfo) map[s
 		outbound["password"] = node.Password
 		if node.SNI != "" {
 			outbound["tls"] = map[string]interface{}{
-				"enabled":    true,
+				"enabled":     true,
 				"server_name": node.SNI,
 			}
 		}
@@ -984,7 +983,7 @@ func (sm *SubscriptionManager) convertNodeToSingboxOutbound(node NodeInfo) map[s
 		outbound["password"] = node.Password
 		if node.SNI != "" {
 			outbound["tls"] = map[string]interface{}{
-				"enabled":    true,
+				"enabled":     true,
 				"server_name": node.SNI,
 			}
 		}

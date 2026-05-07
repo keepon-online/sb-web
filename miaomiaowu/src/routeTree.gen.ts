@@ -14,6 +14,7 @@ import { Route as TemplatesRouteImport } from './routes/templates'
 import { Route as SystemSettingsRouteImport } from './routes/system-settings'
 import { Route as SubscriptionRouteImport } from './routes/subscription'
 import { Route as SubscribeFilesRouteImport } from './routes/subscribe-files'
+import { Route as SingboxRouteImport } from './routes/singbox'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as RulesRouteImport } from './routes/rules'
 import { Route as NodesRouteImport } from './routes/nodes'
@@ -27,9 +28,17 @@ import { Route as TemplatesIndexRouteImport } from './routes/templates.index'
 import { Route as TemplatesV3IndexRouteImport } from './routes/templates-v3.index'
 import { Route as SubscriptionIndexRouteImport } from './routes/subscription.index'
 import { Route as SubscribeFilesIndexRouteImport } from './routes/subscribe-files.index'
+import { Route as SingboxIndexRouteImport } from './routes/singbox.index'
 import { Route as NodesIndexRouteImport } from './routes/nodes.index'
 import { Route as CustomRulesIndexRouteImport } from './routes/custom-rules.index'
 import { Route as SubscribeFilesCustomRouteImport } from './routes/subscribe-files.custom'
+import { Route as SingboxWarpRouteImport } from './routes/singbox.warp'
+import { Route as SingboxSyncRouteImport } from './routes/singbox.sync'
+import { Route as SingboxSubscriptionRouteImport } from './routes/singbox.subscription'
+import { Route as SingboxOptimizeRouteImport } from './routes/singbox.optimize'
+import { Route as SingboxConfigRouteImport } from './routes/singbox.config'
+import { Route as SingboxCertificatesRouteImport } from './routes/singbox.certificates'
+import { Route as SingboxArgoRouteImport } from './routes/singbox.argo'
 
 const UsersRoute = UsersRouteImport.update({
   id: '/users',
@@ -56,6 +65,11 @@ const SubscribeFilesRoute = SubscribeFilesRouteImport.update({
   path: '/subscribe-files',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SingboxRoute = SingboxRouteImport.update({
+  id: '/singbox',
+  path: '/singbox',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -64,10 +78,6 @@ const SettingsRoute = SettingsRouteImport.update({
 const RulesRoute = RulesRouteImport.update({
   id: '/rules',
   path: '/rules',
-  getParentRoute: () => rootRouteImport,
-} as any)
-  id: '/probe',
-  path: '/probe',
   getParentRoute: () => rootRouteImport,
 } as any)
 const NodesRoute = NodesRouteImport.update({
@@ -125,6 +135,11 @@ const SubscribeFilesIndexRoute = SubscribeFilesIndexRouteImport.update({
   path: '/',
   getParentRoute: () => SubscribeFilesRoute,
 } as any)
+const SingboxIndexRoute = SingboxIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => SingboxRoute,
+} as any)
 const NodesIndexRoute = NodesIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -140,6 +155,41 @@ const SubscribeFilesCustomRoute = SubscribeFilesCustomRouteImport.update({
   path: '/custom',
   getParentRoute: () => SubscribeFilesRoute,
 } as any)
+const SingboxWarpRoute = SingboxWarpRouteImport.update({
+  id: '/warp',
+  path: '/warp',
+  getParentRoute: () => SingboxRoute,
+} as any)
+const SingboxSyncRoute = SingboxSyncRouteImport.update({
+  id: '/sync',
+  path: '/sync',
+  getParentRoute: () => SingboxRoute,
+} as any)
+const SingboxSubscriptionRoute = SingboxSubscriptionRouteImport.update({
+  id: '/subscription',
+  path: '/subscription',
+  getParentRoute: () => SingboxRoute,
+} as any)
+const SingboxOptimizeRoute = SingboxOptimizeRouteImport.update({
+  id: '/optimize',
+  path: '/optimize',
+  getParentRoute: () => SingboxRoute,
+} as any)
+const SingboxConfigRoute = SingboxConfigRouteImport.update({
+  id: '/config',
+  path: '/config',
+  getParentRoute: () => SingboxRoute,
+} as any)
+const SingboxCertificatesRoute = SingboxCertificatesRouteImport.update({
+  id: '/certificates',
+  path: '/certificates',
+  getParentRoute: () => SingboxRoute,
+} as any)
+const SingboxArgoRoute = SingboxArgoRouteImport.update({
+  id: '/argo',
+  path: '/argo',
+  getParentRoute: () => SingboxRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -151,14 +201,23 @@ export interface FileRoutesByFullPath {
   '/nodes': typeof NodesRouteWithChildren
   '/rules': typeof RulesRoute
   '/settings': typeof SettingsRoute
+  '/singbox': typeof SingboxRouteWithChildren
   '/subscribe-files': typeof SubscribeFilesRouteWithChildren
   '/subscription': typeof SubscriptionRouteWithChildren
   '/system-settings': typeof SystemSettingsRoute
   '/templates': typeof TemplatesRouteWithChildren
   '/users': typeof UsersRoute
+  '/singbox/argo': typeof SingboxArgoRoute
+  '/singbox/certificates': typeof SingboxCertificatesRoute
+  '/singbox/config': typeof SingboxConfigRoute
+  '/singbox/optimize': typeof SingboxOptimizeRoute
+  '/singbox/subscription': typeof SingboxSubscriptionRoute
+  '/singbox/sync': typeof SingboxSyncRoute
+  '/singbox/warp': typeof SingboxWarpRoute
   '/subscribe-files/custom': typeof SubscribeFilesCustomRoute
   '/custom-rules/': typeof CustomRulesIndexRoute
   '/nodes/': typeof NodesIndexRoute
+  '/singbox/': typeof SingboxIndexRoute
   '/subscribe-files/': typeof SubscribeFilesIndexRoute
   '/subscription/': typeof SubscriptionIndexRoute
   '/templates-v3': typeof TemplatesV3IndexRoute
@@ -174,9 +233,17 @@ export interface FileRoutesByTo {
   '/settings': typeof SettingsRoute
   '/system-settings': typeof SystemSettingsRoute
   '/users': typeof UsersRoute
+  '/singbox/argo': typeof SingboxArgoRoute
+  '/singbox/certificates': typeof SingboxCertificatesRoute
+  '/singbox/config': typeof SingboxConfigRoute
+  '/singbox/optimize': typeof SingboxOptimizeRoute
+  '/singbox/subscription': typeof SingboxSubscriptionRoute
+  '/singbox/sync': typeof SingboxSyncRoute
+  '/singbox/warp': typeof SingboxWarpRoute
   '/subscribe-files/custom': typeof SubscribeFilesCustomRoute
   '/custom-rules': typeof CustomRulesIndexRoute
   '/nodes': typeof NodesIndexRoute
+  '/singbox': typeof SingboxIndexRoute
   '/subscribe-files': typeof SubscribeFilesIndexRoute
   '/subscription': typeof SubscriptionIndexRoute
   '/templates-v3': typeof TemplatesV3IndexRoute
@@ -193,14 +260,23 @@ export interface FileRoutesById {
   '/nodes': typeof NodesRouteWithChildren
   '/rules': typeof RulesRoute
   '/settings': typeof SettingsRoute
+  '/singbox': typeof SingboxRouteWithChildren
   '/subscribe-files': typeof SubscribeFilesRouteWithChildren
   '/subscription': typeof SubscriptionRouteWithChildren
   '/system-settings': typeof SystemSettingsRoute
   '/templates': typeof TemplatesRouteWithChildren
   '/users': typeof UsersRoute
+  '/singbox/argo': typeof SingboxArgoRoute
+  '/singbox/certificates': typeof SingboxCertificatesRoute
+  '/singbox/config': typeof SingboxConfigRoute
+  '/singbox/optimize': typeof SingboxOptimizeRoute
+  '/singbox/subscription': typeof SingboxSubscriptionRoute
+  '/singbox/sync': typeof SingboxSyncRoute
+  '/singbox/warp': typeof SingboxWarpRoute
   '/subscribe-files/custom': typeof SubscribeFilesCustomRoute
   '/custom-rules/': typeof CustomRulesIndexRoute
   '/nodes/': typeof NodesIndexRoute
+  '/singbox/': typeof SingboxIndexRoute
   '/subscribe-files/': typeof SubscribeFilesIndexRoute
   '/subscription/': typeof SubscriptionIndexRoute
   '/templates-v3/': typeof TemplatesV3IndexRoute
@@ -216,17 +292,25 @@ export interface FileRouteTypes {
     | '/generator'
     | '/login'
     | '/nodes'
-    | '/probe'
     | '/rules'
     | '/settings'
+    | '/singbox'
     | '/subscribe-files'
     | '/subscription'
     | '/system-settings'
     | '/templates'
     | '/users'
+    | '/singbox/argo'
+    | '/singbox/certificates'
+    | '/singbox/config'
+    | '/singbox/optimize'
+    | '/singbox/subscription'
+    | '/singbox/sync'
+    | '/singbox/warp'
     | '/subscribe-files/custom'
     | '/custom-rules/'
     | '/nodes/'
+    | '/singbox/'
     | '/subscribe-files/'
     | '/subscription/'
     | '/templates-v3'
@@ -238,14 +322,21 @@ export interface FileRouteTypes {
     | '/change-password'
     | '/generator'
     | '/login'
-    | '/probe'
     | '/rules'
     | '/settings'
     | '/system-settings'
     | '/users'
+    | '/singbox/argo'
+    | '/singbox/certificates'
+    | '/singbox/config'
+    | '/singbox/optimize'
+    | '/singbox/subscription'
+    | '/singbox/sync'
+    | '/singbox/warp'
     | '/subscribe-files/custom'
     | '/custom-rules'
     | '/nodes'
+    | '/singbox'
     | '/subscribe-files'
     | '/subscription'
     | '/templates-v3'
@@ -259,17 +350,25 @@ export interface FileRouteTypes {
     | '/generator'
     | '/login'
     | '/nodes'
-    | '/probe'
     | '/rules'
     | '/settings'
+    | '/singbox'
     | '/subscribe-files'
     | '/subscription'
     | '/system-settings'
     | '/templates'
     | '/users'
+    | '/singbox/argo'
+    | '/singbox/certificates'
+    | '/singbox/config'
+    | '/singbox/optimize'
+    | '/singbox/subscription'
+    | '/singbox/sync'
+    | '/singbox/warp'
     | '/subscribe-files/custom'
     | '/custom-rules/'
     | '/nodes/'
+    | '/singbox/'
     | '/subscribe-files/'
     | '/subscription/'
     | '/templates-v3/'
@@ -286,6 +385,7 @@ export interface RootRouteChildren {
   NodesRoute: typeof NodesRouteWithChildren
   RulesRoute: typeof RulesRoute
   SettingsRoute: typeof SettingsRoute
+  SingboxRoute: typeof SingboxRouteWithChildren
   SubscribeFilesRoute: typeof SubscribeFilesRouteWithChildren
   SubscriptionRoute: typeof SubscriptionRouteWithChildren
   SystemSettingsRoute: typeof SystemSettingsRoute
@@ -331,6 +431,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SubscribeFilesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/singbox': {
+      id: '/singbox'
+      path: '/singbox'
+      fullPath: '/singbox'
+      preLoaderRoute: typeof SingboxRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/settings': {
       id: '/settings'
       path: '/settings'
@@ -343,11 +450,6 @@ declare module '@tanstack/react-router' {
       path: '/rules'
       fullPath: '/rules'
       preLoaderRoute: typeof RulesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-      id: '/probe'
-      path: '/probe'
-      fullPath: '/probe'
       parentRoute: typeof rootRouteImport
     }
     '/nodes': {
@@ -427,6 +529,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SubscribeFilesIndexRouteImport
       parentRoute: typeof SubscribeFilesRoute
     }
+    '/singbox/': {
+      id: '/singbox/'
+      path: '/'
+      fullPath: '/singbox/'
+      preLoaderRoute: typeof SingboxIndexRouteImport
+      parentRoute: typeof SingboxRoute
+    }
     '/nodes/': {
       id: '/nodes/'
       path: '/'
@@ -447,6 +556,55 @@ declare module '@tanstack/react-router' {
       fullPath: '/subscribe-files/custom'
       preLoaderRoute: typeof SubscribeFilesCustomRouteImport
       parentRoute: typeof SubscribeFilesRoute
+    }
+    '/singbox/warp': {
+      id: '/singbox/warp'
+      path: '/warp'
+      fullPath: '/singbox/warp'
+      preLoaderRoute: typeof SingboxWarpRouteImport
+      parentRoute: typeof SingboxRoute
+    }
+    '/singbox/sync': {
+      id: '/singbox/sync'
+      path: '/sync'
+      fullPath: '/singbox/sync'
+      preLoaderRoute: typeof SingboxSyncRouteImport
+      parentRoute: typeof SingboxRoute
+    }
+    '/singbox/subscription': {
+      id: '/singbox/subscription'
+      path: '/subscription'
+      fullPath: '/singbox/subscription'
+      preLoaderRoute: typeof SingboxSubscriptionRouteImport
+      parentRoute: typeof SingboxRoute
+    }
+    '/singbox/optimize': {
+      id: '/singbox/optimize'
+      path: '/optimize'
+      fullPath: '/singbox/optimize'
+      preLoaderRoute: typeof SingboxOptimizeRouteImport
+      parentRoute: typeof SingboxRoute
+    }
+    '/singbox/config': {
+      id: '/singbox/config'
+      path: '/config'
+      fullPath: '/singbox/config'
+      preLoaderRoute: typeof SingboxConfigRouteImport
+      parentRoute: typeof SingboxRoute
+    }
+    '/singbox/certificates': {
+      id: '/singbox/certificates'
+      path: '/certificates'
+      fullPath: '/singbox/certificates'
+      preLoaderRoute: typeof SingboxCertificatesRouteImport
+      parentRoute: typeof SingboxRoute
+    }
+    '/singbox/argo': {
+      id: '/singbox/argo'
+      path: '/argo'
+      fullPath: '/singbox/argo'
+      preLoaderRoute: typeof SingboxArgoRouteImport
+      parentRoute: typeof SingboxRoute
     }
   }
 }
@@ -472,6 +630,31 @@ const NodesRouteChildren: NodesRouteChildren = {
 }
 
 const NodesRouteWithChildren = NodesRoute._addFileChildren(NodesRouteChildren)
+
+interface SingboxRouteChildren {
+  SingboxArgoRoute: typeof SingboxArgoRoute
+  SingboxCertificatesRoute: typeof SingboxCertificatesRoute
+  SingboxConfigRoute: typeof SingboxConfigRoute
+  SingboxOptimizeRoute: typeof SingboxOptimizeRoute
+  SingboxSubscriptionRoute: typeof SingboxSubscriptionRoute
+  SingboxSyncRoute: typeof SingboxSyncRoute
+  SingboxWarpRoute: typeof SingboxWarpRoute
+  SingboxIndexRoute: typeof SingboxIndexRoute
+}
+
+const SingboxRouteChildren: SingboxRouteChildren = {
+  SingboxArgoRoute: SingboxArgoRoute,
+  SingboxCertificatesRoute: SingboxCertificatesRoute,
+  SingboxConfigRoute: SingboxConfigRoute,
+  SingboxOptimizeRoute: SingboxOptimizeRoute,
+  SingboxSubscriptionRoute: SingboxSubscriptionRoute,
+  SingboxSyncRoute: SingboxSyncRoute,
+  SingboxWarpRoute: SingboxWarpRoute,
+  SingboxIndexRoute: SingboxIndexRoute,
+}
+
+const SingboxRouteWithChildren =
+  SingboxRoute._addFileChildren(SingboxRouteChildren)
 
 interface SubscribeFilesRouteChildren {
   SubscribeFilesCustomRoute: typeof SubscribeFilesCustomRoute
@@ -521,6 +704,7 @@ const rootRouteChildren: RootRouteChildren = {
   NodesRoute: NodesRouteWithChildren,
   RulesRoute: RulesRoute,
   SettingsRoute: SettingsRoute,
+  SingboxRoute: SingboxRouteWithChildren,
   SubscribeFilesRoute: SubscribeFilesRouteWithChildren,
   SubscriptionRoute: SubscriptionRouteWithChildren,
   SystemSettingsRoute: SystemSettingsRoute,

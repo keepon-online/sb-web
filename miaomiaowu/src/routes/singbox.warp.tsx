@@ -15,6 +15,7 @@ interface WARPConfig {
   status: {
     enabled: boolean
     type: string
+    account_id?: string
     connected: boolean
     preferred_server: boolean
     last_updated: string

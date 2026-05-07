@@ -24,18 +24,18 @@ const (
 
 // SingboxConfig Sing-box 配置结构
 type SingboxConfig struct {
-	Log      LogConfig      `json:"log"`
-	DNS      DNSConfig      `json:"dns"`
-	Inbounds []InboundConfig `json:"inbounds"`
-	Outbounds []OutboundConfig `json:"outbounds"`
-	Route    RouteConfig    `json:"route"`
+	Log          LogConfig          `json:"log"`
+	DNS          DNSConfig          `json:"dns"`
+	Inbounds     []InboundConfig    `json:"inbounds"`
+	Outbounds    []OutboundConfig   `json:"outbounds"`
+	Route        RouteConfig        `json:"route"`
 	Experimental ExperimentalConfig `json:"experimental,omitempty"`
 }
 
 // LogConfig 日志配置
 type LogConfig struct {
-	Level string `json:"level"`
-	Timestamp bool `json:"timestamp,omitempty"`
+	Level     string `json:"level"`
+	Timestamp bool   `json:"timestamp,omitempty"`
 }
 
 // DNSConfig DNS 配置
@@ -46,11 +46,11 @@ type DNSConfig struct {
 
 // DNSServer DNS 服务器
 type DNSServer struct {
-	Tag      string   `json:"tag"`
-	Address  string   `json:"address"`
+	Tag             string `json:"tag"`
+	Address         string `json:"address"`
 	AddressResolver string `json:"address_resolver,omitempty"`
-	Strategy string   `json:"strategy,omitempty"`
-	Detour   string   `json:"detour,omitempty"`
+	Strategy        string `json:"strategy,omitempty"`
+	Detour          string `json:"detour,omitempty"`
 }
 
 // DNSRule DNS 规则
@@ -63,65 +63,70 @@ type DNSRule struct {
 
 // InboundConfig 入站配置
 type InboundConfig struct {
-	Type           string            `json:"type"`
-	Tag            string            `json:"tag"`
-	Listen         string            `json:"listen"`
-	ListenPort     int               `json:"listen_port"`
-	Sniff          bool              `json:"sniff,omitempty"`
-	SniffOverrideDestination bool     `json:"sniff_override_destination,omitempty"`
-	TLS            *TLSOptions       `json:"tls,omitempty"`
-	Transport      *TransportOptions `json:"transport,omitempty"`
-	Options        map[string]interface{} `json:"options,omitempty"`
+	Type                     string                   `json:"type"`
+	Tag                      string                   `json:"tag"`
+	Listen                   string                   `json:"listen"`
+	ListenPort               int                      `json:"listen_port"`
+	Users                    []map[string]interface{} `json:"users,omitempty"`
+	Password                 string                   `json:"password,omitempty"`
+	CongestionControl        string                   `json:"congestion_control,omitempty"`
+	Masquerade               string                   `json:"masquerade,omitempty"`
+	Sniff                    bool                     `json:"sniff,omitempty"`
+	SniffOverrideDestination bool                     `json:"sniff_override_destination,omitempty"`
+	TLS                      *TLSOptions              `json:"tls,omitempty"`
+	Transport                *TransportOptions        `json:"transport,omitempty"`
+	Options                  map[string]interface{}   `json:"options,omitempty"`
 }
 
 // OutboundConfig 出站配置
 type OutboundConfig struct {
-	Type           string            `json:"type"`
-	Tag            string            `json:"tag"`
-	Server         string            `json:"server,omitempty"`
-	ServerPort     int               `json:"server_port,omitempty"`
-	Username       string            `json:"username,omitempty"`
-	Password       string            `json:"password,omitempty"`
-	UUID           string            `json:"uuid,omitempty"`
-	TLS            *TLSOptions       `json:"tls,omitempty"`
-	Transport      *TransportOptions `json:"transport,omitempty"`
-	Detour         string            `json:"detour,omitempty"`
-	Options        map[string]interface{} `json:"options,omitempty"`
+	Type       string                 `json:"type"`
+	Tag        string                 `json:"tag"`
+	Server     string                 `json:"server,omitempty"`
+	ServerPort int                    `json:"server_port,omitempty"`
+	Username   string                 `json:"username,omitempty"`
+	Password   string                 `json:"password,omitempty"`
+	UUID       string                 `json:"uuid,omitempty"`
+	TLS        *TLSOptions            `json:"tls,omitempty"`
+	Transport  *TransportOptions      `json:"transport,omitempty"`
+	Detour     string                 `json:"detour,omitempty"`
+	Options    map[string]interface{} `json:"options,omitempty"`
 }
 
 // TLSOptions TLS 选项
 type TLSOptions struct {
-	Enabled         bool   `json:"enabled"`
-	ServerName      string `json:"server_name,omitempty"`
-	Insecure        bool   `json:"insecure,omitempty"`
-	ALPN            []string `json:"alpn,omitempty"`
-	CertificatePath string `json:"certificate_path,omitempty"`
-	KeyPath         string `json:"key_path,omitempty"`
+	Enabled         bool            `json:"enabled"`
+	ServerName      string          `json:"server_name,omitempty"`
+	Insecure        bool            `json:"insecure,omitempty"`
+	ALPN            []string        `json:"alpn,omitempty"`
+	CertificatePath string          `json:"certificate_path,omitempty"`
+	KeyPath         string          `json:"key_path,omitempty"`
 	Reality         *RealityOptions `json:"reality,omitempty"`
 }
 
 // RealityOptions Reality 选项
 type RealityOptions struct {
-	Enabled   bool   `json:"enabled"`
-	PublicKey string `json:"public_key"`
-	ShortID   string `json:"short_id,omitempty"`
+	Enabled    bool   `json:"enabled"`
+	PublicKey  string `json:"public_key,omitempty"`
+	PrivateKey string `json:"private_key,omitempty"`
+	ShortID    string `json:"short_id,omitempty"`
 }
 
 // TransportOptions 传输选项
 type TransportOptions struct {
-	Type         string                 `json:"type"`
-	Path         string                 `json:"path,omitempty"`
-	Headers      map[string]string      `json:"headers,omitempty"`
-	MaxUploadMbps int                  `json:"max_upload_mbps,omitempty"`
-	MaxDownloadMbps int                `json:"max_download_mbps,omitempty"`
+	Type            string            `json:"type"`
+	Path            string            `json:"path,omitempty"`
+	Headers         map[string]string `json:"headers,omitempty"`
+	MaxUploadMbps   int               `json:"max_upload_mbps,omitempty"`
+	MaxDownloadMbps int               `json:"max_download_mbps,omitempty"`
 }
 
 // RouteConfig 路由配置
 type RouteConfig struct {
-	Rules        []RouteRule   `json:"rules,omitempty"`
-	Rule_set     []string      `json:"rule_set,omitempty"`
-	Final        string        `json:"final"`
-	Auto         bool          `json:"auto,omitempty"`
+	Rules    []RouteRule `json:"rules,omitempty"`
+	Rule_set []string    `json:"rule_set,omitempty"`
+	Final    string      `json:"final"`
+	Auto     bool        `json:"auto,omitempty"`
 }
 
 // RouteRule 路由规则
@@ -137,9 +142,9 @@ type ExperimentalConfig struct {
 
 // CacheFileConfig 缓存文件配置
 type CacheFileConfig struct {
-	Enabled bool   `json:"enabled"`
-	Path    string `json:"path,omitempty"`
-	StoreFakeIP bool `json:"store_fakeip,omitempty"`
+	Enabled     bool   `json:"enabled"`
+	Path        string `json:"path,omitempty"`
+	StoreFakeIP bool   `json:"store_fakeip,omitempty"`
 }
 
 // ConfigGenerator 配置生成器
@@ -161,14 +166,14 @@ func NewConfigGenerator() *ConfigGenerator {
 func (cg *ConfigGenerator) GenerateDefaultConfig() (*SingboxConfig, error) {
 	config := &SingboxConfig{
 		Log: LogConfig{
-			Level: "info",
+			Level:     "info",
 			Timestamp: true,
 		},
 		DNS: DNSConfig{
 			Servers: []DNSServer{
 				{
-					Tag:     "local",
-					Address: "https://1.1.1.1/dns-query",
+					Tag:      "local",
+					Address:  "https://1.1.1.1/dns-query",
 					Strategy: "prefer_ipv4",
 				},
 				{
@@ -195,12 +200,12 @@ func (cg *ConfigGenerator) GenerateDefaultConfig() (*SingboxConfig, error) {
 				},
 			},
 			Final: "direct",
-			Auto: true,
+			Auto:  true,
 		},
 		Experimental: ExperimentalConfig{
 			CacheFile: &CacheFileConfig{
-				Enabled: true,
-				Path: filepath.Join(cg.paths.DataDir, "cache.db"),
+				Enabled:     true,
+				Path:        filepath.Join(cg.paths.DataDir, "cache.db"),
 				StoreFakeIP: true,
 			},
 		},
@@ -212,9 +217,9 @@ func (cg *ConfigGenerator) GenerateDefaultConfig() (*SingboxConfig, error) {
 // generateTunInbound 生成 TUN 入站配置
 func (cg *ConfigGenerator) generateTunInbound() InboundConfig {
 	inbound := InboundConfig{
-		Type:                 "tun",
-		Tag:                  "tun-in",
-		Sniff:                true,
+		Type:                     "tun",
+		Tag:                      "tun-in",
+		Sniff:                    true,
 		SniffOverrideDestination: true,
 	}
 
@@ -231,11 +236,11 @@ func (cg *ConfigGenerator) generateTunInbound() InboundConfig {
 // generateMixedInbound 生成混合入站配置
 func (cg *ConfigGenerator) generateMixedInbound() InboundConfig {
 	return InboundConfig{
-		Type:       "mixed",
-		Tag:        "mixed-in",
-		Listen:     "0.0.0.0",
-		ListenPort: 2080,
-		Sniff:      true,
+		Type:                     "mixed",
+		Tag:                      "mixed-in",
+		Listen:                   "0.0.0.0",
+		ListenPort:               2080,
+		Sniff:                    true,
 		SniffOverrideDestination: true,
 	}
 }
@@ -289,20 +294,20 @@ func (cg *ConfigGenerator) GenerateProtocolConfig(protocol ProtocolType, options
 
 // ProtocolOptions 协议选项
 type ProtocolOptions struct {
-	Server       string
-	ServerPort   int
-	UUID         string
-	Password     string
-	Domain       string
-	Path         string
-	Host         string
-	Port         int
-	CertPath     string
-	KeyPath      string
-	PublicKey    string
-	ShortID      string
-	UpMbps       int
-	DownMbps     int
+	Server     string
+	ServerPort int
+	UUID       string
+	Password   string
+	Domain     string
+	Path       string
+	Host       string
+	Port       int
+	CertPath   string
+	KeyPath    string
+	PublicKey  string
+	ShortID    string
+	UpMbps     int
+	DownMbps   int
 }
 
 // generateProtocolOutbound 生成协议出站配置
@@ -420,8 +425,8 @@ func (cg *ConfigGenerator) generateHysteria2Outbound(opts ProtocolOptions) (*Out
 			Insecure:   false,
 		},
 		Transport: &TransportOptions{
-			Type:         "hysteria2",
-			MaxUploadMbps: opts.UpMbps,
+			Type:            "hysteria2",
+			MaxUploadMbps:   opts.UpMbps,
 			MaxDownloadMbps: opts.DownMbps,
 		},
 	}, nil

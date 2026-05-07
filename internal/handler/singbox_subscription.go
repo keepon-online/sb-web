@@ -25,9 +25,9 @@ type SubscriptionExportRequest struct {
 
 // SubscriptionUpdateRequest 更新订阅请求
 type SubscriptionUpdateRequest struct {
-	SubscriptionID  string `json:"subscription_id"`
-	AutoUpdate      bool   `json:"auto_update"`
-	UpdateInterval  int    `json:"update_interval"`
+	SubscriptionID string `json:"subscription_id"`
+	AutoUpdate     bool   `json:"auto_update"`
+	UpdateInterval int    `json:"update_interval"`
 }
 
 // NewSubscriptionGenerateHandler 创建订阅生成处理器
@@ -85,8 +85,8 @@ func NewSubscriptionGenerateHandler(repo *storage.TrafficRepository) http.Handle
 	})
 }
 
-// NewSubscriptionListHandler 创建订阅列表处理器
-func NewSubscriptionListHandler(repo *storage.TrafficRepository) http.Handler {
+// NewSingBoxSubscriptionListHandler 创建 Sing-box 订阅列表处理器
+func NewSingBoxSubscriptionListHandler(repo *storage.TrafficRepository) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			writeError(w, http.StatusMethodNotAllowed, errors.New("only GET is supported"))
@@ -186,7 +186,7 @@ func NewSubscriptionExportHandler(repo *storage.TrafficRepository) http.Handler 
 		}
 
 		// 设置响应内容类型
-	switch format {
+		switch format {
 		case "clash":
 			w.Header().Set("Content-Type", "text/yaml")
 		case "json":
@@ -311,8 +311,8 @@ func NewSubscriptionURLHandler(repo *storage.TrafficRepository) http.Handler {
 				writeJSON(w, http.StatusOK, map[string]interface{}{
 					"subscription_id":  subscriptionID,
 					"subscription_url": subscriptionURL,
-					"share_code":      sub.ShareCode,
-					"user_code":       sub.UserCode,
+					"share_code":       sub.ShareCode,
+					"user_code":        sub.UserCode,
 				})
 				return
 			}
@@ -333,7 +333,7 @@ func NewNodeLinkGenerateHandler(repo *storage.TrafficRepository) http.Handler {
 		// 解析请求
 		var req struct {
 			SubscriptionID string `json:"subscription_id"`
-			NodeName        string `json:"node_name"`
+			NodeName       string `json:"node_name"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			writeError(w, http.StatusBadRequest, fmt.Errorf("invalid request: %w", err))
@@ -404,7 +404,7 @@ func NewQRCodeGenerateHandler(repo *storage.TrafficRepository) http.Handler {
 
 		writeJSON(w, http.StatusOK, map[string]interface{}{
 			"subscription_id": subscriptionID,
-			"qr_data":        qrData,
+			"qr_data":         qrData,
 		})
 	})
 }
@@ -458,9 +458,9 @@ func NewSubscriptionEncryptHandler(repo *storage.TrafficRepository) http.Handler
 		}
 
 		writeJSON(w, http.StatusOK, map[string]interface{}{
-			"subscription_id":    req.SubscriptionID,
-			"format":             req.Format,
-			"encrypted_content":  encryptedContent,
+			"subscription_id":   req.SubscriptionID,
+			"format":            req.Format,
+			"encrypted_content": encryptedContent,
 		})
 
 		logger.Info("[订阅API] 订阅加密成功", "subscription_id", req.SubscriptionID)

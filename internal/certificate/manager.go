@@ -10,6 +10,7 @@ import (
 	"math/big"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"miaomiaowu/internal/logger"
@@ -124,7 +125,7 @@ func (cm *CertificateManager) GenerateSelfSignedCert(domain string, validityDays
 	}
 
 	certInfo := &CertInfo{
-		Domain:       domain,
+		Domain:      domain,
 		CertType:    CertTypeSelfSigned,
 		CertPath:    certFile,
 		KeyPath:     keyFile,
@@ -170,7 +171,7 @@ func (cm *CertificateManager) LoadCert(domain string) (*CertInfo, error) {
 	}
 
 	certInfo := &CertInfo{
-		Domain:       domain,
+		Domain:      domain,
 		CertType:    CertTypeCustom, // 或从证书内容推断
 		CertPath:    certFile,
 		KeyPath:     keyFile,
@@ -291,8 +292,8 @@ func (cm *CertificateManager) DeleteCert(domain string) error {
 
 // CertInfo 证书信息
 type CertInfo struct {
-	Domain       string    `json:"domain"`
-	CertType    CertType `json:"cert_type"`
+	Domain      string    `json:"domain"`
+	CertType    CertType  `json:"cert_type"`
 	CertPath    string    `json:"cert_path"`
 	KeyPath     string    `json:"key_path"`
 	ExpiresAt   time.Time `json:"expires_at"`
@@ -305,11 +306,11 @@ type CertInfo struct {
 
 // CertStatus 证书状态
 type CertStatus struct {
-	Domain      string    `json:"domain"`
-	Valid       bool      `json:"valid"`
-	ExpiresIn   int       `json:"expires_in_days"`
-	ExpiresAt   string    `json:"expires_at"`
-	Fingerprint string    `json:"fingerprint"`
+	Domain      string `json:"domain"`
+	Valid       bool   `json:"valid"`
+	ExpiresIn   int    `json:"expires_in_days"`
+	ExpiresAt   string `json:"expires_at"`
+	Fingerprint string `json:"fingerprint"`
 }
 
 // GetCertStatus 获取证书状态

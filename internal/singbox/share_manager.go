@@ -18,36 +18,36 @@ import (
 type ShareTarget string
 
 const (
-	ShareTargetGitLab    ShareTarget = "gitlab"
-	ShareTargetGitHub    ShareTarget = "github"
-	ShareTargetGist      ShareTarget = "gist"
-	ShareTargetLocal     ShareTarget = "local"
-	ShareTargetPastebin  ShareTarget = "pastebin"
+	ShareTargetGitLab   ShareTarget = "gitlab"
+	ShareTargetGitHub   ShareTarget = "github"
+	ShareTargetGist     ShareTarget = "gist"
+	ShareTargetLocal    ShareTarget = "local"
+	ShareTargetPastebin ShareTarget = "pastebin"
 )
 
 // ShareConfig 分享配置
 type ShareConfig struct {
-	ID           string       `json:"id"`
-	Name         string       `json:"name"`
-	Target       ShareTarget  `json:"target"`
-	Enabled      bool         `json:"enabled"`
-	AutoShare    bool         `json:"auto_share"`
+	ID            string      `json:"id"`
+	Name          string      `json:"name"`
+	Target        ShareTarget `json:"target"`
+	Enabled       bool        `json:"enabled"`
+	AutoShare     bool        `json:"auto_share"`
 	ShareInterval int         `json:"share_interval"` // minutes
-	LastShared   time.Time    `json:"last_shared"`
-	URL          string       `json:"url,omitempty"`        // 分享后的URL
-	Token        string       `json:"token,omitempty"`      // 访问令牌
-	RepoURL      string       `json:"repo_url,omitempty"`   // 仓库URL
-	FilePath     string       `json:"file_path,omitempty"`  // 文件路径
-	Branch       string       `json:"branch,omitempty"`     // 分支名
-	Message      string       `json:"message,omitempty"`    // 提交消息
-	CreatedAt    time.Time    `json:"created_at"`
+	LastShared    time.Time   `json:"last_shared"`
+	URL           string      `json:"url,omitempty"`       // 分享后的URL
+	Token         string      `json:"token,omitempty"`     // 访问令牌
+	RepoURL       string      `json:"repo_url,omitempty"`  // 仓库URL
+	FilePath      string      `json:"file_path,omitempty"` // 文件路径
+	Branch        string      `json:"branch,omitempty"`    // 分支名
+	Message       string      `json:"message,omitempty"`   // 提交消息
+	CreatedAt     time.Time   `json:"created_at"`
 }
 
 // ShareManager 分享管理器
 type ShareManager struct {
-	paths      ConfigPaths
-	configDir  string
-	cacheDir   string
+	paths     ConfigPaths
+	configDir string
+	cacheDir  string
 }
 
 // NewShareManager 创建分享管理器
@@ -308,8 +308,8 @@ func (sm *ShareManager) shareToGitLab(config *ShareConfig, content string) (stri
 
 	// 准备请求体
 	requestBody := map[string]interface{}{
-		"branch":        config.Branch,
-		"content":       content,
+		"branch":         config.Branch,
+		"content":        content,
 		"commit_message": config.Message,
 	}
 
@@ -410,7 +410,7 @@ func (sm *ShareManager) shareToGitHub(config *ShareConfig, content string) (stri
 		return "", fmt.Errorf("创建请求失败: %w", err)
 	}
 
-	req.Header.Set("Authorization", fmt.Sprintf("token %s"))
+	req.Header.Set("Authorization", fmt.Sprintf("token %s", config.Token))
 	req.Header.Set("Accept", "application/vnd.github.v3+json")
 
 	client := &http.Client{Timeout: 30 * time.Second}
@@ -553,10 +553,10 @@ func (sm *ShareManager) shareToPastebin(config *ShareConfig, content string) (st
 
 	// 准备表单数据
 	formData := map[string]string{
-		"api_dev_key":    config.Token,
-		"api_option":     "paste",
-		"api_paste_code": content,
-		"api_paste_name": config.Name,
+		"api_dev_key":      config.Token,
+		"api_option":       "paste",
+		"api_paste_code":   content,
+		"api_paste_name":   config.Name,
 		"api_paste_expire": "1N", // 1天过期
 	}
 
@@ -642,14 +642,14 @@ func (sm *ShareManager) GetShareStatus(shareID string) (map[string]interface{}, 
 	}
 
 	status := map[string]interface{}{
-		"id":           config.ID,
-		"name":         config.Name,
-		"target":       config.Target,
-		"enabled":      config.Enabled,
-		"auto_share":   config.AutoShare,
-		"last_shared":  config.LastShared,
-		"url":          config.URL,
-		"status":       "active",
+		"id":          config.ID,
+		"name":        config.Name,
+		"target":      config.Target,
+		"enabled":     config.Enabled,
+		"auto_share":  config.AutoShare,
+		"last_shared": config.LastShared,
+		"url":         config.URL,
+		"status":      "active",
 	}
 
 	// 检查分享是否过期

@@ -27,7 +27,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { parseProxyUrl, toClashProxy, type ProxyNode, type ClashProxy } from '@/lib/proxy-parser'
 import { load as parseYAML, dump as dumpYAML } from 'js-yaml'
-import { Check, Pencil, X, Undo2, Activity, Eye, Copy, ChevronDown, Link2, Flag, GripVertical, Zap, Loader2, Expand, List, ArrowUpToLine, ArrowDownToLine, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react'
+import { Check, Pencil, X, Undo2, Eye, Copy, ChevronDown, Link2, Flag, GripVertical, Zap, Loader2, Expand, List, ArrowUpToLine, ArrowDownToLine, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import IpIcon from '@/assets/icons/ip.svg'
 import CaidanIcon from '@/assets/icons/125.svg'
@@ -689,19 +689,6 @@ function NodesPage() {
     }
   }, [])
 
-    queryFn: async () => {
-      return response.data as {
-        config: {
-          probe_type: string
-          address: string
-          servers: Array<{ id: number; name: string; server_id: string }>
-        }
-      }
-    },
-    enabled: false, // 手动触发，不自动执行
-  })
-
-
   // 获取已保存的节点
   const { data: nodesData } = useQuery({
     queryKey: ['nodes'],
@@ -853,19 +840,6 @@ function NodesPage() {
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.error || 'Clash 配置更新失败')
-    },
-  })
-
-    mutationFn: async (payload: { nodeId: number; probeServer: string }) => {
-      })
-      return response.data
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['nodes'] })
-      setProbeBindingDialogOpen(false)
-      setSelectedNodeForProbe(null)
-    },
-    onError: (error: any) => {
     },
   })
 
@@ -3347,17 +3321,6 @@ vless://uuid@example.com:443?type=ws&security=tls&path=/websocket#VLESS节点
                                     />
                                   </Button>
                                 )}
-                                  <Button
-                                    variant='ghost'
-                                    size='icon'
-                                    className='size-7 text-[#d97757] hover:text-[#c66647]'
-                                    onClick={() => {
-                                      setSelectedNodeForProbe(node.dbNode!)
-                                      setProbeBindingDialogOpen(true)
-                                    }}
-                                  >
-                                  </Button>
-                                )}
                                 {/* TCPing 测试按钮 - 平板视图 */}
                                 {node.parsed && (
                                   (() => {
@@ -3532,10 +3495,6 @@ vless://uuid@example.com:443?type=ws&security=tls&path=/websocket#VLESS节点
                                   }
                                 }}>{t}</Badge>
                               ))}
-                                <Badge variant='secondary' className='text-xs flex items-center gap-1'>
-                                  <Activity className='size-3' />
-                                </Badge>
-                              )}
                             </div>
                           </div>
 
@@ -4170,17 +4129,6 @@ vless://uuid@example.com:443?type=ws&security=tls&path=/websocket#VLESS节点
                                             <Undo2 className='size-3' />
                                           </Button>
                                         )}
-                                          <Button
-                                            variant='ghost'
-                                            size='sm'
-                                            className='size-5 p-0 border border-primary/50 hover:border-primary shrink-0'
-                                            onClick={() => {
-                                              setSelectedNodeForProbe(node.dbNode!)
-                                              setProbeBindingDialogOpen(true)
-                                            }}
-                                          >
-                                          </Button>
-                                        )}
                                         {/* TCPing 测试按钮 */}
                                         {node.parsed && (
                                           (() => {
@@ -4307,10 +4255,6 @@ vless://uuid@example.com:443?type=ws&security=tls&path=/websocket#VLESS节点
                                     }
                                   }}>{t}</Badge>
                                 ))}
-                                  <Badge variant='secondary' className='text-xs flex items-center gap-1'>
-                                    <Activity className='size-3' />
-                                  </Badge>
-                                )}
                               </div>
                             </TableCell>
                             <TableCell className='text-center'>
@@ -4514,8 +4458,6 @@ vless://uuid@example.com:443?type=ws&security=tls&path=/websocket#VLESS节点
                                           }
                                           return <Button variant='ghost' size='sm' className='size-5 p-0 border border-primary/50 shrink-0' disabled={resolvingIpFor === nodeKey} onClick={() => handleResolveIp(node)}><img src={IpIcon} alt='IP' className='size-3 [filter:invert(63%)_sepia(45%)_saturate(1068%)_hue-rotate(327deg)_brightness(95%)_contrast(88%)]' /></Button>
                                         })()}
-                                          </Button>
-                                        )}
                                         {/* TCPing */}
                                         {(() => {
                                           const nodeKey = node.isSaved ? String(node.dbId) : node.id
@@ -4781,10 +4723,6 @@ vless://uuid@example.com:443?type=ws&security=tls&path=/websocket#VLESS节点
                                     }
                                   }}>{t}</Badge>
                                 ))}
-                                  <Badge variant='secondary' className='text-xs flex items-center gap-1'>
-                                    <Activity className='size-3' />
-                                  </Badge>
-                                )}
                               </div>
                             </TableCell>
                             <TableCell style={{ maxWidth: '280px' }}>
@@ -4898,17 +4836,6 @@ vless://uuid@example.com:443?type=ws&security=tls&path=/websocket#VLESS节点
                                         onClick={() => restoreNodeServerMutation.mutate(node.dbId)}
                                       >
                                         <Undo2 className='size-3' />
-                                      </Button>
-                                    )}
-                                      <Button
-                                        variant='ghost'
-                                        size='sm'
-                                        className='size-6 p-0 border border-primary/50 hover:border-primary ml-1 shrink-0'
-                                        onClick={() => {
-                                          setSelectedNodeForProbe(node.dbNode!)
-                                          setProbeBindingDialogOpen(true)
-                                        }}
-                                      >
                                       </Button>
                                     )}
                                     {/* TCPing 测试按钮 */}
@@ -5371,8 +5298,6 @@ vless://uuid@example.com:443?type=ws&security=tls&path=/websocket#VLESS节点
                                             <Undo2 className='size-3' />
                                           </Button>
                                         )}
-                                          </Button>
-                                        )}
                                         {/* TCPing */}
                                         {node.parsed && (() => {
                                           const nodeKey = node.isSaved ? String(node.dbId) : node.id
@@ -5619,66 +5544,6 @@ vless://uuid@example.com:443?type=ws&security=tls&path=/websocket#VLESS节点
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-        setProbeBindingDialogOpen(open)
-        if (!open) setProbeSearchQuery('')
-      }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogDescription>
-            </DialogDescription>
-          </DialogHeader>
-          <div className='space-y-4 py-4'>
-            {probeConfig?.servers && probeConfig.servers.length > 0 ? (
-              <div className='space-y-2'>
-                <Input
-                  placeholder='搜索服务器...'
-                  onChange={(e) => setProbeSearchQuery(e.target.value)}
-                  className='text-sm'
-                />
-                <div className='max-h-[300px] overflow-y-auto space-y-2 pr-1'>
-                {probeConfig.servers
-                  .map((server) => (
-                  <Button
-                    key={server.id}
-                    className='w-full justify-start'
-                    onClick={() => {
-                          probeServer: server.name
-                        })
-                      }
-                    }}
-                  >
-                    <div className='flex items-center gap-2'>
-                      <Activity className='size-4' />
-                      <div className='text-left'>
-                        <div className='font-medium'>{server.name}</div>
-                        <div className='text-xs text-muted-foreground'>ID: {server.server_id}</div>
-                      </div>
-                    </div>
-                  </Button>
-                ))}
-                </div>
-                  <Button
-                    variant='ghost'
-                    className='w-full'
-                    onClick={() => {
-                          probeServer: ''
-                        })
-                      }
-                    }}
-                  >
-                    <X className='size-4 mr-2' />
-                    取消绑定
-                  </Button>
-                )}
-              </div>
-            ) : (
-              <div className='text-center text-sm text-muted-foreground py-8'>
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {/* URI 手动复制对话框 */}
       <Dialog open={uriDialogOpen} onOpenChange={setUriDialogOpen}>

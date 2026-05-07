@@ -20,8 +20,8 @@ import (
 type WARPType string
 
 const (
-	WARPTypeWARP   WARPType = "warp"   // 官方WARP
-	WARPTypeWARPGo WARPType = "warpo"  // WARP-GO
+	WARPTypeWARP   WARPType = "warp"  // 官方WARP
+	WARPTypeWARPGo WARPType = "warpo" // WARP-GO
 )
 
 // WARPStatus WARP状态
@@ -41,26 +41,26 @@ type WARPStatus struct {
 
 // WARPConfig WARP配置
 type WARPConfig struct {
-	ID              string       `json:"id"`
-	Name            string       `json:"name"`
-	Type            WARPType     `json:"type"`
-	AccountID       string       `json:"account_id,omitempty"`
-	LicenseKey      string       `json:"license_key,omitempty"`
-	AccessToken     string       `json:"access_token,omitempty"`
-	Enabled         bool         `json:"enabled"`
-	Endpoint        string       `json:"endpoint,omitempty"`
-	Port            int          `json:"port,omitempty"`
-	PreferredServer bool         `json:"preferred_server"`
-	CreatedAt       time.Time    `json:"created_at"`
-	Status          WARPStatus   `json:"status"`
+	ID              string     `json:"id"`
+	Name            string     `json:"name"`
+	Type            WARPType   `json:"type"`
+	AccountID       string     `json:"account_id,omitempty"`
+	LicenseKey      string     `json:"license_key,omitempty"`
+	AccessToken     string     `json:"access_token,omitempty"`
+	Enabled         bool       `json:"enabled"`
+	Endpoint        string     `json:"endpoint,omitempty"`
+	Port            int        `json:"port,omitempty"`
+	PreferredServer bool       `json:"preferred_server"`
+	CreatedAt       time.Time  `json:"created_at"`
+	Status          WARPStatus `json:"status"`
 }
 
 // WARPManager WARP管理器
 type WARPManager struct {
-	paths      singbox.ConfigPaths
-	configDir  string
-	binaryDir  string
-	warpBinary string
+	paths        singbox.ConfigPaths
+	configDir    string
+	binaryDir    string
+	warpBinary   string
 	warpGoBinary string
 }
 
@@ -181,13 +181,13 @@ func (wm *WARPManager) EnableWARP(licenseKey string) error {
 
 	// 创建WARP配置
 	config := &WARPConfig{
-		ID:             generateWarpID(),
-		Name:           "WARP",
-		Type:           WARPTypeWARP,
-		LicenseKey:     licenseKey,
-		Enabled:        true,
+		ID:              generateWarpID(),
+		Name:            "WARP",
+		Type:            WARPTypeWARP,
+		LicenseKey:      licenseKey,
+		Enabled:         true,
 		PreferredServer: false,
-		CreatedAt:      time.Now(),
+		CreatedAt:       time.Now(),
 		Status: WARPStatus{
 			Enabled:     true,
 			Type:        WARPTypeWARP,
@@ -216,14 +216,14 @@ func (wm *WARPManager) EnableWARPGo(licenseKey string, port int, preferredServer
 
 	// 创建WARP-GO配置
 	config := &WARPConfig{
-		ID:             generateWarpID(),
-		Name:           "WARP-GO",
-		Type:           WARPTypeWARPGo,
-		LicenseKey:     licenseKey,
-		Enabled:        true,
-		Port:           port,
+		ID:              generateWarpID(),
+		Name:            "WARP-GO",
+		Type:            WARPTypeWARPGo,
+		LicenseKey:      licenseKey,
+		Enabled:         true,
+		Port:            port,
 		PreferredServer: preferredServer,
-		CreatedAt:      time.Now(),
+		CreatedAt:       time.Now(),
 		Status: WARPStatus{
 			Enabled:         true,
 			Type:            WARPTypeWARPGo,
@@ -283,8 +283,8 @@ func (wm *WARPManager) GetWARPStatus() (*WARPStatus, error) {
 
 	if len(configs) == 0 {
 		return &WARPStatus{
-			Enabled: false,
-			Type:    WARPTypeWARP,
+			Enabled:   false,
+			Type:      WARPTypeWARP,
 			Connected: false,
 		}, nil
 	}
@@ -402,7 +402,7 @@ func (wm *WARPManager) registerWarpAccount(licenseKey string) error {
 
 	cmd := exec.Command(wm.warpBinary, args...)
 	if output, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("注册WARP账户失败: %w", string(output))
+		return fmt.Errorf("注册WARP账户失败: %w: %s", err, string(output))
 	}
 
 	return nil
@@ -412,7 +412,7 @@ func (wm *WARPManager) startWarpService() error {
 	// 启动WARP服务
 	cmd := exec.Command(wm.warpBinary, "service", "start")
 	if output, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("启动WARP服务失败: %w", string(output))
+		return fmt.Errorf("启动WARP服务失败: %w: %s", err, string(output))
 	}
 
 	return nil

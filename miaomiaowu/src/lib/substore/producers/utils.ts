@@ -1,4 +1,3 @@
-import { get as _get } from 'lodash'
 import { ProxyNode } from '@/lib/proxy-parser'
 
 // source: https://stackoverflow.com/a/36760050
@@ -40,9 +39,19 @@ export function isPresent(obj: any, attr?: string): boolean {
     // When called with single argument, check if obj itself is present
     return typeof obj !== 'undefined' && obj !== null
   }
-  // When called with two arguments, use lodash get
-  const data = _get(obj, attr)
+  const data = getPathValue(obj, attr)
   return typeof data !== 'undefined' && data !== null
+}
+
+function getPathValue(obj: any, path: string): unknown {
+  return path
+    .replace(/\[(\w+)\]/g, '.$1')
+    .split('.')
+    .filter(Boolean)
+    .reduce((current, key) => {
+      if (current == null) return undefined
+      return current[key]
+    }, obj)
 }
 
 /**

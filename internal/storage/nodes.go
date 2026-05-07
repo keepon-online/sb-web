@@ -238,6 +238,7 @@ func (r *TrafficRepository) UpdateNode(ctx context.Context, node Node) (Node, er
 		enabled = 1
 	}
 
+	res, err := r.db.ExecContext(ctx, `UPDATE nodes SET raw_url = ?, node_name = ?, protocol = ?, parsed_config = ?, clash_config = ?, enabled = ?, tag = ?, tags = ?, original_server = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND username = ?`, node.RawURL, node.NodeName, node.Protocol, node.ParsedConfig, node.ClashConfig, enabled, node.Tag, tagsJSON, node.OriginalServer, node.ID, node.Username)
 	if err != nil {
 		return Node{}, fmt.Errorf("update node: %w", err)
 	}
@@ -456,4 +457,3 @@ func (r *TrafficRepository) DeleteAllUserNodes(ctx context.Context, username str
 
 	return nil
 }
-

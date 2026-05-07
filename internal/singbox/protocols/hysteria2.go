@@ -10,15 +10,15 @@ import (
 
 // Hysteria2Config Hysteria2 协议配置
 type Hysteria2Config struct {
-	Server       string `json:"server"`
-	ServerPort   int    `json:"server_port"`
-	Password     string `json:"password"`
-	Domain       string `json:"domain"`
-	UpMbps       int    `json:"up_mbps"`
-	DownMbps     int    `json:"down_mbps"`
-	Obfs         string `json:"obfs,omitempty"`
-	SNI          string `json:"sni,omitempty"`
-	Insecure     bool   `json:"insecure,omitempty"`
+	Server     string `json:"server"`
+	ServerPort int    `json:"server_port"`
+	Password   string `json:"password"`
+	Domain     string `json:"domain"`
+	UpMbps     int    `json:"up_mbps"`
+	DownMbps   int    `json:"down_mbps"`
+	Obfs       string `json:"obfs,omitempty"`
+	SNI        string `json:"sni,omitempty"`
+	Insecure   bool   `json:"insecure,omitempty"`
 }
 
 // Hysteria2Builder Hysteria2 配置构建器
@@ -62,14 +62,14 @@ func (b *Hysteria2Builder) GeneratePassword(length int) *Hysteria2Builder {
 	}
 
 	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	b := make([]byte, length)
+	password := make([]byte, length)
 
 	rand.Seed(time.Now().UnixNano())
-	for i := range b {
-		b[i] = charset[rand.Intn(len(charset))]
+	for i := range password {
+		password[i] = charset[rand.Intn(len(charset))]
 	}
 
-	b.config.Password = string(b)
+	b.config.Password = string(password)
 	return b
 }
 
@@ -148,7 +148,7 @@ func (b *Hysteria2Builder) GenerateSingboxConfig() (*singbox.SingboxConfig, erro
 			Insecure:   hy2Config.Insecure,
 		},
 		Transport: &singbox.TransportOptions{
-			Type:         "hysteria2",
+			Type:            "hysteria2",
 			MaxUploadMbps:   hy2Config.UpMbps,
 			MaxDownloadMbps: hy2Config.DownMbps,
 		},
@@ -156,10 +156,10 @@ func (b *Hysteria2Builder) GenerateSingboxConfig() (*singbox.SingboxConfig, erro
 
 	// 添加混淆
 	if hy2Config.Obfs != "" {
-		if outbound.Transport.Options == nil {
-			outbound.Transport.Options = make(map[string]interface{})
+		if outbound.Options == nil {
+			outbound.Options = make(map[string]interface{})
 		}
-		outbound.Transport.Options["obfs"] = hy2Config.Obfs
+		outbound.Options["obfs"] = hy2Config.Obfs
 	}
 
 	// 添加到出站列表

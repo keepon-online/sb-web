@@ -32,7 +32,7 @@ function SubscriptionPage() {
   const [showExportModal, setShowExportModal] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [successMessage, setSuccessMessage] = useState<string>(null)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
   // 表单状态
   const [showCreateForm, setShowCreateForm] = useState(false)

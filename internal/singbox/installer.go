@@ -1,6 +1,8 @@
 package singbox
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"fmt"
 	"io"
 	"net/http"
@@ -19,7 +21,7 @@ const (
 	// Sing-box 版本 API
 	singboxAPI = "https://api.github.com/repos/SagerNet/sing-box/releases/latest"
 	// Sing-box 下载地址模板
-	singboxDownloadURL = "https://github.com/SagerNet/sing-box/releases/download/v%s/sing-box-%s-%s"
+	singboxDownloadURL = "https://github.com/SagerNet/sing-box/releases/download/v%s/%s"
 )
 
 // InstallProgress 表示安装进度
@@ -31,9 +33,9 @@ type InstallProgress struct {
 
 // Installer Sing-box 安装器
 type Installer struct {
-	env       Environment
-	paths     ConfigPaths
-	cmdExec   *util.SysCommand
+	env        Environment
+	paths      ConfigPaths
+	cmdExec    *util.SysCommand
 	onProgress func(InstallProgress)
 }
 
@@ -180,7 +182,7 @@ func (i *Installer) downloadSingbox(version string) (string, error) {
 	// 构建下载 URL
 	arch := i.getArchName()
 	osName := runtime.GOOS
-	downloadURL := fmt.Sprintf(singboxDownloadURL, version, osName, arch)
+	downloadURL := buildSingboxDownloadURL(version, osName, arch)
 
 	logger.Info("[Sing-box 安装] 下载地址", "url", downloadURL)
 
@@ -215,31 +217,68 @@ func (i *Installer) downloadSingbox(version string) (string, error) {
 func (i *Installer) installBinary(downloadPath string) error {
 	// 获取目标路径
 	targetPath := filepath.Join(i.paths.BinDir, "sing-box")
-
-	// 复制文件
-	srcFile, err := os.Open(downloadPath)
-	if err != nil {
-		return fmt.Errorf("open source file: %w", err)
-	}
-	defer srcFile.Close()
-
-	dstFile, err := os.Create(targetPath)
-	if err != nil {
-		return fmt.Errorf("create target file: %w", err)
-	}
-	defer dstFile.Close()
-
-	if _, err := io.Copy(dstFile, srcFile); err != nil {
-		return fmt.Errorf("copy file: %w", err)
-	}
-
-	// 设置执行权限
-	if err := os.Chmod(targetPath, 0755); err != nil {
-		return fmt.Errorf("chmod: %w", err)
+	if err := extractSingboxBinaryFromTarGz(downloadPath, targetPath); err != nil {
+		return fmt.Errorf("extract sing-box binary: %w", err)
 	}
 
 	logger.Info("[Sing-box 安装] 二进制文件已安装", "path", targetPath)
 	return nil
+}
+
+func buildSingboxReleaseAsset(version, osName, arch string) string {
+	return fmt.Sprintf("sing-box-%s-%s-%s.tar.gz", version, osName, arch)
+}
+
+func buildSingboxDownloadURL(version, osName, arch string) string {
+	return fmt.Sprintf(singboxDownloadURL, version, buildSingboxReleaseAsset(version, osName, arch))
+}
+
+func extractSingboxBinaryFromTarGz(archivePath, targetPath string) error {
+	file, err := os.Open(archivePath)
+	if err != nil {
+		return fmt.Errorf("open archive: %w", err)
+	}
+	defer file.Close()
+
+	gz, err := gzip.NewReader(file)
+	if err != nil {
+		return fmt.Errorf("open gzip: %w", err)
+	}
+	defer gz.Close()
+
+	tr := tar.NewReader(gz)
+	for {
+		header, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return fmt.Errorf("read tar: %w", err)
+		}
+		if header.FileInfo().IsDir() || filepath.Base(header.Name) != "sing-box" {
+			continue
+		}
+
+		if err := os.MkdirAll(filepath.Dir(targetPath), 0755); err != nil {
+			return fmt.Errorf("create target dir: %w", err)
+		}
+
+		dst, err := os.OpenFile(targetPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0755)
+		if err != nil {
+			return fmt.Errorf("create target: %w", err)
+		}
+		_, copyErr := io.Copy(dst, tr)
+		closeErr := dst.Close()
+		if copyErr != nil {
+			return fmt.Errorf("copy binary: %w", copyErr)
+		}
+		if closeErr != nil {
+			return fmt.Errorf("close target: %w", closeErr)
+		}
+		return os.Chmod(targetPath, 0755)
+	}
+
+	return fmt.Errorf("sing-box binary not found in archive")
 }
 
 // configureService 配置系统服务

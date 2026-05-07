@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"time"
 
-	"miaomiaowu/internal/auth"
 	"miaomiaowu/internal/logger"
 	"miaomiaowu/internal/singbox"
 	"miaomiaowu/internal/storage"

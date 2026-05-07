@@ -11,16 +11,15 @@ import (
 	"miaomiaowu/internal/logger"
 	"miaomiaowu/internal/singbox/integration"
 	"miaomiaowu/internal/storage"
-	"miaomiaowu/internal/util"
 )
 
 // ArgoTunnelCreateRequest 创建Argo隧道请求
 type ArgoTunnelCreateRequest struct {
-	Name       string `json:"name"`
-	Type       string `json:"type"`       // fixed, temp, argogo
-	Domain     string `json:"domain"`     // 仅固定域名隧道需要
-	Token      string `json:"token"`      // 仅固定域名隧道需要
-	LocalPort  int    `json:"local_port"`
+	Name      string `json:"name"`
+	Type      string `json:"type"`   // fixed, temp, argogo
+	Domain    string `json:"domain"` // 仅固定域名隧道需要
+	Token     string `json:"token"`  // 仅固定域名隧道需要
+	LocalPort int    `json:"local_port"`
 }
 
 // ArgoTunnelActionRequest 隧道操作请求
@@ -51,16 +50,16 @@ func NewArgoTunnelListHandler(repo *storage.TrafficRepository) http.Handler {
 			status, _ := am.GetTunnelStatus(tunnel.ID)
 
 			tunnelData := map[string]interface{}{
-				"id":           tunnel.ID,
-				"name":         tunnel.Name,
-				"type":         tunnel.Type,
-				"domain":       tunnel.Domain,
-				"enabled":      tunnel.Enabled,
-				"port":         tunnel.Port,
+				"id":            tunnel.ID,
+				"name":          tunnel.Name,
+				"type":          tunnel.Type,
+				"domain":        tunnel.Domain,
+				"enabled":       tunnel.Enabled,
+				"port":          tunnel.Port,
 				"local_service": tunnel.LocalService,
-				"created_at":   tunnel.CreatedAt,
-				"last_used":    tunnel.LastUsed,
-				"status":       status,
+				"created_at":    tunnel.CreatedAt,
+				"last_used":     tunnel.LastUsed,
+				"status":        status,
 			}
 			result = append(result, tunnelData)
 		}
@@ -390,7 +389,7 @@ func NewArgoTokenValidatorHandler(repo *storage.TrafficRepository) http.Handler 
 		valid := integration.ValidateToken(req.Token)
 
 		writeJSON(w, http.StatusOK, map[string]interface{}{
-			"valid": valid,
+			"valid":   valid,
 			"message": map[bool]string{true: "Token格式正确", false: "Token格式错误"}[valid],
 		})
 	})

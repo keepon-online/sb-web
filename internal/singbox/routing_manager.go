@@ -26,34 +26,34 @@ const (
 type RuleAction string
 
 const (
-	ActionRoute   RuleAction = "route"
-	ActionBlock   RuleAction = "block"
-	ActionDirect  RuleAction = "direct"
-	ActionProxy   RuleAction = "proxy"
+	ActionRoute  RuleAction = "route"
+	ActionBlock  RuleAction = "block"
+	ActionDirect RuleAction = "direct"
+	ActionProxy  RuleAction = "proxy"
 )
 
 // RoutingRule 路由规则
 type RoutingRule struct {
-	ID          string      `json:"id"`
-	Name        string      `json:"name"`
-	Type        RuleType    `json:"type"`
-	Action      RuleAction  `json:"action"`
-	Raw         string      `json:"raw"`
-	Value       string      `json:"value"`
-	Outbound    string      `json:"outbound"`
-	Enabled     bool        `json:"enabled"`
-	Priority    int         `json:"priority"`
-	Description string      `json:"description,omitempty"`
+	ID          string     `json:"id"`
+	Name        string     `json:"name"`
+	Type        RuleType   `json:"type"`
+	Action      RuleAction `json:"action"`
+	Raw         string     `json:"raw"`
+	Value       string     `json:"value"`
+	Outbound    string     `json:"outbound"`
+	Enabled     bool       `json:"enabled"`
+	Priority    int        `json:"priority"`
+	Description string     `json:"description,omitempty"`
 }
 
 // RuleSet 规则集
 type RuleSet struct {
-	Name        string        `json:"name"`
-	Type        string        `json:"type"`
-	Format      string        `json:"format"`
-	URL         string        `json:"url,omitempty"`
-	UpdateInterval int       `json:"update_interval,omitempty"`
-	Rules       []RoutingRule `json:"rules"`
+	Name           string        `json:"name"`
+	Type           string        `json:"type"`
+	Format         string        `json:"format"`
+	URL            string        `json:"url,omitempty"`
+	UpdateInterval int           `json:"update_interval,omitempty"`
+	Rules          []RoutingRule `json:"rules"`
 }
 
 // RoutingManager 路由管理器
@@ -124,10 +124,10 @@ func (rm *RoutingManager) GenerateDefaultRules() []RoutingRule {
 // GenerateRoutingConfig 生成路由配置
 func (rm *RoutingManager) GenerateRoutingConfig(rules []RoutingRule) (*RouteConfig, error) {
 	config := &RouteConfig{
-		Rules: make([]RouteRule, 0),
-		RuleSet: []string{},
-		Final:  "proxy",
-		Auto:   true,
+		Rules:    make([]RouteRule, 0),
+		Rule_set: []string{},
+		Final:    "proxy",
+		Auto:     true,
 	}
 
 	// 转换规则
@@ -141,7 +141,7 @@ func (rm *RoutingManager) GenerateRoutingConfig(rules []RoutingRule) (*RouteConf
 	}
 
 	// 添加默认规则集
-	config.RuleSet = []string{
+	config.Rule_set = []string{
 		"geosite-category-ads-all",
 		"geosite-cn",
 		"geoip-cn",
@@ -407,9 +407,9 @@ func (rm *RoutingManager) GenerateRuleSetConfig(ruleSets []RuleSet) (map[string]
 
 // ImportRuleSet 导入规则集
 func (rm *RoutingManager) ImportRuleSet(name, url string) error {
-	ruleSet := RuleSet{
-		Name: name,
-		Type: "remote",
+	_ = RuleSet{
+		Name:   name,
+		Type:   "remote",
 		Format: "binary",
 		URL:    url,
 	}

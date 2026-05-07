@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	"miaomiaowu/internal/logger"
 	"miaomiaowu/internal/singbox"
@@ -13,13 +14,13 @@ import (
 
 // ShareCreateRequest 创建分享请求
 type ShareCreateRequest struct {
-	Name     string              `json:"name"`
-	Target   string              `json:"target"`   // gitlab, github, gist, local, pastebin
-	Token    string              `json:"token,omitempty"`
-	RepoURL  string              `json:"repo_url,omitempty"`
-	FilePath string              `json:"file_path,omitempty"`
-	Branch   string              `json:"branch,omitempty"`
-	Message  string              `json:"message,omitempty"`
+	Name     string `json:"name"`
+	Target   string `json:"target"` // gitlab, github, gist, local, pastebin
+	Token    string `json:"token,omitempty"`
+	RepoURL  string `json:"repo_url,omitempty"`
+	FilePath string `json:"file_path,omitempty"`
+	Branch   string `json:"branch,omitempty"`
+	Message  string `json:"message,omitempty"`
 }
 
 // ShareNodeRequest 分享节点请求

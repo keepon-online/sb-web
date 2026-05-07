@@ -62,7 +62,6 @@ function SystemSettingsPage() {
   const [keepNodeName, setKeepNodeName] = useState(true)
   const [cacheExpireMinutes, setCacheExpireMinutes] = useState(0)
   const [syncTraffic, setSyncTraffic] = useState(false)
-  const [enableProbeBinding, setEnableProbeBinding] = useState(false)
   const [enableShortLink, setEnableShortLink] = useState(false)
   const [templateVersion, setTemplateVersion] = useState<'v1' | 'v2' | 'v3'>('v2')
   const [enableProxyProvider, setEnableProxyProvider] = useState(false)
@@ -380,28 +379,6 @@ function SystemSettingsPage() {
             </CardHeader>
             <CardContent>
               <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
-                {/* 节点探针服务器绑定 */}
-                <div className='flex items-center justify-between rounded-lg border p-3'>
-                  <div className='flex items-center gap-2'>
-                    <Label htmlFor='enable-probe-binding' className='cursor-pointer'>
-                      探针服务器绑定
-                    </Label>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <CircleHelp className='h-4 w-4 text-muted-foreground cursor-help' />
-                      </TooltipTrigger>
-                      <TooltipContent side='top' className='max-w-xs'>
-                        <p>开启后，节点列表将显示探针按钮，可为节点绑定特定的探针服务器。流量统计将只汇总绑定节点的探针流量。</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </div>
-                  <Switch
-                    id='enable-probe-binding'
-                    checked={enableProbeBinding}
-                    disabled={loadingConfig || updateConfigMutation.isPending}
-                  />
-                </div>
-
                 {/* 短链接 */}
                 <div className='flex items-center justify-between rounded-lg border p-3'>
                   <div className='flex items-center gap-2'>
@@ -581,7 +558,7 @@ function SystemSettingsPage() {
                       <CircleHelp className='h-4 w-4 text-muted-foreground cursor-help' />
                     </TooltipTrigger>
                     <TooltipContent side='top' className='max-w-xs'>
-                      <p>开启后，获取订阅时读取探针和外部订阅流量数据，并在响应头中写入 subscription-userinfo 信息。关闭后跳过流量读取，不写入流量响应头。</p>
+                      <p>开启后，获取订阅时读取外部订阅流量数据，并在响应头中写入 subscription-userinfo 信息。关闭后跳过流量读取，不写入流量响应头。</p>
                     </TooltipContent>
                   </Tooltip>
                 </div>

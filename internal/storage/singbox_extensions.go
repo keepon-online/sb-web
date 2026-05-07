@@ -2,7 +2,6 @@ package storage
 
 import (
 	"fmt"
-	"strings"
 )
 
 // migrateSingBoxTables 扩展数据库迁移，添加 Sing-box 相关表
@@ -152,15 +151,15 @@ type SingboxConfig struct {
 
 // Certificate 表示证书信息
 type Certificate struct {
-	ID         int64  `json:"id"`
-	Domain     string `json:"domain"`
-	CertType   string `json:"cert_type"`
-	CertPath   string `json:"cert_path"`
-	KeyPath    string `json:"key_path"`
-	ExpiresAt  string `json:"expires_at"`
-	AutoRenew  bool   `json:"auto_renew"`
-	ACMEEmail  string `json:"acme_email"`
-	CreatedAt  string `json:"created_at"`
+	ID        int64  `json:"id"`
+	Domain    string `json:"domain"`
+	CertType  string `json:"cert_type"`
+	CertPath  string `json:"cert_path"`
+	KeyPath   string `json:"key_path"`
+	ExpiresAt string `json:"expires_at"`
+	AutoRenew bool   `json:"auto_renew"`
+	ACMEEmail string `json:"acme_email"`
+	CreatedAt string `json:"created_at"`
 }
 
 // ArgoTunnel 表示 Argo 隧道配置
@@ -199,12 +198,12 @@ type SystemOperationLog struct {
 
 // SingboxSubscription 表示 Sing-box 订阅配置
 type SingboxSubscription struct {
-	ID               int64  `json:"id"`
-	Name             string `json:"name"`
-	SubscriptionURL  string `json:"subscription_url"`
-	ConfigJSON       string `json:"config_json"`
-	Protocols        string `json:"protocols"`
-	CreatedAt        string `json:"created_at"`
+	ID              int64  `json:"id"`
+	Name            string `json:"name"`
+	SubscriptionURL string `json:"subscription_url"`
+	ConfigJSON      string `json:"config_json"`
+	Protocols       string `json:"protocols"`
+	CreatedAt       string `json:"created_at"`
 }
 
 // CreateSingboxConfig 创建 Sing-box 配置

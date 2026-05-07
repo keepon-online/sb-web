@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	_ "modernc.org/sqlite"
 )
 
@@ -37,6 +36,15 @@ type TrafficRecord struct {
 	TotalLimit     int64
 	TotalUsed      int64
 	TotalRemaining int64
+}
+
+// RuleVersion represents an archived version of a YAML rule file.
+type RuleVersion struct {
+	Filename  string
+	Version   int64
+	Content   string
+	CreatedBy string
+	CreatedAt time.Time
 }
 
 // TrafficRepository manages persistence of traffic usage snapshots.
@@ -137,6 +145,7 @@ var (
 	ErrSubscribeFileNotFound        = errors.New("subscribe file not found")
 	ErrSubscribeFileExists          = errors.New("subscribe file already exists")
 	ErrUserSettingsNotFound         = errors.New("user settings not found")
+	ErrCustomRuleNotFound           = errors.New("custom rule not found")
 	ErrExternalSubscriptionNotFound = errors.New("external subscription not found")
 	ErrExternalSubscriptionExists   = errors.New("external subscription already exists")
 )
@@ -186,8 +195,7 @@ type SubscribeFile struct {
 	SelectedTags        []string   // 选中的节点标签，为空表示使用所有节点
 	RawOutput           bool       // 非Clash配置，直接输出原始内容
 	SortOrder           int        // 排序权重，值越小越靠前
-	TrafficLimit        *float64   // 手动设置的总流量上限(GB)，nil表示跟随探针
-	StatsServerIDs      string     // 统计服务器的探针服务器ID列表(逗号分隔)
+	TrafficLimit        *float64   // 手动设置的总流量上限(GB)
 	ExpireAt            *time.Time // Optional expiration timestamp
 	CreatedAt           time.Time
 	UpdatedAt           time.Time
@@ -296,15 +304,6 @@ type ProxyProviderConfig struct {
 	UpdatedAt                 time.Time
 }
 
-var (
-	}
-	allowedTrafficMethods = map[string]struct{}{
-		TrafficMethodUp:   {},
-		TrafficMethodDown: {},
-		TrafficMethodBoth: {},
-	}
-)
-
 // NewTrafficRepository initializes a new SQLite-backed repository stored at the given path or DSN.
 func NewTrafficRepository(path string) (*TrafficRepository, error) {
 	if path == "" {
@@ -354,6 +353,58 @@ func (r *TrafficRepository) Checkpoint() error {
 	}
 	_, err := r.db.Exec("PRAGMA wal_checkpoint(TRUNCATE)")
 	return err
+}
+
+func (r *TrafficRepository) RecordDaily(ctx context.Context, date time.Time, totalLimit, totalUsed, totalRemaining int64) error {
+	if r == nil || r.db == nil {
+		return errors.New("traffic repository not initialized")
+	}
+	normalized := date.UTC().Format("2006-01-02")
+	_, err := r.db.ExecContext(ctx, `INSERT INTO traffic_records (date, total_limit, total_used, total_remaining) VALUES (?, ?, ?, ?) ON CONFLICT(date) DO UPDATE SET total_limit = excluded.total_limit, total_used = excluded.total_used, total_remaining = excluded.total_remaining, created_at = CURRENT_TIMESTAMP`, normalized, totalLimit, totalUsed, totalRemaining)
+	if err != nil {
+		return fmt.Errorf("upsert traffic record: %w", err)
+	}
+	return nil
+}
+
+func (r *TrafficRepository) ListRecent(ctx context.Context, limit int) ([]TrafficRecord, error) {
+	if r == nil || r.db == nil {
+		return nil, errors.New("traffic repository not initialized")
+	}
+	if limit <= 0 {
+		limit = 30
+	}
+	rows, err := r.db.QueryContext(ctx, `SELECT date, total_limit, total_used, total_remaining FROM traffic_records ORDER BY date DESC LIMIT ?`, limit)
+	if err != nil {
+		return nil, fmt.Errorf("list recent traffic records: %w", err)
+	}
+	defer rows.Close()
+	var records []TrafficRecord
+	for rows.Next() {
+		var record TrafficRecord
+		var dateStr string
+		if err := rows.Scan(&dateStr, &record.TotalLimit, &record.TotalUsed, &record.TotalRemaining); err != nil {
+			return nil, fmt.Errorf("scan traffic record: %w", err)
+		}
+		parsed, err := time.Parse("2006-01-02", dateStr)
+		if err != nil {
+			return nil, fmt.Errorf("parse traffic record date: %w", err)
+		}
+		record.Date = parsed
+		records = append(records, record)
+	}
+	return records, rows.Err()
+}
+
+func (r *TrafficRepository) IsSyncTrafficEnabled(ctx context.Context) (bool, error) {
+	if r == nil || r.db == nil {
+		return false, errors.New("traffic repository not initialized")
+	}
+	var count int
+	if err := r.db.QueryRowContext(ctx, `SELECT COUNT(1) FROM user_settings WHERE COALESCE(sync_traffic, 0) != 0`).Scan(&count); err != nil {
+		return false, fmt.Errorf("query sync traffic setting: %w", err)
+	}
+	return count > 0, nil
 }
 
 func (r *TrafficRepository) migrate() error {
@@ -544,9 +595,6 @@ CREATE INDEX IF NOT EXISTS idx_nodes_enabled ON nodes(enabled);
 		return err
 	}
 
-		return err
-	}
-
 	// Add tags column (JSON array) for multi-tag support
 	if err := r.ensureNodeColumn("tags", "TEXT NOT NULL DEFAULT '[]'"); err != nil {
 		return err
@@ -624,9 +672,6 @@ CREATE TABLE IF NOT EXISTS user_settings (
 
 	// Add sync_traffic column to user_settings table if it doesn't exist
 	if err := r.ensureUserSettingsColumn("sync_traffic", "INTEGER NOT NULL DEFAULT 0"); err != nil {
-		return err
-	}
-
 		return err
 	}
 
@@ -764,11 +809,6 @@ CREATE INDEX IF NOT EXISTS idx_external_subscriptions_url ON external_subscripti
 
 	// Add traffic_limit column to subscribe_files table
 	if err := r.ensureSubscribeFileColumn("traffic_limit", "REAL"); err != nil {
-		return err
-	}
-
-	// Add stats_server_ids column to subscribe_files table
-	if err := r.ensureSubscribeFileColumn("stats_server_ids", "TEXT NOT NULL DEFAULT ''"); err != nil {
 		return err
 	}
 
@@ -1201,3 +1241,1864 @@ func (r *TrafficRepository) CountSubscriptionsByFilename(ctx context.Context, fi
 	return count, nil
 }
 
+func (r *TrafficRepository) ensureUserColumn(name, definition string) error {
+	return r.ensureColumn("users", name, definition)
+}
+
+func (r *TrafficRepository) ensureUserTokenColumn(name, definition string) error {
+	return r.ensureColumn("user_tokens", name, definition)
+}
+
+func (r *TrafficRepository) ensureSubscriptionLinkColumn(name, definition string) error {
+	return r.ensureColumn("subscription_links", name, definition)
+}
+
+func (r *TrafficRepository) ensureNodeColumn(name, definition string) error {
+	return r.ensureColumn("nodes", name, definition)
+}
+
+func (r *TrafficRepository) ensureUserSettingsColumn(name, definition string) error {
+	return r.ensureColumn("user_settings", name, definition)
+}
+
+func (r *TrafficRepository) ensureSubscribeFileColumn(name, definition string) error {
+	return r.ensureColumn("subscribe_files", name, definition)
+}
+
+func (r *TrafficRepository) ensureExternalSubscriptionColumn(name, definition string) error {
+	return r.ensureColumn("external_subscriptions", name, definition)
+}
+
+func (r *TrafficRepository) ensureProxyProviderConfigColumn(name, definition string) error {
+	return r.ensureColumn("proxy_provider_configs", name, definition)
+}
+
+func (r *TrafficRepository) ensureSystemConfigColumn(name, definition string) error {
+	return r.ensureColumn("system_config", name, definition)
+}
+
+func (r *TrafficRepository) syncNicknames() error {
+	if r == nil || r.db == nil {
+		return errors.New("traffic repository not initialized")
+	}
+
+	if _, err := r.db.Exec(`UPDATE users SET nickname = username WHERE nickname IS NULL OR nickname = ''`); err != nil {
+		return fmt.Errorf("sync nicknames: %w", err)
+	}
+
+	return nil
+}
+
+func (r *TrafficRepository) migrateTemplateVersionFromBool() error {
+	var count int
+	err := r.db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('user_settings') WHERE name = 'use_new_template_system'`).Scan(&count)
+	if err != nil || count == 0 {
+		return nil
+	}
+
+	_, err = r.db.Exec(`UPDATE user_settings SET template_version = CASE WHEN use_new_template_system = 1 THEN 'v2' ELSE 'v1' END WHERE template_version = 'v2'`)
+	if err != nil {
+		return fmt.Errorf("migrate template_version values: %w", err)
+	}
+
+	return nil
+}
+
+func (r *TrafficRepository) migrateCustomRulesAppendMode() error {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return fmt.Errorf("begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	_, err = tx.Exec(`INSERT INTO custom_rules (name, type, mode, content) VALUES ('__test_append__', 'rules', 'append', 'test')`)
+	if err == nil {
+		_, _ = tx.Exec(`DELETE FROM custom_rules WHERE name = '__test_append__'`)
+		return tx.Commit()
+	}
+
+	if _, err := tx.Exec(`ALTER TABLE custom_rules RENAME TO custom_rules_old`); err != nil {
+		return fmt.Errorf("rename old table: %w", err)
+	}
+
+	const newTableSchema = `
+CREATE TABLE custom_rules (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL CHECK (type IN ('dns','rules','rule-providers')),
+    mode TEXT NOT NULL CHECK (mode IN ('replace','prepend','append')),
+    content TEXT NOT NULL,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(name, type)
+);
+CREATE INDEX IF NOT EXISTS idx_custom_rules_type ON custom_rules(type);
+CREATE INDEX IF NOT EXISTS idx_custom_rules_enabled ON custom_rules(enabled);
+`
+	if _, err := tx.Exec(newTableSchema); err != nil {
+		return fmt.Errorf("create new table: %w", err)
+	}
+
+	if _, err := tx.Exec(`
+		INSERT INTO custom_rules (id, name, type, mode, content, enabled, created_at, updated_at)
+		SELECT id, name, type, mode, content, enabled, created_at, updated_at
+		FROM custom_rules_old
+	`); err != nil {
+		return fmt.Errorf("copy data: %w", err)
+	}
+
+	if _, err := tx.Exec(`DROP TABLE custom_rules_old`); err != nil {
+		return fmt.Errorf("drop old table: %w", err)
+	}
+
+	return tx.Commit()
+}
+
+func (r *TrafficRepository) ensureColumn(table, name, definition string) error {
+	rows, err := r.db.Query(`PRAGMA table_info(` + table + `)`)
+	if err != nil {
+		return fmt.Errorf("%s table info: %w", table, err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var (
+			cid        int
+			colName    string
+			colType    string
+			notNull    int
+			defaultVal sql.NullString
+			pk         int
+		)
+		if err := rows.Scan(&cid, &colName, &colType, &notNull, &defaultVal, &pk); err != nil {
+			return fmt.Errorf("scan table info: %w", err)
+		}
+		if strings.EqualFold(colName, name) {
+			return nil
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("iterate table info: %w", err)
+	}
+
+	alter := fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s %s", table, name, definition)
+	if _, err := r.db.Exec(alter); err != nil {
+		return fmt.Errorf("add column %s: %w", name, err)
+	}
+
+	return nil
+}
+
+func generateFileShortCode() (string, error) {
+	return generateShortCode()
+}
+
+func generateUserShortCode() (string, error) {
+	return generateShortCode()
+}
+
+func generateShortCode() (string, error) {
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	const length = 3
+
+	bytes := make([]byte, length)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", fmt.Errorf("generate random bytes: %w", err)
+	}
+
+	for i := range bytes {
+		bytes[i] = charset[int(bytes[i])%len(charset)]
+	}
+
+	return string(bytes), nil
+}
+
+func (r *TrafficRepository) generateMissingFileShortCodes() error {
+	rows, err := r.db.Query(`SELECT id FROM subscribe_files WHERE file_short_code = '' OR file_short_code IS NULL`)
+	if err != nil {
+		return fmt.Errorf("query subscribe files without file short codes: %w", err)
+	}
+	defer rows.Close()
+
+	var ids []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return fmt.Errorf("scan file ID: %w", err)
+		}
+		ids = append(ids, id)
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("iterate file IDs: %w", err)
+	}
+
+	for _, id := range ids {
+		if err := r.resetFileShortCode(context.Background(), id); err != nil {
+			return fmt.Errorf("generate missing file short code for file %d: %w", id, err)
+		}
+	}
+
+	return nil
+}
+
+func (r *TrafficRepository) generateMissingUserShortCodes() error {
+	rows, err := r.db.Query(`SELECT username FROM user_tokens WHERE user_short_code = '' OR user_short_code IS NULL`)
+	if err != nil {
+		return fmt.Errorf("query users without user short codes: %w", err)
+	}
+	defer rows.Close()
+
+	var usernames []string
+	for rows.Next() {
+		var username string
+		if err := rows.Scan(&username); err != nil {
+			return fmt.Errorf("scan username: %w", err)
+		}
+		usernames = append(usernames, username)
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("iterate usernames: %w", err)
+	}
+
+	for _, username := range usernames {
+		const maxRetries = 10
+		var updated bool
+		for i := 0; i < maxRetries; i++ {
+			code, err := generateUserShortCode()
+			if err != nil {
+				return err
+			}
+			if _, err = r.db.Exec(`UPDATE user_tokens SET user_short_code = ? WHERE username = ?`, code, username); err != nil {
+				if strings.Contains(strings.ToLower(err.Error()), "unique") {
+					continue
+				}
+				return fmt.Errorf("update user short code for user %s: %w", username, err)
+			}
+			updated = true
+			break
+		}
+		if !updated {
+			return fmt.Errorf("generate unique user short code for user %s", username)
+		}
+	}
+
+	return nil
+}
+
+// ResetAllSubscriptionShortURLs resets file short codes for all subscribe_files.
+func (r *TrafficRepository) ResetAllSubscriptionShortURLs(ctx context.Context) error {
+	if r == nil || r.db == nil {
+		return errors.New("traffic repository not initialized")
+	}
+
+	rows, err := r.db.QueryContext(ctx, `SELECT id FROM subscribe_files`)
+	if err != nil {
+		return fmt.Errorf("query subscribe_files IDs: %w", err)
+	}
+	defer rows.Close()
+
+	var ids []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return fmt.Errorf("scan file ID: %w", err)
+		}
+		ids = append(ids, id)
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("iterate file IDs: %w", err)
+	}
+
+	for _, id := range ids {
+		if err := r.resetFileShortCode(ctx, id); err != nil {
+			return fmt.Errorf("reset file short code for file %d: %w", id, err)
+		}
+	}
+
+	return nil
+}
+
+func (r *TrafficRepository) resetFileShortCode(ctx context.Context, fileID int64) error {
+	const maxRetries = 10
+	for i := 0; i < maxRetries; i++ {
+		code, err := generateFileShortCode()
+		if err != nil {
+			return err
+		}
+
+		_, err = r.db.ExecContext(ctx, `UPDATE subscribe_files SET file_short_code = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, code, fileID)
+		if err != nil {
+			if strings.Contains(strings.ToLower(err.Error()), "unique") {
+				continue
+			}
+			return fmt.Errorf("update file short code: %w", err)
+		}
+
+		return nil
+	}
+
+	return errors.New("failed to generate unique short URL after retries")
+}
+
+func (r *TrafficRepository) GetSubscriptionByShortURL(ctx context.Context, shortcode string) (string, error) {
+	if r == nil || r.db == nil {
+		return "", errors.New("traffic repository not initialized")
+	}
+
+	shortcode = strings.TrimSpace(shortcode)
+	if shortcode == "" {
+		return "", errors.New("shortcode is required")
+	}
+
+	var filename string
+	if err := r.db.QueryRowContext(ctx, `SELECT rule_filename FROM subscription_links WHERE short_url = ? LIMIT 1`, shortcode).Scan(&filename); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", ErrSubscriptionNotFound
+		}
+		return "", fmt.Errorf("query subscription by short URL: %w", err)
+	}
+
+	return filename, nil
+}
+
+func (r *TrafficRepository) GetFilenameByFileShortCode(ctx context.Context, fileShortCode string) (string, error) {
+	if r == nil || r.db == nil {
+		return "", errors.New("traffic repository not initialized")
+	}
+
+	fileShortCode = strings.TrimSpace(fileShortCode)
+	if fileShortCode == "" {
+		return "", errors.New("file short code is required")
+	}
+
+	var filename string
+	if err := r.db.QueryRowContext(ctx, `SELECT filename FROM subscribe_files WHERE file_short_code = ? LIMIT 1`, fileShortCode).Scan(&filename); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", ErrSubscribeFileNotFound
+		}
+		return "", fmt.Errorf("query subscribe file by file short code: %w", err)
+	}
+
+	return filename, nil
+}
+
+func (r *TrafficRepository) GetFilenameByCustomShortCode(ctx context.Context, code string) (string, error) {
+	if r == nil || r.db == nil {
+		return "", errors.New("traffic repository not initialized")
+	}
+
+	code = strings.TrimSpace(code)
+	if code == "" {
+		return "", ErrSubscribeFileNotFound
+	}
+
+	var filename string
+	if err := r.db.QueryRowContext(ctx, `SELECT filename FROM subscribe_files WHERE custom_short_code = ? LIMIT 1`, code).Scan(&filename); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", ErrSubscribeFileNotFound
+		}
+		return "", fmt.Errorf("query subscribe file by custom short code: %w", err)
+	}
+
+	return filename, nil
+}
+
+func (r *TrafficRepository) GetUsernameByUserShortCode(ctx context.Context, userShortCode string) (string, error) {
+	if r == nil || r.db == nil {
+		return "", errors.New("traffic repository not initialized")
+	}
+
+	userShortCode = strings.TrimSpace(userShortCode)
+	if userShortCode == "" {
+		return "", errors.New("user short code is required")
+	}
+
+	var username string
+	if err := r.db.QueryRowContext(ctx, `SELECT username FROM user_tokens WHERE user_short_code = ? LIMIT 1`, userShortCode).Scan(&username); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", errors.New("user not found")
+		}
+		return "", fmt.Errorf("query user by user short code: %w", err)
+	}
+
+	return username, nil
+}
+
+func (r *TrafficRepository) GetUserShortCode(ctx context.Context, username string) (string, error) {
+	if r == nil || r.db == nil {
+		return "", errors.New("traffic repository not initialized")
+	}
+
+	username = strings.TrimSpace(username)
+	if username == "" {
+		return "", errors.New("username is required")
+	}
+
+	var code string
+	if err := r.db.QueryRowContext(ctx, `SELECT user_short_code FROM user_tokens WHERE username = ? LIMIT 1`, username).Scan(&code); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", errors.New("user short code not found")
+		}
+		return "", fmt.Errorf("query user short code: %w", err)
+	}
+
+	return code, nil
+}
+
+func (r *TrafficRepository) GetEffectiveUserShortCode(ctx context.Context, username string) (string, error) {
+	if r == nil || r.db == nil {
+		return "", errors.New("traffic repository not initialized")
+	}
+
+	username = strings.TrimSpace(username)
+	if username == "" {
+		return "", errors.New("username is required")
+	}
+
+	var userCode, customCode string
+	if err := r.db.QueryRowContext(ctx, `SELECT COALESCE(user_short_code, ''), COALESCE(custom_user_short_code, '') FROM user_tokens WHERE username = ? LIMIT 1`, username).Scan(&userCode, &customCode); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", errors.New("user short code not found")
+		}
+		return "", fmt.Errorf("query effective user short code: %w", err)
+	}
+	if customCode != "" {
+		return customCode, nil
+	}
+
+	return userCode, nil
+}
+
+func (r *TrafficRepository) GetAllFileShortCodes(ctx context.Context) (map[string]string, error) {
+	if r == nil || r.db == nil {
+		return nil, errors.New("traffic repository not initialized")
+	}
+
+	rows, err := r.db.QueryContext(ctx, `SELECT COALESCE(file_short_code, ''), COALESCE(custom_short_code, ''), filename FROM subscribe_files`)
+	if err != nil {
+		return nil, fmt.Errorf("query all file short codes: %w", err)
+	}
+	defer rows.Close()
+
+	codes := make(map[string]string)
+	for rows.Next() {
+		var fileCode, customCode, filename string
+		if err := rows.Scan(&fileCode, &customCode, &filename); err != nil {
+			return nil, fmt.Errorf("scan file short code: %w", err)
+		}
+		if customCode != "" {
+			codes[customCode] = filename
+		}
+		if fileCode != "" {
+			codes[fileCode] = filename
+		}
+	}
+
+	return codes, rows.Err()
+}
+
+func (r *TrafficRepository) GetAllUserShortCodes(ctx context.Context) (map[string]string, error) {
+	if r == nil || r.db == nil {
+		return nil, errors.New("traffic repository not initialized")
+	}
+
+	rows, err := r.db.QueryContext(ctx, `SELECT COALESCE(user_short_code, ''), COALESCE(custom_user_short_code, ''), username FROM user_tokens`)
+	if err != nil {
+		return nil, fmt.Errorf("query all user short codes: %w", err)
+	}
+	defer rows.Close()
+
+	codes := make(map[string]string)
+	for rows.Next() {
+		var userCode, customCode, username string
+		if err := rows.Scan(&userCode, &customCode, &username); err != nil {
+			return nil, fmt.Errorf("scan user short code: %w", err)
+		}
+		if customCode != "" {
+			codes[customCode] = username
+		}
+		if userCode != "" {
+			codes[userCode] = username
+		}
+	}
+
+	return codes, rows.Err()
+}
+
+// User represents an authenticated account stored in the repository.
+type User struct {
+	Username     string
+	PasswordHash string
+	Email        string
+	Nickname     string
+	AvatarURL    string
+	Role         string
+	IsActive     bool
+	Remark       string
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+}
+
+// UserProfileUpdate captures editable profile fields for a user.
+type UserProfileUpdate struct {
+	Email     string
+	Nickname  string
+	AvatarURL string
+}
+
+func (r *TrafficRepository) EnsureUser(ctx context.Context, username, passwordHash string) error {
+	if r == nil || r.db == nil {
+		return errors.New("traffic repository not initialized")
+	}
+
+	username = strings.TrimSpace(username)
+	if username == "" {
+		return errors.New("username is required")
+	}
+	if passwordHash == "" {
+		return errors.New("password hash is required")
+	}
+
+	_, err := r.db.ExecContext(ctx, `INSERT INTO users (username, password_hash, nickname, role) VALUES (?, ?, ?, ?) ON CONFLICT(username) DO UPDATE SET password_hash = excluded.password_hash, updated_at = CURRENT_TIMESTAMP`, username, passwordHash, username, RoleUser)
+	if err != nil {
+		return fmt.Errorf("ensure user: %w", err)
+	}
+
+	return nil
+}
+
+func (r *TrafficRepository) CreateUser(ctx context.Context, username, email, nickname, passwordHash, role, remark string) error {
+	if r == nil || r.db == nil {
+		return errors.New("traffic repository not initialized")
+	}
+
+	username = strings.TrimSpace(username)
+	email = strings.TrimSpace(email)
+	nickname = strings.TrimSpace(nickname)
+	role = strings.ToLower(strings.TrimSpace(role))
+	remark = strings.TrimSpace(remark)
+
+	if username == "" {
+		return errors.New("username is required")
+	}
+	if passwordHash == "" {
+		return errors.New("password hash is required")
+	}
+	if nickname == "" {
+		nickname = username
+	}
+	if role != RoleAdmin {
+		role = RoleUser
+	}
+
+	_, err := r.db.ExecContext(ctx, `INSERT INTO users (username, password_hash, email, nickname, role, is_active, remark) VALUES (?, ?, ?, ?, ?, 1, ?)`, username, passwordHash, email, nickname, role, remark)
+	if err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "unique") {
+			return ErrUserExists
+		}
+		return fmt.Errorf("create user: %w", err)
+	}
+
+	return nil
+}
+
+func (r *TrafficRepository) GetUser(ctx context.Context, username string) (User, error) {
+	var user User
+	if r == nil || r.db == nil {
+		return user, errors.New("traffic repository not initialized")
+	}
+
+	username = strings.TrimSpace(username)
+	if username == "" {
+		return user, errors.New("username is required")
+	}
+
+	row := r.db.QueryRowContext(ctx, `SELECT username, password_hash, COALESCE(email, ''), COALESCE(nickname, ''), COALESCE(avatar_url, ''), COALESCE(role, ''), COALESCE(is_active, 1), COALESCE(remark, ''), created_at, updated_at FROM users WHERE username = ? LIMIT 1`, username)
+	var active int
+	if err := row.Scan(&user.Username, &user.PasswordHash, &user.Email, &user.Nickname, &user.AvatarURL, &user.Role, &active, &user.Remark, &user.CreatedAt, &user.UpdatedAt); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return user, ErrUserNotFound
+		}
+		return user, fmt.Errorf("get user: %w", err)
+	}
+	if user.Nickname == "" {
+		user.Nickname = user.Username
+	}
+	if user.Role == "" {
+		user.Role = RoleUser
+	}
+	user.IsActive = active != 0
+
+	return user, nil
+}
+
+func (r *TrafficRepository) GetAdminUsername(ctx context.Context) (string, error) {
+	if r == nil || r.db == nil {
+		return "", errors.New("traffic repository not initialized")
+	}
+
+	var username string
+	if err := r.db.QueryRowContext(ctx, `SELECT username FROM users WHERE role = ? ORDER BY created_at ASC LIMIT 1`, RoleAdmin).Scan(&username); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", ErrUserNotFound
+		}
+		return "", fmt.Errorf("get admin username: %w", err)
+	}
+
+	return username, nil
+}
+
+func (r *TrafficRepository) ListUsers(ctx context.Context, limit int) ([]User, error) {
+	if r == nil || r.db == nil {
+		return nil, errors.New("traffic repository not initialized")
+	}
+
+	query := `SELECT username, password_hash, COALESCE(email, ''), COALESCE(nickname, ''), COALESCE(avatar_url, ''), COALESCE(role, ''), COALESCE(is_active, 1), COALESCE(remark, ''), created_at, updated_at FROM users ORDER BY created_at ASC`
+	args := []any{}
+	if limit > 0 {
+		query += ` LIMIT ?`
+		args = append(args, limit)
+	}
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("list users: %w", err)
+	}
+	defer rows.Close()
+
+	var users []User
+	for rows.Next() {
+		var user User
+		var active int
+		if err := rows.Scan(&user.Username, &user.PasswordHash, &user.Email, &user.Nickname, &user.AvatarURL, &user.Role, &active, &user.Remark, &user.CreatedAt, &user.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("scan user: %w", err)
+		}
+		if user.Nickname == "" {
+			user.Nickname = user.Username
+		}
+		if user.Role == "" {
+			user.Role = RoleUser
+		}
+		user.IsActive = active != 0
+		users = append(users, user)
+	}
+
+	return users, rows.Err()
+}
+
+func (r *TrafficRepository) UpdateUserPassword(ctx context.Context, username, passwordHash string) error {
+	if r == nil || r.db == nil {
+		return errors.New("traffic repository not initialized")
+	}
+
+	username = strings.TrimSpace(username)
+	if username == "" {
+		return errors.New("username is required")
+	}
+	if passwordHash == "" {
+		return errors.New("password hash is required")
+	}
+
+	return r.execUserUpdate(ctx, `UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE username = ?`, passwordHash, username)
+}
+
+func (r *TrafficRepository) UpdateUserRole(ctx context.Context, username, role string) error {
+	role = strings.ToLower(strings.TrimSpace(role))
+	if role != RoleAdmin {
+		role = RoleUser
+	}
+	return r.execUserUpdate(ctx, `UPDATE users SET role = ?, updated_at = CURRENT_TIMESTAMP WHERE username = ?`, role, strings.TrimSpace(username))
+}
+
+func (r *TrafficRepository) UpdateUserStatus(ctx context.Context, username string, active bool) error {
+	value := 0
+	if active {
+		value = 1
+	}
+	return r.execUserUpdate(ctx, `UPDATE users SET is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE username = ?`, value, strings.TrimSpace(username))
+}
+
+func (r *TrafficRepository) UpdateUserRemark(ctx context.Context, username, remark string) error {
+	return r.execUserUpdate(ctx, `UPDATE users SET remark = ?, updated_at = CURRENT_TIMESTAMP WHERE username = ?`, remark, strings.TrimSpace(username))
+}
+
+func (r *TrafficRepository) UpdateUserProfile(ctx context.Context, username string, profile UserProfileUpdate) error {
+	email := strings.TrimSpace(profile.Email)
+	nickname := strings.TrimSpace(profile.Nickname)
+	avatar := strings.TrimSpace(profile.AvatarURL)
+	username = strings.TrimSpace(username)
+	if nickname == "" {
+		nickname = username
+	}
+	return r.execUserUpdate(ctx, `UPDATE users SET email = ?, nickname = ?, avatar_url = ?, updated_at = CURRENT_TIMESTAMP WHERE username = ?`, email, nickname, avatar, username)
+}
+
+func (r *TrafficRepository) execUserUpdate(ctx context.Context, stmt string, args ...any) error {
+	if r == nil || r.db == nil {
+		return errors.New("traffic repository not initialized")
+	}
+	res, err := r.db.ExecContext(ctx, stmt, args...)
+	if err != nil {
+		return err
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("user update rows affected: %w", err)
+	}
+	if affected == 0 {
+		return ErrUserNotFound
+	}
+	return nil
+}
+
+func (r *TrafficRepository) RenameUser(ctx context.Context, oldUsername, newUsername string) error {
+	if r == nil || r.db == nil {
+		return errors.New("traffic repository not initialized")
+	}
+
+	oldUsername = strings.TrimSpace(oldUsername)
+	newUsername = strings.TrimSpace(newUsername)
+	if oldUsername == "" || newUsername == "" {
+		return errors.New("usernames are required")
+	}
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("rename user begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	res, err := tx.ExecContext(ctx, `UPDATE users SET username = ?, updated_at = CURRENT_TIMESTAMP WHERE username = ?`, newUsername, oldUsername)
+	if err != nil {
+		return fmt.Errorf("rename user: %w", err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("rename user rows affected: %w", err)
+	}
+	if affected == 0 {
+		return ErrUserNotFound
+	}
+
+	for _, stmt := range []string{
+		`UPDATE user_tokens SET username = ?, updated_at = CURRENT_TIMESTAMP WHERE username = ?`,
+		`UPDATE sessions SET username = ? WHERE username = ?`,
+		`UPDATE user_subscriptions SET username = ? WHERE username = ?`,
+		`UPDATE user_settings SET username = ?, updated_at = CURRENT_TIMESTAMP WHERE username = ?`,
+		`UPDATE nodes SET username = ?, updated_at = CURRENT_TIMESTAMP WHERE username = ?`,
+		`UPDATE external_subscriptions SET username = ?, updated_at = CURRENT_TIMESTAMP WHERE username = ?`,
+	} {
+		if _, err := tx.ExecContext(ctx, stmt, newUsername, oldUsername); err != nil {
+			return fmt.Errorf("rename related user data: %w", err)
+		}
+	}
+
+	return tx.Commit()
+}
+
+func (r *TrafficRepository) DeleteUser(ctx context.Context, username string) error {
+	if r == nil || r.db == nil {
+		return errors.New("traffic repository not initialized")
+	}
+
+	username = strings.TrimSpace(username)
+	if username == "" {
+		return errors.New("username is required")
+	}
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	for _, stmt := range []string{
+		`DELETE FROM user_subscriptions WHERE username = ?`,
+		`DELETE FROM sessions WHERE username = ?`,
+		`DELETE FROM nodes WHERE username = ?`,
+		`DELETE FROM external_subscriptions WHERE username = ?`,
+		`DELETE FROM user_settings WHERE username = ?`,
+		`DELETE FROM user_tokens WHERE username = ?`,
+	} {
+		if _, err := tx.ExecContext(ctx, stmt, username); err != nil {
+			return fmt.Errorf("delete related user data: %w", err)
+		}
+	}
+
+	res, err := tx.ExecContext(ctx, `DELETE FROM users WHERE username = ?`, username)
+	if err != nil {
+		return fmt.Errorf("delete user: %w", err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("delete user rows affected: %w", err)
+	}
+	if affected == 0 {
+		return ErrUserNotFound
+	}
+
+	return tx.Commit()
+}
+
+func (r *TrafficRepository) GetOrCreateUserToken(ctx context.Context, username string) (string, error) {
+	if r == nil || r.db == nil {
+		return "", errors.New("traffic repository not initialized")
+	}
+
+	username = strings.TrimSpace(username)
+	if username == "" {
+		return "", errors.New("username is required")
+	}
+
+	var token string
+	err := r.db.QueryRowContext(ctx, `SELECT token FROM user_tokens WHERE username = ? LIMIT 1`, username).Scan(&token)
+	if err == nil {
+		return token, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return "", fmt.Errorf("query user token: %w", err)
+	}
+
+	token, err = generateRepositoryToken()
+	if err != nil {
+		return "", err
+	}
+
+	userShortCode, err := generateUserShortCode()
+	if err != nil {
+		return "", err
+	}
+
+	const maxRetries = 10
+	for i := 0; i < maxRetries; i++ {
+		_, err = r.db.ExecContext(ctx, `INSERT INTO user_tokens (username, token, user_short_code) VALUES (?, ?, ?)`, username, token, userShortCode)
+		if err == nil {
+			return token, nil
+		}
+		if strings.Contains(strings.ToLower(err.Error()), "unique") {
+			userShortCode, err = generateUserShortCode()
+			if err != nil {
+				return "", err
+			}
+			continue
+		}
+		return "", fmt.Errorf("create user token: %w", err)
+	}
+
+	return "", errors.New("failed to generate unique user token short code")
+}
+
+func (r *TrafficRepository) ResetUserToken(ctx context.Context, username string) (string, error) {
+	if r == nil || r.db == nil {
+		return "", errors.New("traffic repository not initialized")
+	}
+	username = strings.TrimSpace(username)
+	if username == "" {
+		return "", errors.New("username is required")
+	}
+
+	token, err := generateRepositoryToken()
+	if err != nil {
+		return "", err
+	}
+	const maxRetries = 10
+	for i := 0; i < maxRetries; i++ {
+		userShortCode, err := generateUserShortCode()
+		if err != nil {
+			return "", err
+		}
+		_, err = r.db.ExecContext(ctx, `INSERT INTO user_tokens (username, token, user_short_code, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+			ON CONFLICT(username) DO UPDATE SET token = excluded.token, user_short_code = excluded.user_short_code, updated_at = CURRENT_TIMESTAMP`, username, token, userShortCode)
+		if err == nil {
+			return token, nil
+		}
+		if strings.Contains(strings.ToLower(err.Error()), "unique") {
+			continue
+		}
+		return "", fmt.Errorf("reset user token: %w", err)
+	}
+	return "", errors.New("failed to generate unique user short code")
+}
+
+func (r *TrafficRepository) ValidateUserToken(ctx context.Context, token string) (string, error) {
+	if r == nil || r.db == nil {
+		return "", errors.New("traffic repository not initialized")
+	}
+	token = strings.TrimSpace(token)
+	if token == "" {
+		return "", errors.New("token is required")
+	}
+	var username string
+	err := r.db.QueryRowContext(ctx, `SELECT username FROM user_tokens WHERE token = ? LIMIT 1`, token).Scan(&username)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", ErrTokenNotFound
+	}
+	if err != nil {
+		return "", fmt.Errorf("query user token by value: %w", err)
+	}
+	return username, nil
+}
+
+func generateRepositoryToken() (string, error) {
+	buf := make([]byte, 32)
+	if _, err := rand.Read(buf); err != nil {
+		return "", fmt.Errorf("generate token: %w", err)
+	}
+	return fmt.Sprintf("%x", buf), nil
+}
+
+func (r *TrafficRepository) SaveRuleVersion(ctx context.Context, filename, content, createdBy string) (int64, error) {
+	if r == nil || r.db == nil {
+		return 0, errors.New("traffic repository not initialized")
+	}
+	filename = strings.TrimSpace(filename)
+	createdBy = strings.TrimSpace(createdBy)
+	if filename == "" || createdBy == "" {
+		return 0, errors.New("filename and createdBy are required")
+	}
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	var current sql.NullInt64
+	if err := tx.QueryRowContext(ctx, `SELECT MAX(version) FROM rule_versions WHERE filename = ?`, filename).Scan(&current); err != nil {
+		return 0, fmt.Errorf("query max version: %w", err)
+	}
+	version := int64(1)
+	if current.Valid {
+		version = current.Int64 + 1
+	}
+	if _, err := tx.ExecContext(ctx, `INSERT INTO rule_versions (filename, version, content, created_by) VALUES (?, ?, ?, ?)`, filename, version, content, createdBy); err != nil {
+		return 0, fmt.Errorf("insert rule version: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, fmt.Errorf("commit rule version: %w", err)
+	}
+	return version, nil
+}
+
+func (r *TrafficRepository) ListRuleVersions(ctx context.Context, filename string, limit int) ([]RuleVersion, error) {
+	if r == nil || r.db == nil {
+		return nil, errors.New("traffic repository not initialized")
+	}
+	filename = strings.TrimSpace(filename)
+	if filename == "" {
+		return nil, errors.New("filename is required")
+	}
+	if limit <= 0 {
+		limit = 10
+	}
+	rows, err := r.db.QueryContext(ctx, `SELECT version, content, created_by, created_at FROM rule_versions WHERE filename = ? ORDER BY version DESC LIMIT ?`, filename, limit)
+	if err != nil {
+		return nil, fmt.Errorf("query rule versions: %w", err)
+	}
+	defer rows.Close()
+	var versions []RuleVersion
+	for rows.Next() {
+		var version RuleVersion
+		version.Filename = filename
+		if err := rows.Scan(&version.Version, &version.Content, &version.CreatedBy, &version.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan rule version: %w", err)
+		}
+		versions = append(versions, version)
+	}
+	return versions, rows.Err()
+}
+
+func (r *TrafficRepository) LatestRuleVersion(ctx context.Context, filename string) (RuleVersion, error) {
+	versions, err := r.ListRuleVersions(ctx, filename, 1)
+	if err != nil {
+		return RuleVersion{}, err
+	}
+	if len(versions) == 0 {
+		return RuleVersion{}, ErrRuleVersionNotFound
+	}
+	return versions[0], nil
+}
+
+func (r *TrafficRepository) UpdateUserCustomShortCode(ctx context.Context, username, code string) error {
+	if r == nil || r.db == nil {
+		return errors.New("traffic repository not initialized")
+	}
+	username = strings.TrimSpace(username)
+	code = strings.TrimSpace(code)
+	if username == "" {
+		return errors.New("username is required")
+	}
+	if _, err := r.GetOrCreateUserToken(ctx, username); err != nil {
+		return fmt.Errorf("ensure user token exists: %w", err)
+	}
+	return r.execUserUpdate(ctx, `UPDATE user_tokens SET custom_user_short_code = ?, updated_at = CURRENT_TIMESTAMP WHERE username = ?`, code, username)
+}
+
+func (r *TrafficRepository) GetUserCustomShortCode(ctx context.Context, username string) (string, error) {
+	if r == nil || r.db == nil {
+		return "", errors.New("traffic repository not initialized")
+	}
+	username = strings.TrimSpace(username)
+	if username == "" {
+		return "", errors.New("username is required")
+	}
+	var code string
+	err := r.db.QueryRowContext(ctx, `SELECT COALESCE(custom_user_short_code, '') FROM user_tokens WHERE username = ? LIMIT 1`, username).Scan(&code)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("query user custom short code: %w", err)
+	}
+	return code, nil
+}
+
+func (r *TrafficRepository) GetUserSubscriptionIDs(ctx context.Context, username string) ([]int64, error) {
+	if r == nil || r.db == nil {
+		return nil, errors.New("traffic repository not initialized")
+	}
+	username = strings.TrimSpace(username)
+	if username == "" {
+		return nil, errors.New("username is required")
+	}
+	rows, err := r.db.QueryContext(ctx, `SELECT us.subscription_id FROM user_subscriptions us INNER JOIN subscribe_files sf ON us.subscription_id = sf.id WHERE us.username = ? ORDER BY us.created_at ASC`, username)
+	if err != nil {
+		return nil, fmt.Errorf("get user subscription IDs: %w", err)
+	}
+	defer rows.Close()
+	var ids []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("scan subscription ID: %w", err)
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
+func (r *TrafficRepository) SetUserSubscriptions(ctx context.Context, username string, subscriptionIDs []int64) error {
+	if r == nil || r.db == nil {
+		return errors.New("traffic repository not initialized")
+	}
+	username = strings.TrimSpace(username)
+	if username == "" {
+		return errors.New("username is required")
+	}
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, `DELETE FROM user_subscriptions WHERE username = ?`, username); err != nil {
+		return fmt.Errorf("delete existing subscriptions: %w", err)
+	}
+	stmt, err := tx.PrepareContext(ctx, `INSERT INTO user_subscriptions (username, subscription_id) VALUES (?, ?)`)
+	if err != nil {
+		return fmt.Errorf("prepare insert statement: %w", err)
+	}
+	defer stmt.Close()
+	for _, id := range subscriptionIDs {
+		if id <= 0 {
+			continue
+		}
+		if _, err := stmt.ExecContext(ctx, username, id); err != nil {
+			return fmt.Errorf("insert subscription %d: %w", id, err)
+		}
+	}
+	return tx.Commit()
+}
+
+func (r *TrafficRepository) GetUserSubscriptions(ctx context.Context, username string) ([]SubscribeFile, error) {
+	if r == nil || r.db == nil {
+		return nil, errors.New("traffic repository not initialized")
+	}
+	username = strings.TrimSpace(username)
+	if username == "" {
+		return nil, errors.New("username is required")
+	}
+	rows, err := r.db.QueryContext(ctx, `SELECT s.id, s.name, COALESCE(s.description, ''), COALESCE(s.url, ''), s.type, s.filename, COALESCE(s.file_short_code, ''), COALESCE(s.custom_short_code, ''), COALESCE(s.auto_sync_custom_rules, 0), COALESCE(s.template_filename, ''), COALESCE(s.selected_tags, '[]'), s.expire_at, COALESCE(s.raw_output, 0), COALESCE(s.sort_order, 0), s.created_at, s.updated_at, s.traffic_limit FROM subscribe_files s INNER JOIN user_subscriptions us ON s.id = us.subscription_id WHERE us.username = ? ORDER BY s.sort_order ASC, s.created_at DESC`, username)
+	if err != nil {
+		return nil, fmt.Errorf("get user subscriptions: %w", err)
+	}
+	defer rows.Close()
+	var files []SubscribeFile
+	for rows.Next() {
+		var file SubscribeFile
+		var autoSync, rawOutput int
+		var expireAt sql.NullTime
+		var selectedTagsJSON string
+		var trafficLimit sql.NullFloat64
+		if err := rows.Scan(&file.ID, &file.Name, &file.Description, &file.URL, &file.Type, &file.Filename, &file.FileShortCode, &file.CustomShortCode, &autoSync, &file.TemplateFilename, &selectedTagsJSON, &expireAt, &rawOutput, &file.SortOrder, &file.CreatedAt, &file.UpdatedAt, &trafficLimit); err != nil {
+			return nil, fmt.Errorf("scan subscription: %w", err)
+		}
+		file.AutoSyncCustomRules = autoSync != 0
+		file.RawOutput = rawOutput != 0
+		if expireAt.Valid {
+			file.ExpireAt = &expireAt.Time
+		}
+		if trafficLimit.Valid {
+			v := trafficLimit.Float64
+			file.TrafficLimit = &v
+		}
+		if selectedTagsJSON != "" && selectedTagsJSON != "[]" {
+			_ = json.Unmarshal([]byte(selectedTagsJSON), &file.SelectedTags)
+		}
+		files = append(files, file)
+	}
+	return files, rows.Err()
+}
+
+// Session represents an authenticated session stored in the database.
+type Session struct {
+	Token     string
+	Username  string
+	ExpiresAt time.Time
+	CreatedAt time.Time
+}
+
+func (r *TrafficRepository) CreateSession(ctx context.Context, token, username string, expiresAt time.Time) error {
+	if r == nil || r.db == nil {
+		return errors.New("traffic repository not initialized")
+	}
+	token = strings.TrimSpace(token)
+	username = strings.TrimSpace(username)
+	if token == "" || username == "" {
+		return errors.New("token and username are required")
+	}
+	_, err := r.db.ExecContext(ctx, `INSERT INTO sessions (token, username, expires_at) VALUES (?, ?, ?)`, token, username, expiresAt)
+	if err != nil {
+		return fmt.Errorf("create session: %w", err)
+	}
+	return nil
+}
+
+func (r *TrafficRepository) LoadSessions(ctx context.Context) ([]Session, error) {
+	if r == nil || r.db == nil {
+		return nil, errors.New("traffic repository not initialized")
+	}
+	rows, err := r.db.QueryContext(ctx, `SELECT token, username, expires_at, created_at FROM sessions WHERE expires_at > CURRENT_TIMESTAMP`)
+	if err != nil {
+		return nil, fmt.Errorf("load sessions: %w", err)
+	}
+	defer rows.Close()
+
+	var sessions []Session
+	for rows.Next() {
+		var session Session
+		if err := rows.Scan(&session.Token, &session.Username, &session.ExpiresAt, &session.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan session: %w", err)
+		}
+		sessions = append(sessions, session)
+	}
+	return sessions, rows.Err()
+}
+
+func (r *TrafficRepository) CleanupExpiredSessions(ctx context.Context) error {
+	if r == nil || r.db == nil {
+		return errors.New("traffic repository not initialized")
+	}
+	_, err := r.db.ExecContext(ctx, `DELETE FROM sessions WHERE expires_at <= CURRENT_TIMESTAMP`)
+	if err != nil {
+		return fmt.Errorf("cleanup expired sessions: %w", err)
+	}
+	return nil
+}
+
+func (r *TrafficRepository) DeleteSession(ctx context.Context, token string) error {
+	if r == nil || r.db == nil {
+		return errors.New("traffic repository not initialized")
+	}
+	token = strings.TrimSpace(token)
+	if token == "" {
+		return errors.New("token is required")
+	}
+	_, err := r.db.ExecContext(ctx, `DELETE FROM sessions WHERE token = ?`, token)
+	if err != nil {
+		return fmt.Errorf("delete session: %w", err)
+	}
+	return nil
+}
+
+func (r *TrafficRepository) DeleteUserSessions(ctx context.Context, username string) error {
+	if r == nil || r.db == nil {
+		return errors.New("traffic repository not initialized")
+	}
+	username = strings.TrimSpace(username)
+	if username == "" {
+		return errors.New("username is required")
+	}
+	_, err := r.db.ExecContext(ctx, `DELETE FROM sessions WHERE username = ?`, username)
+	if err != nil {
+		return fmt.Errorf("delete user sessions: %w", err)
+	}
+	return nil
+}
+
+func (r *TrafficRepository) GetUserSettings(ctx context.Context, username string) (UserSettings, error) {
+	var settings UserSettings
+	if r == nil || r.db == nil {
+		return settings, errors.New("traffic repository not initialized")
+	}
+	username = strings.TrimSpace(username)
+	if username == "" {
+		return settings, errors.New("username is required")
+	}
+
+	const stmt = `SELECT username, force_sync_external, COALESCE(match_rule, 'node_name'), COALESCE(sync_scope, 'saved_only'), COALESCE(keep_node_name, 1), COALESCE(cache_expire_minutes, 0), COALESCE(sync_traffic, 0), COALESCE(custom_rules_enabled, 0), COALESCE(template_version, 'v2'), COALESCE(enable_proxy_provider, 0), COALESCE(node_order, '[]'), COALESCE(node_name_filter, '剩余|流量|到期|订阅|时间|重置'), COALESCE(debug_enabled, 0), COALESCE(debug_log_path, ''), debug_started_at, created_at, updated_at FROM user_settings WHERE username = ? LIMIT 1`
+	var forceSyncInt, keepNodeNameInt, syncTrafficInt, customRulesEnabledInt, enableProxyProviderInt, debugEnabledInt int
+	var nodeOrderJSON string
+	var debugStartedAt sql.NullTime
+	err := r.db.QueryRowContext(ctx, stmt, username).Scan(&settings.Username, &forceSyncInt, &settings.MatchRule, &settings.SyncScope, &keepNodeNameInt, &settings.CacheExpireMinutes, &syncTrafficInt, &customRulesEnabledInt, &settings.TemplateVersion, &enableProxyProviderInt, &nodeOrderJSON, &settings.NodeNameFilter, &debugEnabledInt, &settings.DebugLogPath, &debugStartedAt, &settings.CreatedAt, &settings.UpdatedAt)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return settings, ErrUserSettingsNotFound
+		}
+		return settings, fmt.Errorf("get user settings: %w", err)
+	}
+
+	settings.ForceSyncExternal = forceSyncInt == 1
+	settings.KeepNodeName = keepNodeNameInt == 1
+	settings.SyncTraffic = syncTrafficInt == 1
+	settings.CustomRulesEnabled = customRulesEnabledInt == 1
+	settings.EnableProxyProvider = enableProxyProviderInt == 1
+	settings.DebugEnabled = debugEnabledInt == 1
+	if nodeOrderJSON != "" && nodeOrderJSON != "[]" {
+		if err := json.Unmarshal([]byte(nodeOrderJSON), &settings.NodeOrder); err != nil {
+			settings.NodeOrder = []int64{}
+		}
+	} else {
+		settings.NodeOrder = []int64{}
+	}
+	if debugStartedAt.Valid {
+		settings.DebugStartedAt = &debugStartedAt.Time
+	}
+	return settings, nil
+}
+
+func (r *TrafficRepository) UpsertUserSettings(ctx context.Context, settings UserSettings) error {
+	if r == nil || r.db == nil {
+		return errors.New("traffic repository not initialized")
+	}
+	username := strings.TrimSpace(settings.Username)
+	if username == "" {
+		return errors.New("username is required")
+	}
+
+	boolInt := func(v bool) int {
+		if v {
+			return 1
+		}
+		return 0
+	}
+	matchRule := strings.TrimSpace(settings.MatchRule)
+	if matchRule == "" {
+		matchRule = "node_name"
+	}
+	syncScope := strings.TrimSpace(settings.SyncScope)
+	if syncScope == "" {
+		syncScope = "saved_only"
+	}
+	templateVersion := strings.TrimSpace(settings.TemplateVersion)
+	if templateVersion == "" {
+		templateVersion = "v2"
+	}
+	nodeNameFilter := strings.TrimSpace(settings.NodeNameFilter)
+	if nodeNameFilter == "" {
+		nodeNameFilter = "剩余|流量|到期|订阅|时间|重置"
+	}
+	nodeOrderJSON := "[]"
+	if len(settings.NodeOrder) > 0 {
+		if b, err := json.Marshal(settings.NodeOrder); err == nil {
+			nodeOrderJSON = string(b)
+		}
+	}
+	cacheExpireMinutes := settings.CacheExpireMinutes
+	if cacheExpireMinutes < 0 {
+		cacheExpireMinutes = 0
+	}
+
+	const stmt = `
+		INSERT INTO user_settings (username, force_sync_external, match_rule, sync_scope, keep_node_name, cache_expire_minutes, sync_traffic, custom_rules_enabled, template_version, enable_proxy_provider, node_order, node_name_filter, debug_enabled, debug_log_path, debug_started_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+		ON CONFLICT(username) DO UPDATE SET
+			force_sync_external = excluded.force_sync_external,
+			match_rule = excluded.match_rule,
+			sync_scope = excluded.sync_scope,
+			keep_node_name = excluded.keep_node_name,
+			cache_expire_minutes = excluded.cache_expire_minutes,
+			sync_traffic = excluded.sync_traffic,
+			custom_rules_enabled = excluded.custom_rules_enabled,
+			template_version = excluded.template_version,
+			enable_proxy_provider = excluded.enable_proxy_provider,
+			node_order = excluded.node_order,
+			node_name_filter = excluded.node_name_filter,
+			debug_enabled = excluded.debug_enabled,
+			debug_log_path = excluded.debug_log_path,
+			debug_started_at = excluded.debug_started_at,
+			updated_at = CURRENT_TIMESTAMP`
+	if _, err := r.db.ExecContext(ctx, stmt, username, boolInt(settings.ForceSyncExternal), matchRule, syncScope, boolInt(settings.KeepNodeName), cacheExpireMinutes, boolInt(settings.SyncTraffic), boolInt(settings.CustomRulesEnabled), templateVersion, boolInt(settings.EnableProxyProvider), nodeOrderJSON, nodeNameFilter, boolInt(settings.DebugEnabled), settings.DebugLogPath, settings.DebugStartedAt); err != nil {
+		return fmt.Errorf("upsert user settings: %w", err)
+	}
+	return nil
+}
+
+func (r *TrafficRepository) ListCustomRules(ctx context.Context, ruleType string) ([]CustomRule, error) {
+	if r == nil || r.db == nil {
+		return nil, errors.New("traffic repository not initialized")
+	}
+	query := `SELECT id, name, type, mode, content, enabled, created_at, updated_at FROM custom_rules`
+	args := []any{}
+	if strings.TrimSpace(ruleType) != "" {
+		query += ` WHERE type = ?`
+		args = append(args, strings.TrimSpace(ruleType))
+	}
+	query += ` ORDER BY created_at DESC`
+	return r.queryCustomRules(ctx, query, args...)
+}
+
+func (r *TrafficRepository) ListEnabledCustomRules(ctx context.Context, ruleType string) ([]CustomRule, error) {
+	if r == nil || r.db == nil {
+		return nil, errors.New("traffic repository not initialized")
+	}
+	query := `SELECT id, name, type, mode, content, enabled, created_at, updated_at FROM custom_rules WHERE enabled = 1`
+	args := []any{}
+	if strings.TrimSpace(ruleType) != "" {
+		query += ` AND type = ?`
+		args = append(args, strings.TrimSpace(ruleType))
+	}
+	query += ` ORDER BY created_at DESC`
+	return r.queryCustomRules(ctx, query, args...)
+}
+
+func (r *TrafficRepository) queryCustomRules(ctx context.Context, query string, args ...any) ([]CustomRule, error) {
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("query custom rules: %w", err)
+	}
+	defer rows.Close()
+
+	var rules []CustomRule
+	for rows.Next() {
+		var rule CustomRule
+		var enabled int
+		if err := rows.Scan(&rule.ID, &rule.Name, &rule.Type, &rule.Mode, &rule.Content, &enabled, &rule.CreatedAt, &rule.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("scan custom rule: %w", err)
+		}
+		rule.Enabled = enabled != 0
+		rules = append(rules, rule)
+	}
+	return rules, rows.Err()
+}
+
+func (r *TrafficRepository) GetCustomRule(ctx context.Context, id int64) (*CustomRule, error) {
+	if r == nil || r.db == nil {
+		return nil, errors.New("traffic repository not initialized")
+	}
+	var rule CustomRule
+	var enabled int
+	err := r.db.QueryRowContext(ctx, `SELECT id, name, type, mode, content, enabled, created_at, updated_at FROM custom_rules WHERE id = ?`, id).Scan(&rule.ID, &rule.Name, &rule.Type, &rule.Mode, &rule.Content, &enabled, &rule.CreatedAt, &rule.UpdatedAt)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrCustomRuleNotFound
+		}
+		return nil, fmt.Errorf("get custom rule: %w", err)
+	}
+	rule.Enabled = enabled != 0
+	return &rule, nil
+}
+
+func (r *TrafficRepository) CreateCustomRule(ctx context.Context, rule *CustomRule) error {
+	if err := validateCustomRule(rule); err != nil {
+		return err
+	}
+	enabled := 0
+	if rule.Enabled {
+		enabled = 1
+	}
+	res, err := r.db.ExecContext(ctx, `INSERT INTO custom_rules (name, type, mode, content, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`, rule.Name, rule.Type, rule.Mode, rule.Content, enabled)
+	if err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "unique") {
+			return errors.New("custom rule with this name and type already exists")
+		}
+		return fmt.Errorf("create custom rule: %w", err)
+	}
+	id, err := res.LastInsertId()
+	if err != nil {
+		return fmt.Errorf("get last insert id: %w", err)
+	}
+	rule.ID = id
+	now := time.Now()
+	rule.CreatedAt = now
+	rule.UpdatedAt = now
+	return nil
+}
+
+func (r *TrafficRepository) UpdateCustomRule(ctx context.Context, rule *CustomRule) error {
+	if err := validateCustomRule(rule); err != nil {
+		return err
+	}
+	if rule.ID <= 0 {
+		return errors.New("custom rule id is required")
+	}
+	enabled := 0
+	if rule.Enabled {
+		enabled = 1
+	}
+	res, err := r.db.ExecContext(ctx, `UPDATE custom_rules SET name = ?, type = ?, mode = ?, content = ?, enabled = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, rule.Name, rule.Type, rule.Mode, rule.Content, enabled, rule.ID)
+	if err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "unique") {
+			return errors.New("custom rule with this name and type already exists")
+		}
+		return fmt.Errorf("update custom rule: %w", err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("custom rule rows affected: %w", err)
+	}
+	if affected == 0 {
+		return ErrCustomRuleNotFound
+	}
+	rule.UpdatedAt = time.Now()
+	return nil
+}
+
+func (r *TrafficRepository) DeleteCustomRule(ctx context.Context, id int64) error {
+	if r == nil || r.db == nil {
+		return errors.New("traffic repository not initialized")
+	}
+	res, err := r.db.ExecContext(ctx, `DELETE FROM custom_rules WHERE id = ?`, id)
+	if err != nil {
+		return fmt.Errorf("delete custom rule: %w", err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("custom rule rows affected: %w", err)
+	}
+	if affected == 0 {
+		return ErrCustomRuleNotFound
+	}
+	return nil
+}
+
+func validateCustomRule(rule *CustomRule) error {
+	if rule == nil {
+		return errors.New("custom rule is required")
+	}
+	rule.Name = strings.TrimSpace(rule.Name)
+	rule.Type = strings.TrimSpace(rule.Type)
+	rule.Mode = strings.TrimSpace(rule.Mode)
+	rule.Content = strings.TrimSpace(rule.Content)
+	if rule.Name == "" {
+		return errors.New("custom rule name is required")
+	}
+	if rule.Type != "dns" && rule.Type != "rules" && rule.Type != "rule-providers" {
+		return errors.New("custom rule type must be 'dns', 'rules', or 'rule-providers'")
+	}
+	if rule.Type == "dns" {
+		rule.Mode = "replace"
+	} else if rule.Type == "rules" {
+		if rule.Mode != "replace" && rule.Mode != "prepend" && rule.Mode != "append" {
+			return errors.New("custom rule mode must be 'replace', 'prepend', or 'append' for rules type")
+		}
+	} else if rule.Mode != "replace" && rule.Mode != "prepend" {
+		return errors.New("custom rule mode must be 'replace' or 'prepend'")
+	}
+	if rule.Content == "" {
+		return errors.New("custom rule content is required")
+	}
+	return nil
+}
+
+func (r *TrafficRepository) GetCustomRuleApplications(ctx context.Context, fileID int64) ([]CustomRuleApplication, error) {
+	if r == nil || r.db == nil {
+		return nil, errors.New("traffic repository not initialized")
+	}
+	rows, err := r.db.QueryContext(ctx, `SELECT id, subscribe_file_id, custom_rule_id, rule_type, rule_mode, applied_content, content_hash, applied_at FROM custom_rule_applications WHERE subscribe_file_id = ? ORDER BY applied_at DESC`, fileID)
+	if err != nil {
+		return nil, fmt.Errorf("get custom rule applications: %w", err)
+	}
+	defer rows.Close()
+	var apps []CustomRuleApplication
+	for rows.Next() {
+		var app CustomRuleApplication
+		if err := rows.Scan(&app.ID, &app.SubscribeFileID, &app.CustomRuleID, &app.RuleType, &app.RuleMode, &app.AppliedContent, &app.ContentHash, &app.AppliedAt); err != nil {
+			return nil, fmt.Errorf("scan custom rule application: %w", err)
+		}
+		apps = append(apps, app)
+	}
+	return apps, rows.Err()
+}
+
+func (r *TrafficRepository) UpsertCustomRuleApplication(ctx context.Context, app *CustomRuleApplication) error {
+	if r == nil || r.db == nil {
+		return errors.New("traffic repository not initialized")
+	}
+	if app == nil {
+		return errors.New("custom rule application is required")
+	}
+	_, err := r.db.ExecContext(ctx, `INSERT INTO custom_rule_applications (subscribe_file_id, custom_rule_id, rule_type, rule_mode, applied_content, content_hash, applied_at)
+		VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+		ON CONFLICT(subscribe_file_id, custom_rule_id, rule_type)
+		DO UPDATE SET rule_mode = excluded.rule_mode, applied_content = excluded.applied_content, content_hash = excluded.content_hash, applied_at = CURRENT_TIMESTAMP`, app.SubscribeFileID, app.CustomRuleID, app.RuleType, app.RuleMode, app.AppliedContent, app.ContentHash)
+	if err != nil {
+		return fmt.Errorf("upsert custom rule application: %w", err)
+	}
+	return nil
+}
+
+func (r *TrafficRepository) DeleteCustomRuleApplication(ctx context.Context, fileID, ruleID int64, ruleType string) error {
+	if r == nil || r.db == nil {
+		return errors.New("traffic repository not initialized")
+	}
+	_, err := r.db.ExecContext(ctx, `DELETE FROM custom_rule_applications WHERE subscribe_file_id = ? AND custom_rule_id = ? AND rule_type = ?`, fileID, ruleID, ruleType)
+	if err != nil {
+		return fmt.Errorf("delete custom rule application: %w", err)
+	}
+	return nil
+}
+
+func (r *TrafficRepository) ListExternalSubscriptions(ctx context.Context, username string) ([]ExternalSubscription, error) {
+	username = strings.TrimSpace(username)
+	if username == "" {
+		return nil, errors.New("username is required")
+	}
+	return r.queryExternalSubscriptions(ctx, `SELECT id, username, name, url, COALESCE(user_agent, 'clash-meta/2.4.0'), node_count, last_sync_at, COALESCE(upload, 0), COALESCE(download, 0), COALESCE(total, 0), expire, COALESCE(traffic_mode, 'both'), created_at, updated_at FROM external_subscriptions WHERE username = ? ORDER BY created_at DESC`, username)
+}
+
+func (r *TrafficRepository) ListAllExternalSubscriptions(ctx context.Context) ([]ExternalSubscription, error) {
+	return r.queryExternalSubscriptions(ctx, `SELECT id, username, name, url, COALESCE(user_agent, 'clash-meta/2.4.0'), node_count, last_sync_at, COALESCE(upload, 0), COALESCE(download, 0), COALESCE(total, 0), expire, COALESCE(traffic_mode, 'both'), created_at, updated_at FROM external_subscriptions ORDER BY created_at DESC`)
+}
+
+func (r *TrafficRepository) queryExternalSubscriptions(ctx context.Context, query string, args ...any) ([]ExternalSubscription, error) {
+	if r == nil || r.db == nil {
+		return nil, errors.New("traffic repository not initialized")
+	}
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("query external subscriptions: %w", err)
+	}
+	defer rows.Close()
+	var subs []ExternalSubscription
+	for rows.Next() {
+		var sub ExternalSubscription
+		var lastSyncAt, expire sql.NullTime
+		if err := rows.Scan(&sub.ID, &sub.Username, &sub.Name, &sub.URL, &sub.UserAgent, &sub.NodeCount, &lastSyncAt, &sub.Upload, &sub.Download, &sub.Total, &expire, &sub.TrafficMode, &sub.CreatedAt, &sub.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("scan external subscription: %w", err)
+		}
+		if lastSyncAt.Valid {
+			sub.LastSyncAt = &lastSyncAt.Time
+		}
+		if expire.Valid {
+			sub.Expire = &expire.Time
+		}
+		subs = append(subs, sub)
+	}
+	return subs, rows.Err()
+}
+
+func (r *TrafficRepository) GetExternalSubscription(ctx context.Context, id int64, username string) (ExternalSubscription, error) {
+	var sub ExternalSubscription
+	username = strings.TrimSpace(username)
+	if id <= 0 || username == "" {
+		return sub, errors.New("subscription id and username are required")
+	}
+	subs, err := r.queryExternalSubscriptions(ctx, `SELECT id, username, name, url, COALESCE(user_agent, 'clash-meta/2.4.0'), node_count, last_sync_at, COALESCE(upload, 0), COALESCE(download, 0), COALESCE(total, 0), expire, COALESCE(traffic_mode, 'both'), created_at, updated_at FROM external_subscriptions WHERE id = ? AND username = ? LIMIT 1`, id, username)
+	if err != nil {
+		return sub, err
+	}
+	if len(subs) == 0 {
+		return sub, ErrExternalSubscriptionNotFound
+	}
+	return subs[0], nil
+}
+
+func (r *TrafficRepository) CreateExternalSubscription(ctx context.Context, sub ExternalSubscription) (int64, error) {
+	if r == nil || r.db == nil {
+		return 0, errors.New("traffic repository not initialized")
+	}
+	username := strings.TrimSpace(sub.Username)
+	name := strings.TrimSpace(sub.Name)
+	url := strings.TrimSpace(sub.URL)
+	if username == "" || name == "" || url == "" {
+		return 0, errors.New("username, name and url are required")
+	}
+	userAgent := strings.TrimSpace(sub.UserAgent)
+	if userAgent == "" {
+		userAgent = "clash-meta/2.4.0"
+	}
+	trafficMode := strings.TrimSpace(sub.TrafficMode)
+	if trafficMode == "" {
+		trafficMode = "both"
+	}
+	res, err := r.db.ExecContext(ctx, `INSERT INTO external_subscriptions (username, name, url, user_agent, node_count, last_sync_at, upload, download, total, expire, traffic_mode) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, username, name, url, userAgent, sub.NodeCount, sub.LastSyncAt, sub.Upload, sub.Download, sub.Total, sub.Expire, trafficMode)
+	if err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "unique") {
+			return 0, ErrExternalSubscriptionExists
+		}
+		return 0, fmt.Errorf("create external subscription: %w", err)
+	}
+	return res.LastInsertId()
+}
+
+func (r *TrafficRepository) UpdateExternalSubscription(ctx context.Context, sub ExternalSubscription) error {
+	if r == nil || r.db == nil {
+		return errors.New("traffic repository not initialized")
+	}
+	if sub.ID <= 0 {
+		return errors.New("subscription id is required")
+	}
+	username := strings.TrimSpace(sub.Username)
+	name := strings.TrimSpace(sub.Name)
+	url := strings.TrimSpace(sub.URL)
+	if username == "" || name == "" || url == "" {
+		return errors.New("username, name and url are required")
+	}
+	userAgent := strings.TrimSpace(sub.UserAgent)
+	if userAgent == "" {
+		userAgent = "clash-meta/2.4.0"
+	}
+	trafficMode := strings.TrimSpace(sub.TrafficMode)
+	if trafficMode == "" {
+		trafficMode = "both"
+	}
+	res, err := r.db.ExecContext(ctx, `UPDATE external_subscriptions SET name = ?, url = ?, user_agent = ?, node_count = ?, last_sync_at = ?, upload = ?, download = ?, total = ?, expire = ?, traffic_mode = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND username = ?`, name, url, userAgent, sub.NodeCount, sub.LastSyncAt, sub.Upload, sub.Download, sub.Total, sub.Expire, trafficMode, sub.ID, username)
+	if err != nil {
+		return fmt.Errorf("update external subscription: %w", err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("external subscription rows affected: %w", err)
+	}
+	if affected == 0 {
+		return ErrExternalSubscriptionNotFound
+	}
+	return nil
+}
+
+func (r *TrafficRepository) DeleteExternalSubscription(ctx context.Context, id int64, username string) error {
+	if r == nil || r.db == nil {
+		return errors.New("traffic repository not initialized")
+	}
+	username = strings.TrimSpace(username)
+	if id <= 0 || username == "" {
+		return errors.New("subscription id and username are required")
+	}
+	if _, err := r.db.ExecContext(ctx, `DELETE FROM proxy_provider_configs WHERE external_subscription_id = ?`, id); err != nil {
+		return fmt.Errorf("delete related proxy provider configs: %w", err)
+	}
+	res, err := r.db.ExecContext(ctx, `DELETE FROM external_subscriptions WHERE id = ? AND username = ?`, id, username)
+	if err != nil {
+		return fmt.Errorf("delete external subscription: %w", err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("external subscription rows affected: %w", err)
+	}
+	if affected == 0 {
+		return ErrExternalSubscriptionNotFound
+	}
+	return nil
+}
+
+func (r *TrafficRepository) CreateProxyProviderConfig(ctx context.Context, config *ProxyProviderConfig) (int64, error) {
+	if r == nil || r.db == nil {
+		return 0, errors.New("traffic repository not initialized")
+	}
+	if config == nil {
+		return 0, errors.New("proxy provider config is required")
+	}
+	enabled, lazy := boolToInt(config.HealthCheckEnabled), boolToInt(config.HealthCheckLazy)
+	res, err := r.db.ExecContext(ctx, `INSERT INTO proxy_provider_configs (username, external_subscription_id, name, type, interval, proxy, size_limit, header, health_check_enabled, health_check_url, health_check_interval, health_check_timeout, health_check_lazy, health_check_expected_status, filter, exclude_filter, exclude_type, geo_ip_filter, override, process_mode) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		config.Username, config.ExternalSubscriptionID, config.Name, config.Type, config.Interval, config.Proxy, config.SizeLimit, config.Header,
+		enabled, config.HealthCheckURL, config.HealthCheckInterval, config.HealthCheckTimeout, lazy, config.HealthCheckExpectedStatus,
+		config.Filter, config.ExcludeFilter, config.ExcludeType, config.GeoIPFilter, config.Override, config.ProcessMode)
+	if err != nil {
+		return 0, fmt.Errorf("create proxy provider config: %w", err)
+	}
+	return res.LastInsertId()
+}
+
+func (r *TrafficRepository) GetProxyProviderConfig(ctx context.Context, id int64) (*ProxyProviderConfig, error) {
+	configs, err := r.queryProxyProviderConfigs(ctx, `WHERE id = ?`, id)
+	if err != nil || len(configs) == 0 {
+		return nil, err
+	}
+	return &configs[0], nil
+}
+
+func (r *TrafficRepository) GetProxyProviderConfigByName(ctx context.Context, name string) (*ProxyProviderConfig, error) {
+	configs, err := r.queryProxyProviderConfigs(ctx, `WHERE name = ?`, strings.TrimSpace(name))
+	if err != nil || len(configs) == 0 {
+		return nil, err
+	}
+	return &configs[0], nil
+}
+
+func (r *TrafficRepository) ListProxyProviderConfigs(ctx context.Context, username string) ([]ProxyProviderConfig, error) {
+	return r.queryProxyProviderConfigs(ctx, `WHERE username = ? ORDER BY id ASC`, strings.TrimSpace(username))
+}
+
+func (r *TrafficRepository) ListProxyProviderConfigsBySubscription(ctx context.Context, externalSubscriptionID int64) ([]ProxyProviderConfig, error) {
+	return r.queryProxyProviderConfigs(ctx, `WHERE external_subscription_id = ? ORDER BY id ASC`, externalSubscriptionID)
+}
+
+func (r *TrafficRepository) ListMMWProxyProviderConfigs(ctx context.Context) ([]ProxyProviderConfig, error) {
+	return r.queryProxyProviderConfigs(ctx, `WHERE process_mode = 'mmw' ORDER BY id ASC`)
+}
+
+func (r *TrafficRepository) queryProxyProviderConfigs(ctx context.Context, where string, args ...any) ([]ProxyProviderConfig, error) {
+	if r == nil || r.db == nil {
+		return nil, errors.New("traffic repository not initialized")
+	}
+	query := `SELECT id, username, external_subscription_id, name, type, interval, proxy, size_limit,
+		COALESCE(header, ''), health_check_enabled, health_check_url, health_check_interval,
+		health_check_timeout, health_check_lazy, health_check_expected_status,
+		COALESCE(filter, ''), COALESCE(exclude_filter, ''), COALESCE(exclude_type, ''),
+		COALESCE(geo_ip_filter, ''), COALESCE(override, ''), process_mode, created_at, updated_at
+		FROM proxy_provider_configs ` + where
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("query proxy provider configs: %w", err)
+	}
+	defer rows.Close()
+	var configs []ProxyProviderConfig
+	for rows.Next() {
+		var config ProxyProviderConfig
+		var enabled, lazy int
+		if err := rows.Scan(&config.ID, &config.Username, &config.ExternalSubscriptionID, &config.Name, &config.Type, &config.Interval, &config.Proxy, &config.SizeLimit, &config.Header, &enabled, &config.HealthCheckURL, &config.HealthCheckInterval, &config.HealthCheckTimeout, &lazy, &config.HealthCheckExpectedStatus, &config.Filter, &config.ExcludeFilter, &config.ExcludeType, &config.GeoIPFilter, &config.Override, &config.ProcessMode, &config.CreatedAt, &config.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("scan proxy provider config: %w", err)
+		}
+		config.HealthCheckEnabled = enabled != 0
+		config.HealthCheckLazy = lazy != 0
+		configs = append(configs, config)
+	}
+	return configs, rows.Err()
+}
+
+func (r *TrafficRepository) UpdateProxyProviderConfig(ctx context.Context, config *ProxyProviderConfig) error {
+	if r == nil || r.db == nil {
+		return errors.New("traffic repository not initialized")
+	}
+	if config == nil {
+		return errors.New("proxy provider config is required")
+	}
+	res, err := r.db.ExecContext(ctx, `UPDATE proxy_provider_configs SET name = ?, type = ?, interval = ?, proxy = ?, size_limit = ?, header = ?, health_check_enabled = ?, health_check_url = ?, health_check_interval = ?, health_check_timeout = ?, health_check_lazy = ?, health_check_expected_status = ?, filter = ?, exclude_filter = ?, exclude_type = ?, geo_ip_filter = ?, override = ?, process_mode = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND username = ?`,
+		config.Name, config.Type, config.Interval, config.Proxy, config.SizeLimit, config.Header, boolToInt(config.HealthCheckEnabled), config.HealthCheckURL, config.HealthCheckInterval, config.HealthCheckTimeout, boolToInt(config.HealthCheckLazy), config.HealthCheckExpectedStatus, config.Filter, config.ExcludeFilter, config.ExcludeType, config.GeoIPFilter, config.Override, config.ProcessMode, config.ID, config.Username)
+	if err != nil {
+		return fmt.Errorf("update proxy provider config: %w", err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("proxy provider config rows affected: %w", err)
+	}
+	if affected == 0 {
+		return errors.New("proxy provider config not found or not owned by user")
+	}
+	return nil
+}
+
+func (r *TrafficRepository) DeleteProxyProviderConfig(ctx context.Context, id int64, username string) error {
+	if r == nil || r.db == nil {
+		return errors.New("traffic repository not initialized")
+	}
+	res, err := r.db.ExecContext(ctx, `DELETE FROM proxy_provider_configs WHERE id = ? AND username = ?`, id, strings.TrimSpace(username))
+	if err != nil {
+		return fmt.Errorf("delete proxy provider config: %w", err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("proxy provider config rows affected: %w", err)
+	}
+	if affected == 0 {
+		return errors.New("proxy provider config not found or not owned by user")
+	}
+	return nil
+}
+
+func (r *TrafficRepository) GetSystemConfig(ctx context.Context) (SystemConfig, error) {
+	if r == nil || r.db == nil {
+		return SystemConfig{}, errors.New("traffic repository not initialized")
+	}
+	const query = `SELECT proxy_groups_source_url, client_compatibility_mode, silent_mode, silent_mode_timeout, enable_sub_info_nodes, sub_info_expire_prefix, sub_info_traffic_prefix, COALESCE(enable_short_link, 1), COALESCE(enable_sub_traffic_header, 1) FROM system_config WHERE id = 1`
+	var cfg SystemConfig
+	var compatibilityMode, silentMode, timeout, enableInfoNodes, enableShortLink, enableTrafficHeader int
+	err := r.db.QueryRowContext(ctx, query).Scan(&cfg.ProxyGroupsSourceURL, &compatibilityMode, &silentMode, &timeout, &enableInfoNodes, &cfg.SubInfoExpirePrefix, &cfg.SubInfoTrafficPrefix, &enableShortLink, &enableTrafficHeader)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return defaultSystemConfig(), nil
+		}
+		return SystemConfig{}, fmt.Errorf("query system config: %w", err)
+	}
+	cfg.ClientCompatibilityMode = compatibilityMode != 0
+	cfg.SilentMode = silentMode != 0
+	cfg.SilentModeTimeout = timeout
+	cfg.EnableSubInfoNodes = enableInfoNodes != 0
+	cfg.EnableShortLink = enableShortLink != 0
+	cfg.EnableSubTrafficHeader = enableTrafficHeader != 0
+	applySystemConfigDefaults(&cfg)
+	return cfg, nil
+}
+
+func (r *TrafficRepository) UpdateSystemConfig(ctx context.Context, cfg SystemConfig) error {
+	if r == nil || r.db == nil {
+		return errors.New("traffic repository not initialized")
+	}
+	applySystemConfigDefaults(&cfg)
+	res, err := r.db.ExecContext(ctx, `UPDATE system_config SET proxy_groups_source_url = ?, client_compatibility_mode = ?, silent_mode = ?, silent_mode_timeout = ?, enable_sub_info_nodes = ?, sub_info_expire_prefix = ?, sub_info_traffic_prefix = ?, enable_short_link = ?, enable_sub_traffic_header = ?, updated_at = CURRENT_TIMESTAMP WHERE id = 1`,
+		cfg.ProxyGroupsSourceURL, boolToInt(cfg.ClientCompatibilityMode), boolToInt(cfg.SilentMode), cfg.SilentModeTimeout, boolToInt(cfg.EnableSubInfoNodes), cfg.SubInfoExpirePrefix, cfg.SubInfoTrafficPrefix, boolToInt(cfg.EnableShortLink), boolToInt(cfg.EnableSubTrafficHeader))
+	if err != nil {
+		return fmt.Errorf("update system config: %w", err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("system config rows affected: %w", err)
+	}
+	if affected > 0 {
+		return nil
+	}
+	_, err = r.db.ExecContext(ctx, `INSERT INTO system_config (id, proxy_groups_source_url, client_compatibility_mode, silent_mode, silent_mode_timeout, enable_sub_info_nodes, sub_info_expire_prefix, sub_info_traffic_prefix, enable_short_link, enable_sub_traffic_header) VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		cfg.ProxyGroupsSourceURL, boolToInt(cfg.ClientCompatibilityMode), boolToInt(cfg.SilentMode), cfg.SilentModeTimeout, boolToInt(cfg.EnableSubInfoNodes), cfg.SubInfoExpirePrefix, cfg.SubInfoTrafficPrefix, boolToInt(cfg.EnableShortLink), boolToInt(cfg.EnableSubTrafficHeader))
+	if err != nil {
+		return fmt.Errorf("insert system config: %w", err)
+	}
+	return nil
+}
+
+func defaultSystemConfig() SystemConfig {
+	cfg := SystemConfig{}
+	applySystemConfigDefaults(&cfg)
+	return cfg
+}
+
+func applySystemConfigDefaults(cfg *SystemConfig) {
+	if cfg.SilentModeTimeout <= 0 {
+		cfg.SilentModeTimeout = 15
+	}
+	if cfg.SubInfoExpirePrefix == "" {
+		cfg.SubInfoExpirePrefix = "📅过期时间"
+	}
+	if cfg.SubInfoTrafficPrefix == "" {
+		cfg.SubInfoTrafficPrefix = "⌛剩余流量"
+	}
+	if !cfg.EnableShortLink {
+		cfg.EnableShortLink = true
+	}
+	if !cfg.EnableSubTrafficHeader {
+		cfg.EnableSubTrafficHeader = true
+	}
+}
+
+func (r *TrafficRepository) GetSubscribeFilesWithAutoSync(ctx context.Context) ([]SubscribeFile, error) {
+	files, err := r.GetSubscribeFilesWithTemplate(ctx)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]SubscribeFile, 0, len(files))
+	for _, file := range files {
+		if file.AutoSyncCustomRules {
+			result = append(result, file)
+		}
+	}
+	return result, nil
+}

@@ -3,7 +3,6 @@ package integration
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -27,35 +26,35 @@ const (
 
 // ArgoTunnel Argo隧道配置
 type ArgoTunnel struct {
-	ID             string          `json:"id"`
-	Name           string          `json:"name"`
-	Type           ArgoTunnelType  `json:"type"`
-	Domain         string          `json:"domain,omitempty"`
-	Token          string          `json:"token,omitempty"`
-	Credentials    string          `json:"credentials,omitempty"`
-	Enabled        bool            `json:"enabled"`
-	Port           int             `json:"port"`
-	LocalService   string          `json:"local_service"`
-	CreatedAt      time.Time       `json:"created_at"`
-	LastUsed       time.Time       `json:"last_used"`
-	Status         ArgoTunnelStatus `json:"status"`
+	ID           string           `json:"id"`
+	Name         string           `json:"name"`
+	Type         ArgoTunnelType   `json:"type"`
+	Domain       string           `json:"domain,omitempty"`
+	Token        string           `json:"token,omitempty"`
+	Credentials  string           `json:"credentials,omitempty"`
+	Enabled      bool             `json:"enabled"`
+	Port         int              `json:"port"`
+	LocalService string           `json:"local_service"`
+	CreatedAt    time.Time        `json:"created_at"`
+	LastUsed     time.Time        `json:"last_used"`
+	Status       ArgoTunnelStatus `json:"status"`
 }
 
 // ArgoTunnelStatus 隧道状态
 type ArgoTunnelStatus struct {
-	Running    bool      `json:"running"`
-	URL        string    `json:"url,omitempty"`
-	Error      string    `json:"error,omitempty"`
-	StartTime  time.Time `json:"start_time,omitempty"`
-	Connected  bool      `json:"connected"`
+	Running   bool      `json:"running"`
+	URL       string    `json:"url,omitempty"`
+	Error     string    `json:"error,omitempty"`
+	StartTime time.Time `json:"start_time,omitempty"`
+	Connected bool      `json:"connected"`
 }
 
 // ArgoManager Argo隧道管理器
 type ArgoManager struct {
-	paths          singbox.ConfigPaths
-	tunnelDir      string
-	binaryDir      string
-	argoBinary     string
+	paths             singbox.ConfigPaths
+	tunnelDir         string
+	binaryDir         string
+	argoBinary        string
 	cloudflaredBinary string
 }
 
@@ -68,10 +67,10 @@ func NewArgoManager() *ArgoManager {
 	binaryDir := paths.BinDir
 
 	return &ArgoManager{
-		paths:      paths,
-		tunnelDir:  tunnelDir,
-		binaryDir:  binaryDir,
-		argoBinary: filepath.Join(binaryDir, "argo"),
+		paths:             paths,
+		tunnelDir:         tunnelDir,
+		binaryDir:         binaryDir,
+		argoBinary:        filepath.Join(binaryDir, "argo"),
 		cloudflaredBinary: filepath.Join(binaryDir, "cloudflared"),
 	}
 }
@@ -106,7 +105,7 @@ func (am *ArgoManager) DownloadCloudflared(progress chan int) error {
 	// 验证二进制文件
 	cmd = exec.Command(am.cloudflaredBinary, "--version")
 	if output, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("验证cloudflared失败: %w", output)
+		return fmt.Errorf("验证cloudflared失败: %w: %s", err, string(output))
 	}
 
 	logger.Info("[Argo] cloudflared下载成功", "path", am.cloudflaredBinary)
@@ -625,15 +624,15 @@ func (am *ArgoManager) GetTunnelMetrics(tunnelID string) (map[string]interface{}
 	}
 
 	metrics := map[string]interface{}{
-		"tunnel_id":    tunnelID,
-		"running":      tunnel.Status.Running,
-		"uptime":       time.Since(tunnel.Status.StartTime).String(),
-		"local_port":   tunnel.Port,
-		"local_url":    tunnel.LocalService,
-		"remote_url":   tunnel.Status.URL,
-		"connections":  0,
-		"bytes_sent":   0,
-		"bytes_recv":   0,
+		"tunnel_id":   tunnelID,
+		"running":     tunnel.Status.Running,
+		"uptime":      time.Since(tunnel.Status.StartTime).String(),
+		"local_port":  tunnel.Port,
+		"local_url":   tunnel.LocalService,
+		"remote_url":  tunnel.Status.URL,
+		"connections": 0,
+		"bytes_sent":  0,
+		"bytes_recv":  0,
 	}
 
 	// 如果隧道正在运行，获取实际指标

@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Loader2, Save, Layers, Activity, MapPin, Plus, Eye, Pencil, Trash2, Settings, FileText, Upload } from 'lucide-react'
+import { Loader2, Save, Layers, MapPin, Plus, Eye, Pencil, Trash2, Settings, FileText, Upload } from 'lucide-react'
 import { Topbar } from '@/components/layout/topbar'
 import { useAuthStore } from '@/stores/auth-store'
 import { api } from '@/lib/api'
@@ -293,7 +293,6 @@ function SubscriptionGeneratorPage() {
 
   // 流量配置状态
   const [trafficLimit, setTrafficLimit] = useState('')
-  const [statsServerIds, setStatsServerIds] = useState<string[]>([])
 
   // 手动分组对话框状态
   const [groupDialogOpen, setGroupDialogOpen] = useState(false)
@@ -386,8 +385,6 @@ function SubscriptionGeneratorPage() {
   })
   const proxyProviderConfigs = proxyProviderConfigsData ?? []
 
-  // 获取探针服务器配置（用于流量统计服务器选择）
-  const { data: probeConfigData } = useQuery({
   // 获取用户订阅 token（用于代理集合 URL）
   const { data: userTokenData } = useQuery({
     queryKey: ['user-token'],
@@ -1174,7 +1171,6 @@ function SubscriptionGeneratorPage() {
       template_filename?: string
       selected_tags?: string[]
       traffic_limit?: number | null
-      stats_server_ids?: string
     }) => {
       const response = await api.post('/api/admin/subscribe-files/create-from-config', data)
       return response.data
@@ -1222,7 +1218,6 @@ function SubscriptionGeneratorPage() {
       template_filename?: string
       selected_tags?: string[]
       traffic_limit?: number | null
-      stats_server_ids?: string
     } = {
       name: subscribeName.trim(),
       filename: subscribeFilename.trim(),
@@ -1239,9 +1234,6 @@ function SubscriptionGeneratorPage() {
     // 流量配置
     if (trafficLimit) {
       data.traffic_limit = parseFloat(trafficLimit)
-    }
-    if (statsServerIds.length > 0) {
-      data.stats_server_ids = statsServerIds.join(',')
     }
 
     saveSubscribeMutation.mutate(data)
@@ -2419,10 +2411,6 @@ function SubscriptionGeneratorPage() {
                                 {t}
                               </Badge>
                             ))}
-                              <Badge variant='secondary' className='text-xs flex items-center gap-1'>
-                                <Activity className='size-3' />
-                              </Badge>
-                            )}
                           </div>
                         ),
                         width: '100px'
@@ -2446,16 +2434,13 @@ function SubscriptionGeneratorPage() {
                           {/* 第二行：标签 + 服务器地址 */}
                           <div className='flex items-center gap-2 text-xs'>
                             {/* 标签部分 */}
+                            {(node.tags?.length || node.tag) && (
                               <div className='flex items-center gap-1 shrink-0'>
                                 {(node.tags?.length ? node.tags : node.tag ? [node.tag] : []).map(t => (
                                   <Badge key={t} variant='secondary' className='text-xs'>
                                     {t}
                                   </Badge>
                                 ))}
-                                  <Badge variant='secondary' className='text-xs flex items-center gap-1'>
-                                    <Activity className='size-3' />
-                                  </Badge>
-                                )}
                               </div>
                             )}
 
@@ -2704,59 +2689,26 @@ function SubscriptionGeneratorPage() {
           {clashConfig && (
             <Card>
               <CardHeader>
-                <CardTitle className='flex items-center gap-2'>
-                  <Activity className='h-5 w-5' />
-                  流量配置
-                </CardTitle>
+                <CardTitle>流量配置</CardTitle>
                 <CardDescription>
-                  设置订阅的总流量上限和统计服务器（可选，保存订阅时生效）
+                  设置订阅的总流量上限（可选，保存订阅时生效）
                 </CardDescription>
               </CardHeader>
               <CardContent className='space-y-4'>
-                <p className='text-xs text-destructive'>
-                  请注意，妙妙屋不能管理节点的已用流量，已用流量来自探针的已用流量
-                </p>
                 <div className='space-y-2'>
                   <Label>总流量上限 (GB)</Label>
                   <Input
                     type='number'
                     min='0'
                     step='0.01'
-                    placeholder='留空则跟随探针总流量'
+                    placeholder='留空则不设置总流量上限'
                     value={trafficLimit}
                     onChange={(e) => setTrafficLimit(e.target.value)}
                   />
                   <p className='text-xs text-muted-foreground'>
-                    手动指定总流量上限，留空表示使用探针返回的总流量
+                    手动指定订阅总流量上限，留空表示不限制。
                   </p>
                 </div>
-                  <div className='space-y-2'>
-                    <Label>统计服务器</Label>
-                    <div className='flex flex-wrap gap-2'>
-                        const isSelected = statsServerIds.includes(server.server_id)
-                        return (
-                          <Button
-                            key={server.server_id}
-                            variant={isSelected ? 'default' : 'outline'}
-                            size='sm'
-                            onClick={() => {
-                              setStatsServerIds(prev =>
-                                isSelected
-                                  ? prev.filter(id => id !== server.server_id)
-                                  : [...prev, server.server_id]
-                              )
-                            }}
-                          >
-                            {server.name}
-                          </Button>
-                        )
-                      })}
-                    </div>
-                    <p className='text-xs text-muted-foreground'>
-                      选择用于统计已用流量的探针服务器，不选则使用所有服务器
-                    </p>
-                  </div>
-                )}
               </CardContent>
             </Card>
           )}

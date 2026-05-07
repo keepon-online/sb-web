@@ -486,8 +486,6 @@ func (h *SubscriptionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 
 	// 流量信息收集
 	stepStart = time.Now()
-	// 在转换订阅格式之前，先收集探针服务器和外部订阅流量信息
-	// 这样可以确保无论订阅被转换成什么格式，都能正确收集信息
 	externalTrafficLimit, externalTrafficUsed := int64(0), int64(0)
 
 	// 读取系统配置，判断是否启用订阅响应头流量信息
@@ -500,92 +498,61 @@ func (h *SubscriptionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 
 	if enableSubTrafficHeader && username != "" && h.repo != nil {
 		settings, err := h.repo.GetUserSettings(r.Context(), username)
-		if err == nil {
+		if err == nil && settings.SyncTraffic {
+			var yamlConfig map[string]any
+			if err := yaml.Unmarshal(data, &yamlConfig); err == nil {
+				if proxies, ok := yamlConfig["proxies"].([]any); ok {
+					logger.Info("[Subscription] 找到订阅YAML中的代理节点", "count", len(proxies))
 
-			// 如果开启了探针绑定或流量同步，需要解析 YAML 获取节点信息
-				// 解析 YAML 文件，获取其中使用的节点名称
-				var yamlConfig map[string]any
-				if err := yaml.Unmarshal(data, &yamlConfig); err == nil {
-					if proxies, ok := yamlConfig["proxies"].([]any); ok {
-						logger.Info("[Subscription] 找到订阅YAML中的代理节点", "count", len(proxies))
-						// 收集所有节点名称
-						usedNodeNames := make(map[string]bool)
-						for _, proxy := range proxies {
-							if proxyMap, ok := proxy.(map[string]any); ok {
-								if name, ok := proxyMap["name"].(string); ok && name != "" {
-									usedNodeNames[name] = true
-								}
+					usedNodeNames := make(map[string]bool)
+					for _, proxy := range proxies {
+						if proxyMap, ok := proxy.(map[string]any); ok {
+							if name, ok := proxyMap["name"].(string); ok && name != "" {
+								usedNodeNames[name] = true
 							}
 						}
+					}
 
-						// 如果有节点名称，从数据库查询这些节点
-						if len(usedNodeNames) > 0 {
-							logger.Info("[Subscription] 查询数据库中的节点", "count", len(usedNodeNames))
-							nodes, err := h.repo.ListNodes(r.Context(), username)
-							if err == nil {
-								// 收集使用到的外部订阅URL（通过 RawURL 识别）
-								usedExternalSubURLs := make(map[string]bool)
-
-								for _, node := range nodes {
-									// 检查节点是否在订阅文件中
-									if usedNodeNames[node.NodeName] {
-											// 收集订阅文件中使用的探针服务器
-											}
-										}
-
-										// 如果开启了流量同步，通过 RawURL 收集外部订阅节点
-										if settings.SyncTraffic && node.RawURL != "" {
-											usedExternalSubURLs[node.RawURL] = true
-										}
-									}
+					if len(usedNodeNames) > 0 {
+						logger.Info("[Subscription] 查询数据库中的节点", "count", len(usedNodeNames))
+						nodes, err := h.repo.ListNodes(r.Context(), username)
+						if err != nil {
+							logger.Info("[Subscription] 获取节点列表失败", "error", err)
+						} else {
+							usedExternalSubURLs := make(map[string]bool)
+							for _, node := range nodes {
+								if usedNodeNames[node.NodeName] && node.RawURL != "" {
+									usedExternalSubURLs[node.RawURL] = true
 								}
+							}
 
-								// 如果开启了流量同步且有使用到外部订阅的节点，汇总这些订阅的流量
-								if settings.SyncTraffic && len(usedExternalSubURLs) > 0 {
-									logger.Info("[Subscription] 用户启用流量同步，找到使用中的外部订阅", "user", username, "count", len(usedExternalSubURLs))
-									externalSubs, err := h.repo.ListExternalSubscriptions(r.Context(), username)
-									if err == nil {
-										now := time.Now()
-										for _, sub := range externalSubs {
-											// 只汇总使用到的外部订阅（通过URL匹配）
-											if usedExternalSubURLs[sub.URL] {
-												// 如果有过期时间且已过期，则跳过
-												// 如果过期时间为空，表示长期订阅，不跳过
-												if sub.Expire != nil && sub.Expire.Before(now) {
-													logger.Info("[Subscription] 跳过已过期的外部订阅", "name", sub.Name, "expire", sub.Expire.Format("2006-01-02 15:04:05"))
-													continue
-												}
-												// 如果流量模式为 "none"，跳过此订阅
-												if sub.TrafficMode == "none" {
-													logger.Info("[Subscription] 跳过不统计外部订阅", "name", sub.Name)
-													continue
-												}
-												if sub.Expire == nil {
-													logger.Info("[Subscription] 添加长期外部订阅流量", "name", sub.Name, "upload", sub.Upload, "download", sub.Download, "total", sub.Total, "mode", sub.TrafficMode)
-												} else {
-													logger.Info("[Subscription] 添加外部订阅流量", "name", sub.Name, "upload", sub.Upload, "download", sub.Download, "total", sub.Total, "mode", sub.TrafficMode, "expire", sub.Expire.Format("2006-01-02 15:04:05"))
-												}
-												externalTrafficLimit += sub.Total
-												// 根据 TrafficMode 计算已用流量
-												switch sub.TrafficMode {
-												case "download":
-													externalTrafficUsed += sub.Download
-												case "upload":
-													externalTrafficUsed += sub.Upload
-												default: // "both" 或空
-													externalTrafficUsed += sub.Upload + sub.Download
-												}
-											}
+							if len(usedExternalSubURLs) > 0 {
+								logger.Info("[Subscription] 用户启用流量同步，找到使用中的外部订阅", "user", username, "count", len(usedExternalSubURLs))
+								externalSubs, err := h.repo.ListExternalSubscriptions(r.Context(), username)
+								if err != nil {
+									logger.Info("[Subscription] 获取外部订阅列表失败", "error", err)
+								} else {
+									now := time.Now()
+									for _, sub := range externalSubs {
+										if !usedExternalSubURLs[sub.URL] {
+											continue
 										}
-										logger.Info("[Subscription] 外部订阅流量汇总", "limit_bytes", externalTrafficLimit, "limit_gb", float64(externalTrafficLimit)/(1024*1024*1024), "used_bytes", externalTrafficUsed, "used_gb", float64(externalTrafficUsed)/(1024*1024*1024))
-									} else {
-										logger.Info("[Subscription] 获取外部订阅列表失败", "error", err)
+										if sub.Expire != nil && sub.Expire.Before(now) {
+											logger.Info("[Subscription] 跳过已过期的外部订阅", "name", sub.Name, "expire", sub.Expire.Format("2006-01-02 15:04:05"))
+											continue
+										}
+										if strings.ToLower(strings.TrimSpace(sub.TrafficMode)) == "none" {
+											logger.Info("[Subscription] 跳过不统计外部订阅", "name", sub.Name)
+											continue
+										}
+
+										externalTrafficLimit += sub.Total
+										externalTrafficUsed += externalSubscriptionUsedTraffic(sub)
 									}
-								} else if settings.SyncTraffic {
-									logger.Info("[Subscription] 用户启用流量同步但未找到使用中的外部订阅节点", "user", username)
+									logger.Info("[Subscription] 外部订阅流量汇总", "limit_bytes", externalTrafficLimit, "limit_gb", float64(externalTrafficLimit)/(1024*1024*1024), "used_bytes", externalTrafficUsed, "used_gb", float64(externalTrafficUsed)/(1024*1024*1024))
 								}
 							} else {
-								logger.Info("[Subscription] 获取节点列表失败", "error", err)
+								logger.Info("[Subscription] 用户启用流量同步但未找到使用中的外部订阅节点", "user", username)
 							}
 						}
 					}
@@ -690,17 +657,6 @@ func (h *SubscriptionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	}
 	logger.Info("[⏱️ 耗时监测] 格式转换完成", "step", "format_convert", "duration_ms", time.Since(stepStart).Milliseconds(), "client_type", clientType)
 
-	// 流量统计获取
-	stepStart = time.Now()
-	var totalLimit, totalUsed int64
-	hasTrafficInfo := false
-	if enableSubTrafficHeader {
-		// 尝试获取流量信息，如果探针报错则跳过流量统计，不影响订阅输出
-		// 如果开启了探针绑定，只统计订阅文件中使用的节点绑定的探针服务器流量
-		hasTrafficInfo = err == nil
-	}
-	logger.Info("[⏱️ 耗时监测] 流量统计获取完成", "step", "traffic_fetch", "duration_ms", time.Since(stepStart).Milliseconds())
-
 	// 使用订阅名称
 	attachmentName := url.PathEscape(displayName)
 
@@ -733,13 +689,14 @@ func (h *SubscriptionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 							if h.repo != nil {
 								sysConfig, cfgErr := h.repo.GetSystemConfig(r.Context())
 								if cfgErr == nil && sysConfig.EnableSubInfoNodes {
-									// 计算剩余流量
 									var remainingTraffic int64
-									if hasTrafficInfo || externalTrafficLimit > 0 {
-											remainingTraffic = (totalLimit + externalTrafficLimit) - (totalUsed + externalTrafficUsed)
-										} else {
-											remainingTraffic = externalTrafficLimit - externalTrafficUsed
-										}
+									if hasSubscribeFile && subscribeFile.TrafficLimit != nil {
+										remainingTraffic = int64(*subscribeFile.TrafficLimit*1024*1024*1024) + externalTrafficLimit - externalTrafficUsed
+									} else {
+										remainingTraffic = externalTrafficLimit - externalTrafficUsed
+									}
+									if remainingTraffic < 0 {
+										remainingTraffic = 0
 									}
 									// 获取过期时间
 									var expireAt *time.Time
@@ -807,40 +764,13 @@ func (h *SubscriptionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 
 	w.Header().Set("Content-Type", contentType)
 	// 只有在启用了订阅流量响应头且有流量信息时才添加 subscription-userinfo 头
-	if enableSubTrafficHeader && (hasTrafficInfo || externalTrafficLimit > 0) {
-		var finalLimit, finalUsed int64
-
-		if hasSubscribeFile && subscribeFile.StatsServerIDs != "" {
-			// 订阅文件配置了统计服务器，按 server_id 过滤探针流量（优先级最高）
-			idList := strings.Split(subscribeFile.StatsServerIDs, ",")
-			statsLimit, _, statsUsed, statsErr := h.summary.fetchTotalsByServerIDs(r.Context(), idList)
-			if statsErr == nil {
-				if subscribeFile.TrafficLimit != nil {
-					finalLimit = int64(*subscribeFile.TrafficLimit*1024*1024*1024) + externalTrafficLimit
-				} else {
-					finalLimit = statsLimit + externalTrafficLimit
-				}
-				finalUsed = statsUsed + externalTrafficUsed
-			} else {
-				finalLimit = externalTrafficLimit
-				finalUsed = externalTrafficUsed
-			}
-		} else if hasSubscribeFile && subscribeFile.TrafficLimit != nil {
-			// 仅配置了总流量上限，已用流量走原有逻辑
-			finalLimit = int64(*subscribeFile.TrafficLimit*1024*1024*1024) + externalTrafficLimit
-				finalUsed = totalUsed + externalTrafficUsed
-			} else {
-				finalUsed = externalTrafficUsed
-			}
-		} else {
-			// 原有逻辑
-				finalLimit = totalLimit + externalTrafficLimit
-				finalUsed = totalUsed + externalTrafficUsed
-			} else {
-				finalLimit = externalTrafficLimit
-				finalUsed = externalTrafficUsed
-			}
+	hasManualTrafficLimit := hasSubscribeFile && subscribeFile.TrafficLimit != nil
+	if enableSubTrafficHeader && (hasManualTrafficLimit || externalTrafficLimit > 0 || externalTrafficUsed > 0) {
+		finalLimit := externalTrafficLimit
+		if hasManualTrafficLimit {
+			finalLimit += int64(*subscribeFile.TrafficLimit * 1024 * 1024 * 1024)
 		}
+		finalUsed := externalTrafficUsed
 
 		logger.Info("[Subscription] 外部订阅流量", "limit_bytes", externalTrafficLimit, "limit_gb", float64(externalTrafficLimit)/(1024*1024*1024), "used_bytes", externalTrafficUsed, "used_gb", float64(externalTrafficUsed)/(1024*1024*1024))
 		logger.Info("[Subscription] 总流量", "limit_bytes", finalLimit, "limit_gb", float64(finalLimit)/(1024*1024*1024), "used_bytes", finalUsed, "used_gb", float64(finalUsed)/(1024*1024*1024))

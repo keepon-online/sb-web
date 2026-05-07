@@ -61,7 +61,6 @@ type SubscribeFile = {
   custom_short_code?: string
   raw_output: boolean
   traffic_limit?: number | null
-  stats_server_ids: string
   expire_at?: string | null
   created_at: string
   updated_at: string
@@ -359,7 +358,6 @@ function SubscribeFilesPage() {
     selected_tags: [] as string[],
     expire: undefined as Date | undefined,
     traffic_limit: '' as string,
-    stats_server_ids: '' as string,
   })
 
   // 外部订阅卡片折叠状态 - 默认折叠
@@ -511,17 +509,6 @@ function SubscribeFilesPage() {
   })
   const proxyProviderConfigs = proxyProviderConfigsData ?? []
 
-  const { data: probeConfigData } = useQuery({
-    queryFn: async () => {
-      return response.data as {
-        config: {
-          servers: Array<{ id: number; name: string; server_id: string }>
-        }
-      }
-    },
-    enabled: Boolean(auth.accessToken),
-  })
-
   // 绑定v3模板
   const hasTemplateBindings = files.some(f => f.template_filename)
 
@@ -663,7 +650,7 @@ function SubscribeFilesPage() {
 
   // 更新订阅元数据
   const updateMetadataMutation = useMutation({
-    mutationFn: async (payload: { id: number; data: typeof metadataForm }) => {
+    mutationFn: async (payload: { id: number; data: Partial<typeof metadataForm> }) => {
       const response = await api.put(`/api/admin/subscribe-files/${payload.id}`, payload.data)
       return response.data
     },
@@ -673,7 +660,7 @@ function SubscribeFilesPage() {
       toast.success('订阅信息已更新')
       setEditMetadataDialogOpen(false)
       setEditingMetadata(null)
-      setMetadataForm({ name: '', description: '', filename: '', template_filename: '', selected_tags: [], traffic_limit: '', stats_server_ids: '' })
+      setMetadataForm({ name: '', description: '', filename: '', template_filename: '', selected_tags: [], traffic_limit: '' })
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.error || '更新失败')
@@ -1557,7 +1544,6 @@ function SubscribeFilesPage() {
       selected_tags: file.selected_tags || [],
       expire: file.expire_at ? new Date(file.expire_at) : undefined,
       traffic_limit: file.traffic_limit != null ? String(file.traffic_limit) : '',
-      stats_server_ids: file.stats_server_ids || '',
     })
     setEditMetadataDialogOpen(true)
   }
@@ -1588,7 +1574,6 @@ function SubscribeFilesPage() {
             })()
           : '',
         traffic_limit: metadataForm.traffic_limit ? parseFloat(metadataForm.traffic_limit) : null,
-        stats_server_ids: metadataForm.stats_server_ids,
       },
     })
   }
@@ -3101,8 +3086,8 @@ function SubscribeFilesPage() {
                     header: '流量',
                     cell: (file) => {
                       const traffic = subscribeTrafficMap.get(file.id)
-                      const isCustom = file.traffic_limit != null || !!file.stats_server_ids
-                      const displayTraffic = traffic || (probeTotal && probeTotal.limit_gb > 0 ? probeTotal : null)
+                      const isCustom = file.traffic_limit != null
+                      const displayTraffic = traffic
 
                       const progressBar = (() => {
                         if (!displayTraffic || displayTraffic.limit_gb === 0) {
@@ -3157,45 +3142,6 @@ function SubscribeFilesPage() {
                                 className='h-8 text-sm'
                               />
                             </div>
-                            <div className='space-y-1'>
-                              <Label className='text-xs'>统计服务器</Label>
-                                <div className='flex flex-wrap gap-1'>
-                                    const currentIds = file.stats_server_ids ? file.stats_server_ids.split(',').map(s => s.trim()).filter(Boolean) : []
-                                    const isSelected = currentIds.includes(srv.server_id)
-                                    return (
-                                      <Button
-                                        key={srv.server_id}
-                                        variant={isSelected ? 'default' : 'outline'}
-                                        size='sm'
-                                        className='h-6 text-xs px-2'
-                                        onClick={() => {
-                                          const newIds = isSelected
-                                            ? currentIds.filter(id => id !== srv.server_id)
-                                            : [...currentIds, srv.server_id]
-                                          updateMetadataMutation.mutate({
-                                            id: file.id,
-                                            data: {
-                                              name: file.name,
-                                              description: file.description,
-                                              stats_server_ids: newIds.join(','),
-                                              traffic_limit: file.traffic_limit ?? null,
-                                            }
-                                          }, {
-                                            onSuccess: () => {
-                                              queryClient.invalidateQueries({ queryKey: ['subscribe-traffic'] })
-                                            }
-                                          })
-                                        }}
-                                        disabled={updateMetadataMutation.isPending}
-                                      >
-                                        {srv.name}
-                                      </Button>
-                                    )
-                                  })}
-                                </div>
-                              ) : (
-                              )}
-                            </div>
                             <Button
                               size='sm'
                               className='w-full h-7 text-xs'
@@ -3208,7 +3154,6 @@ function SubscribeFilesPage() {
                                     name: file.name,
                                     description: file.description,
                                     traffic_limit: val ? parseFloat(val) : null,
-                                    stats_server_ids: file.stats_server_ids,
                                   }
                                 }, {
                                   onSuccess: () => {
@@ -4587,7 +4532,7 @@ function SubscribeFilesPage() {
         setEditMetadataDialogOpen(open)
         if (!open) {
           setEditingMetadata(null)
-          setMetadataForm({ name: '', description: '', filename: '', template_filename: '', selected_tags: [], expire: undefined, traffic_limit: '', stats_server_ids: '' })
+          setMetadataForm({ name: '', description: '', filename: '', template_filename: '', selected_tags: [], expire: undefined, traffic_limit: '' })
         }
       }}>
         <DialogContent className='sm:max-w-lg max-h-[90vh] flex flex-col'>
@@ -4782,38 +4727,6 @@ function SubscribeFilesPage() {
               />
               <p className='text-xs text-muted-foreground'>
               </p>
-            </div>
-            <div className='space-y-2'>
-              <Label>统计服务器（可选）</Label>
-                <>
-                  <div className='flex flex-wrap gap-2'>
-                      const selectedIds = metadataForm.stats_server_ids ? metadataForm.stats_server_ids.split(',').map(s => s.trim()).filter(Boolean) : []
-                      const isSelected = selectedIds.includes(srv.server_id)
-                      return (
-                        <Button
-                          key={srv.server_id}
-                          variant={isSelected ? 'default' : 'outline'}
-                          size='sm'
-                          onClick={() => {
-                            const newIds = isSelected
-                              ? selectedIds.filter(id => id !== srv.server_id)
-                              : [...selectedIds, srv.server_id]
-                            setMetadataForm({ ...metadataForm, stats_server_ids: newIds.join(',') })
-                          }}
-                        >
-                          {srv.name}
-                        </Button>
-                      )
-                    })}
-                  </div>
-                  <p className='text-xs text-muted-foreground'>
-                    选择后，订阅信息中的已用流量将只统计选中服务器的流量。不选择则使用全部服务器。
-                  </p>
-                </>
-              ) : (
-                <p className='text-xs text-muted-foreground'>
-                </p>
-              )}
             </div>
           </div>
           <DialogFooter className='shrink-0'>

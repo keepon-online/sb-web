@@ -5,20 +5,18 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"time"
 
 	"miaomiaowu/internal/logger"
-	"miaomiaowu/internal/util"
 )
 
 // BBRState BBR状态
 type BBRState struct {
-	Enabled     bool   `json:"enabled"`
-	Version     string `json:"version"`     // bbr, bbr2, bbr3
-	CurrentMode string `json:"current_mode"` // 当前拥塞控制算法
-	BBRAvailable bool  `json:"bbr_available"` // 系统是否支持BBR
+	Enabled      bool   `json:"enabled"`
+	Version      string `json:"version"`       // bbr, bbr2, bbr3
+	CurrentMode  string `json:"current_mode"`  // 当前拥塞控制算法
+	BBRAvailable bool   `json:"bbr_available"` // 系统是否支持BBR
 }
 
 // SystemOptimizer 系统优化器
@@ -58,7 +56,7 @@ func (so *SystemOptimizer) EnableBBR(version string) error {
 
 	// 修改内核参数
 	kernelParams := map[string]string{
-		"net.core.default_qdisc": "fq",
+		"net.core.default_qdisc":          "fq",
 		"net.ipv4.tcp_congestion_control": bbrVersion,
 	}
 
@@ -140,7 +138,7 @@ func (so *SystemOptimizer) OptimizeSystemSettings() error {
 	logger.Info("[系统优化] 开始优化系统设置")
 
 	optimizations := []struct {
-		name string
+		name  string
 		param string
 		value string
 	}{
@@ -355,17 +353,17 @@ func (so *SystemOptimizer) getNetworkInterfaces() ([]map[string]interface{}, err
 		if strings.Contains(line, ":") && !strings.HasPrefix(line, " ") {
 			parts := strings.Split(line, ":")
 			if len(parts) >= 2 {
-			 ifaceName := strings.TrimSpace(parts[1])
-			 ifaceInfo := map[string]interface{}{
-					"name": ifaceName,
+				ifaceName := strings.TrimSpace(parts[1])
+				ifaceInfo := map[string]interface{}{
+					"name":  ifaceName,
 					"state": "unknown",
 				}
 
 				// 获取接口状态
 				if strings.Contains(line, "UP") {
-				 ifaceInfo["state"] = "up"
+					ifaceInfo["state"] = "up"
 				} else if strings.Contains(line, "DOWN") {
-				 ifaceInfo["state"] = "down"
+					ifaceInfo["state"] = "down"
 				}
 
 				interfaces = append(interfaces, ifaceInfo)
@@ -530,10 +528,10 @@ func (so *SystemOptimizer) getMemoryUsage() (map[string]interface{}, error) {
 
 		if len(fields) >= 4 {
 			return map[string]interface{}{
-				"total":     fields[1],
-				"used":      fields[2],
-				"free":      fields[3],
-				"raw":       memLine,
+				"total": fields[1],
+				"used":  fields[2],
+				"free":  fields[3],
+				"raw":   memLine,
 			}, nil
 		}
 	}
@@ -555,12 +553,12 @@ func (so *SystemOptimizer) getDiskUsage() (map[string]interface{}, error) {
 
 		if len(fields) >= 5 {
 			return map[string]interface{}{
-				"total":     fields[1],
-				"used":      fields[2],
-				"available": fields[3],
+				"total":         fields[1],
+				"used":          fields[2],
+				"available":     fields[3],
 				"usage_percent": fields[4],
-				"mountpoint": fields[5],
-				"raw":       diskLine,
+				"mountpoint":    fields[5],
+				"raw":           diskLine,
 			}, nil
 		}
 	}
@@ -585,7 +583,7 @@ func (so *SystemOptimizer) getNetworkStats() (map[string]interface{}, error) {
 
 		fields := strings.Fields(line)
 		if len(fields) >= 10 {
-		 ifaceName := strings.TrimSuffix(fields[0], ":")
+			ifaceName := strings.TrimSuffix(fields[0], ":")
 			stats := map[string]interface{}{
 				"name":       ifaceName,
 				"rx_bytes":   fields[1],

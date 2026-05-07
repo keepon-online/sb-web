@@ -1,11 +1,11 @@
 package handler
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"miaomiaowu/internal/certificate"
 	"miaomiaowu/internal/logger"
@@ -24,9 +24,9 @@ type CertGenerateRequest struct {
 
 // CertRenewRequest 证书更新请求
 type CertRenewRequest struct {
-	Domain    string `json:"domain"`
-	Force     bool   `json:"force"`
-	WarnDays  int    `json:"warn_days,omitempty"`
+	Domain   string `json:"domain"`
+	Force    bool   `json:"force"`
+	WarnDays int    `json:"warn_days,omitempty"`
 }
 
 // NewCertificateGenerateHandler 创建证书生成处理器
@@ -45,8 +45,8 @@ func NewCertificateGenerateHandler(repo *storage.TrafficRepository) http.Handler
 		}
 
 		// 验证域名
-		if err := singbox.ValidateDomain(req.Domain); err != nil {
-			writeError(w, http.StatusBadRequest, fmt.Errorf("invalid domain: %w", err))
+		if strings.TrimSpace(req.Domain) == "" {
+			writeError(w, http.StatusBadRequest, errors.New("domain is required"))
 			return
 		}
 
@@ -189,18 +189,17 @@ func NewCertificateListHandler(repo *storage.TrafficRepository) http.Handler {
 		// 获取证书状态
 		certStatuses := make(map[string]*certificate.CertStatus)
 		for _, cert := range certs {
-		status, err := cm.GetCertStatus(cert.Domain)
-		if err == nil {
-			certStatuses[cert.Domain] = status
+			status, err := cm.GetCertStatus(cert.Domain)
+			if err == nil {
+				certStatuses[cert.Domain] = status
+			}
 		}
-	}
 
 		writeJSON(w, http.StatusOK, map[string]interface{}{
-		"certs":       certs,
-		"cert_status": certStatuses,
+			"certs":       certs,
+			"cert_status": certStatuses,
+		})
 	})
-}
-
 }
 
 // NewCertificateDeleteHandler 创建证书删除处理器
@@ -233,8 +232,8 @@ func NewCertificateDeleteHandler(repo *storage.TrafficRepository) http.Handler {
 
 		writeJSON(w, http.StatusOK, map[string]string{
 			"status":  "success",
-		"message": "证书删除成功",
-	})
+			"message": "证书删除成功",
+		})
 
 		logger.Info("[证书API] 证书删除成功", "domain", domain)
 	})
@@ -322,17 +321,17 @@ func NewMonitoringStatusHandler(repo *storage.TrafficRepository) http.Handler {
 		availableCount := pm.GetAvailablePortCount(10000, 65535)
 
 		status := map[string]interface{}{
-			"environment":     env.String(),
-			"system_info":     sysInfo,
-			"certificates":    map[string]interface{}{
-				"total":         len(certs),
-				"expiring":      expiringCerts,
+			"environment": env.String(),
+			"system_info": sysInfo,
+			"certificates": map[string]interface{}{
+				"total":    len(certs),
+				"expiring": expiringCerts,
 			},
 			"ports": map[string]interface{}{
-				"used":         usedPorts,
-				"available":    availableCount,
+				"used":      usedPorts,
+				"available": availableCount,
 			},
-			"timestamp":      getCurrentTimestamp(),
+			"timestamp": getCurrentTimestamp(),
 		}
 
 		writeJSON(w, http.StatusOK, status)
@@ -343,13 +342,13 @@ func NewMonitoringStatusHandler(repo *storage.TrafficRepository) http.Handler {
 
 func saveCertToDatabase(repo *storage.TrafficRepository, certInfo *certificate.CertInfo, username string) error {
 	cert := &storage.Certificate{
-		Domain:     certInfo.Domain,
-		CertType:   string(certInfo.CertType),
-		CertPath:   certInfo.CertPath,
-		KeyPath:    certInfo.KeyPath,
-		ExpiresAt:  certInfo.ExpiresAt.Format("2006-01-02 15:04:05"),
-		AutoRenew:  certInfo.AutoRenew,
-		ACMEEmail:  certInfo.ACMEEmail,
+		Domain:    certInfo.Domain,
+		CertType:  string(certInfo.CertType),
+		CertPath:  certInfo.CertPath,
+		KeyPath:   certInfo.KeyPath,
+		ExpiresAt: certInfo.ExpiresAt.Format("2006-01-02 15:04:05"),
+		AutoRenew: certInfo.AutoRenew,
+		ACMEEmail: certInfo.ACMEEmail,
 	}
 
 	return repo.CreateCertificate(cert)
@@ -396,8 +395,8 @@ func NewAutoRenewCertificatesHandler(repo *storage.TrafficRepository) http.Handl
 		}
 
 		writeJSON(w, http.StatusOK, map[string]interface{}{
-			"status":            "success",
-			"message":           "自动更新完成",
+			"status":               "success",
+			"message":              "自动更新完成",
 			"renewed_certificates": renewedCerts,
 		})
 

@@ -4,26 +4,25 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"math/big"
 
 	"miaomiaowu/internal/singbox"
 )
 
 // VlessConfig Vless 协议配置
 type VlessConfig struct {
-	Server       string `json:"server"`
-	ServerPort   int    `json:"server_port"`
-	UUID         string `json:"uuid"`
-	Flow         string `json:"flow"`
-	Domain       string `json:"domain"`
-	Path         string `json:"path"`
-	Host         string `json:"host"`
-	PublicKey    string `json:"public_key"`
-	ShortID      string `json:"short_id"`
-	Fingerprint  string `json:"fingerprint"`
-	Reality      bool   `json:"reality"`
-	WebSocket    bool   `json:"websocket"`
-	TLS          bool   `json:"tls"`
+	Server      string `json:"server"`
+	ServerPort  int    `json:"server_port"`
+	UUID        string `json:"uuid"`
+	Flow        string `json:"flow"`
+	Domain      string `json:"domain"`
+	Path        string `json:"path"`
+	Host        string `json:"host"`
+	PublicKey   string `json:"public_key"`
+	ShortID     string `json:"short_id"`
+	Fingerprint string `json:"fingerprint"`
+	Reality     bool   `json:"reality"`
+	WebSocket   bool   `json:"websocket"`
+	TLS         bool   `json:"tls"`
 }
 
 // VlessBuilder Vless 配置构建器
@@ -35,12 +34,12 @@ type VlessBuilder struct {
 func NewVlessBuilder() *VlessBuilder {
 	return &VlessBuilder{
 		config: &VlessConfig{
-			ServerPort: 443,
-			Path:       "/",
-			Flow:       "xtls-rprx-vision",
+			ServerPort:  443,
+			Path:        "/",
+			Flow:        "xtls-rprx-vision",
 			Fingerprint: "chrome",
-			TLS:        true,
-			WebSocket:  true,
+			TLS:         true,
+			WebSocket:   true,
 		},
 	}
 }
@@ -285,12 +284,12 @@ func ParseVlessLink(link string) (*VlessConfig, error) {
 	}
 
 	config := &VlessConfig{
-		ServerPort: 443,
-		Path:       "/",
-		Flow:       "xtls-rprx-vision",
+		ServerPort:  443,
+		Path:        "/",
+		Flow:        "xtls-rprx-vision",
 		Fingerprint: "chrome",
-		TLS:        true,
-		WebSocket:  true,
+		TLS:         true,
+		WebSocket:   true,
 	}
 
 	return config, nil

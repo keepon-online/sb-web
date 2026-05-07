@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { Activity, Link as LinkIcon, Radar, Users, Files, Zap, Network, Menu, FileCode, Settings, FileStack, Shield, Rocket, Database, Share2, Cpu } from 'lucide-react'
+import { Activity, Link as LinkIcon, Users, Files, Zap, Network, Menu, FileCode, Settings, FileStack, Shield, Rocket, Database, Share2, Cpu } from 'lucide-react'
 import { ThemeSwitch } from '@/components/theme-switch'
 import { UserMenu } from './user-menu'
 import { useAuthStore } from '@/stores/auth-store'
@@ -61,7 +61,7 @@ const adminNavLinks = [
   },
   {
     title: 'Sing-box',
-    to: '/singbox/certificates',
+    to: '/singbox',
     icon: Shield,
   },
   {
