@@ -45,6 +45,21 @@ interface GenerateResponse {
   port?: number
 }
 
+interface DeployResponse {
+  success: boolean
+  message: string
+  config?: Record<string, unknown>
+  config_path?: string
+  links?: Record<string, string>
+  uuid?: string
+  password?: string
+  reality_private_key?: string
+  reality_public_key?: string
+  reality_short_id?: string
+  certificate_path?: string
+  private_key_path?: string
+}
+
 interface GeneratedResult {
   protocol: string
   name: string
@@ -123,6 +138,11 @@ function randomToken(bytes = 18) {
   return btoa(randomHex(bytes)).replace(/[=+/]/g, '').slice(0, 24)
 }
 
+function safeConfigName(value: string) {
+  const normalized = value.trim().replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/^-+|-+$/g, '')
+  return normalized || 'server'
+}
+
 function getErrorMessage(err: unknown, fallback: string) {
   if (err instanceof AxiosError) {
     const data = err.response?.data as { error?: string; message?: string } | undefined
@@ -143,6 +163,7 @@ function SingboxConfigPage() {
   const [portStatus, setPortStatus] = useState<PortStatus | null>(null)
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
+  const [deploying, setDeploying] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [mode, setMode] = useState<GenerateMode>('server')
   const [generatedResult, setGeneratedResult] = useState<GeneratedResult | null>(null)
@@ -267,6 +288,70 @@ function SingboxConfigPage() {
       console.error(err)
     } finally {
       setGenerating(false)
+    }
+  }
+
+  const handleDeployServerConfig = async () => {
+    if (!serverForm.externalHost.trim()) {
+      setError('请输入服务器地址')
+      return
+    }
+
+    const ports = serverPortFields.map(([key]) => serverForm[key])
+    if (ports.some((port) => !Number.isInteger(port) || port < 1 || port > 65535)) {
+      setError('端口必须在 1-65535 之间')
+      return
+    }
+    if (new Set(ports).size !== ports.length) {
+      setError('五个协议端口不能重复')
+      return
+    }
+
+    setDeploying(true)
+    setError(null)
+
+    try {
+      const configName = `sb-${safeConfigName(serverForm.externalHost)}.json`
+      const response = await api.post<DeployResponse>('/api/admin/singbox/deploy', {
+        external_host: serverForm.externalHost.trim(),
+        hostname: serverForm.hostname.trim() || serverForm.externalHost.trim(),
+        reality_sni: serverForm.realitySNI.trim() || 'apple.com',
+        websocket_path: serverForm.websocketPath.trim() || '/vmessws',
+        vless_reality_port: serverForm.vlessRealityPort,
+        vmess_websocket_port: serverForm.vmessWebSocketPort,
+        hysteria2_port: serverForm.hysteria2Port,
+        tuic_port: serverForm.tuicPort,
+        anytls_port: serverForm.anytlsPort,
+        config_name: configName,
+      })
+
+      if (response.data.success && response.data.config) {
+        setServerForm((current) => ({
+          ...current,
+          uuid: response.data.uuid || current.uuid,
+          password: response.data.password || current.password,
+          realityPrivateKey: response.data.reality_private_key || current.realityPrivateKey,
+          realityPublicKey: response.data.reality_public_key || current.realityPublicKey,
+          realityShortID: response.data.reality_short_id || current.realityShortID,
+          certificatePath: response.data.certificate_path || current.certificatePath,
+          privateKeyPath: response.data.private_key_path || current.privateKeyPath,
+        }))
+        setGeneratedResult({
+          protocol: 'server',
+          name: response.data.config_path || configName,
+          port: serverForm.vlessRealityPort,
+          config: response.data.config,
+          links: response.data.links || {},
+        })
+        await loadConfigs()
+        await loadPortStatus()
+        toast.success('部署配置已生成并保存')
+      }
+    } catch (err) {
+      setError(getErrorMessage(err, '生成部署配置失败'))
+      console.error(err)
+    } finally {
+      setDeploying(false)
     }
   }
 
@@ -432,15 +517,25 @@ function SingboxConfigPage() {
                 VLESS Reality、VMess WS、Hysteria2、TUIC、AnyTLS。
               </p>
             </div>
-            <Button
-              type='button'
-              onClick={handleGenerateServerConfig}
-              disabled={generating}
-              className='shrink-0'
-            >
-              {generating ? <RefreshCw className='size-4 animate-spin' /> : <Save className='size-4' />}
-              {generating ? '生成中' : '生成并保存'}
-            </Button>
+            <div className='flex shrink-0 flex-col gap-2 sm:flex-row'>
+              <Button
+                type='button'
+                variant='outline'
+                onClick={handleDeployServerConfig}
+                disabled={deploying || generating || !serverForm.externalHost.trim()}
+              >
+                {deploying ? <RefreshCw className='size-4 animate-spin' /> : <Server className='size-4' />}
+                {deploying ? '部署中' : '一键部署配置'}
+              </Button>
+              <Button
+                type='button'
+                onClick={handleGenerateServerConfig}
+                disabled={generating || deploying}
+              >
+                {generating ? <RefreshCw className='size-4 animate-spin' /> : <Save className='size-4' />}
+                {generating ? '生成中' : '生成并保存'}
+              </Button>
+            </div>
           </div>
 
           <div className='grid grid-cols-1 gap-5 xl:grid-cols-[1.1fr_0.9fr]'>

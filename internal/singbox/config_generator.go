@@ -46,9 +46,12 @@ type DNSConfig struct {
 
 // DNSServer DNS 服务器
 type DNSServer struct {
-	Tag             string `json:"tag"`
-	Address         string `json:"address"`
+	Type            string `json:"type,omitempty"`
+	Tag             string `json:"tag,omitempty"`
+	Address         string `json:"address,omitempty"`
 	AddressResolver string `json:"address_resolver,omitempty"`
+	Server          string `json:"server,omitempty"`
+	ServerPort      int    `json:"server_port,omitempty"`
 	Strategy        string `json:"strategy,omitempty"`
 	Detour          string `json:"detour,omitempty"`
 }
@@ -123,10 +126,11 @@ type TransportOptions struct {
 
 // RouteConfig 路由配置
 type RouteConfig struct {
-	Rules    []RouteRule `json:"rules,omitempty"`
-	Rule_set []string    `json:"rule_set,omitempty"`
-	Final    string      `json:"final"`
-	Auto     bool        `json:"auto,omitempty"`
+	Rules                 []RouteRule `json:"rules,omitempty"`
+	Rule_set              []string    `json:"rule_set,omitempty"`
+	Final                 string      `json:"final"`
+	Auto                  bool        `json:"auto,omitempty"`
+	DefaultDomainResolver string      `json:"default_domain_resolver,omitempty"`
 }
 
 // RouteRule 路由规则

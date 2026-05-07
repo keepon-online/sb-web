@@ -62,8 +62,8 @@ func BuildServerConfig(opts ServerConfigOptions) (*SingboxConfig, error) {
 		},
 		DNS: DNSConfig{
 			Servers: []DNSServer{
-				{Tag: "cf", Address: "1.1.1.1"},
-				{Tag: "local", Address: "local"},
+				{Tag: "cf", Type: "udp", Server: "1.1.1.1"},
+				{Tag: "local", Type: "local"},
 			},
 		},
 		Inbounds: []InboundConfig{
@@ -81,7 +81,6 @@ func BuildServerConfig(opts ServerConfigOptions) (*SingboxConfig, error) {
 					ServerName: realitySNI,
 					Reality: &RealityOptions{
 						Enabled:    true,
-						PublicKey:  opts.RealityPublicKey,
 						PrivateKey: opts.RealityPrivateKey,
 						ShortID:    opts.RealityShortID,
 					},
@@ -106,7 +105,10 @@ func BuildServerConfig(opts ServerConfigOptions) (*SingboxConfig, error) {
 				Tag:        "hysteria2-sb",
 				Listen:     "::",
 				ListenPort: opts.Hysteria2Port,
-				Password:   opts.Password,
+				Users: []map[string]interface{}{{
+					"name":     "hy2",
+					"password": opts.Password,
+				}},
 				Masquerade: "https://bing.com",
 				TLS:        tls(),
 			},
@@ -138,7 +140,8 @@ func BuildServerConfig(opts ServerConfigOptions) (*SingboxConfig, error) {
 			{Type: "block", Tag: "block"},
 		},
 		Route: RouteConfig{
-			Final: "direct",
+			Final:                 "direct",
+			DefaultDomainResolver: "cf",
 		},
 	}
 

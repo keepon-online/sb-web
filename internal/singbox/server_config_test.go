@@ -31,6 +31,15 @@ func TestBuildServerConfigIncludesFiveServerInbounds(t *testing.T) {
 	if got := len(cfg.Inbounds); got != 5 {
 		t.Fatalf("inbound count = %d, want 5", got)
 	}
+	if len(cfg.DNS.Servers) != 2 {
+		t.Fatalf("dns server count = %d, want 2", len(cfg.DNS.Servers))
+	}
+	if cfg.DNS.Servers[0].Type != "udp" || cfg.DNS.Servers[0].Server != "1.1.1.1" {
+		t.Fatalf("unexpected remote dns server: %#v", cfg.DNS.Servers[0])
+	}
+	if cfg.DNS.Servers[1].Type != "local" {
+		t.Fatalf("unexpected local dns server: %#v", cfg.DNS.Servers[1])
+	}
 
 	byTag := map[string]InboundConfig{}
 	for _, inbound := range cfg.Inbounds {
@@ -61,8 +70,11 @@ func TestBuildServerConfigIncludesFiveServerInbounds(t *testing.T) {
 	if vless.TLS == nil || vless.TLS.Reality == nil || !vless.TLS.Reality.Enabled {
 		t.Fatalf("vless reality tls not configured: %#v", vless.TLS)
 	}
-	if vless.TLS.Reality.PublicKey != "public-key" {
-		t.Fatalf("vless reality public key = %q", vless.TLS.Reality.PublicKey)
+	if vless.TLS.Reality.PublicKey != "" {
+		t.Fatalf("server reality public key should be omitted, got %q", vless.TLS.Reality.PublicKey)
+	}
+	if vless.TLS.Reality.PrivateKey != "private-key" {
+		t.Fatalf("vless reality private key = %q", vless.TLS.Reality.PrivateKey)
 	}
 	if vmess.Transport == nil || vmess.Transport.Type != "ws" || vmess.Transport.Path != "/vmessws" {
 		t.Fatalf("vmess websocket transport not configured: %#v", vmess.Transport)

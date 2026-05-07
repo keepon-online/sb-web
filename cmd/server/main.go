@@ -186,6 +186,7 @@ func main() {
 
 	// Sing-box 配置管理 endpoints (admin only)
 	mux.Handle("/api/admin/singbox/config/generate", auth.RequireAdmin(tokenStore, userRepo, handler.NewSingboxConfigGenerateHandler(repo)))
+	mux.Handle("/api/admin/singbox/deploy", auth.RequireAdmin(tokenStore, userRepo, handler.NewSingboxDeployHandler(repo)))
 	mux.Handle("/api/admin/singbox/config/save", auth.RequireAdmin(tokenStore, userRepo, handler.NewSingboxConfigSaveHandler(repo)))
 	mux.Handle("/api/admin/singbox/config/list", auth.RequireAdmin(tokenStore, userRepo, handler.NewSingboxConfigListHandler(repo)))
 
