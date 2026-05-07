@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 )
 
 // scanNodeTags deserializes JSON tags and syncs Tag field.
@@ -92,7 +93,7 @@ func (r *TrafficRepository) ListNodes(ctx context.Context, username string) ([]N
 		return nil, errors.New("username is required")
 	}
 
-	rows, err := r.db.QueryContext(ctx, `SELECT id, username, raw_url, node_name, protocol, parsed_config, clash_config, enabled, COALESCE(tag, 'personal'), COALESCE(original_server, ''), COALESCE(tags, '[]'), created_at, updated_at FROM nodes WHERE username = ? ORDER BY created_at DESC`, username)
+	rows, err := r.db.QueryContext(ctx, `SELECT id, username, raw_url, node_name, protocol, parsed_config, clash_config, enabled, COALESCE(tag, 'personal'), COALESCE(original_server, ''), COALESCE(tags, '[]'), COALESCE(source_type, ''), COALESCE(source_ref_id, ''), COALESCE(source_ref_name, ''), COALESCE(source_updated_at, ''), created_at, updated_at FROM nodes WHERE username = ? ORDER BY created_at DESC`, username)
 	if err != nil {
 		return nil, fmt.Errorf("list nodes: %w", err)
 	}
@@ -103,7 +104,7 @@ func (r *TrafficRepository) ListNodes(ctx context.Context, username string) ([]N
 		var node Node
 		var enabled int
 		var tagsJSON string
-		if err := rows.Scan(&node.ID, &node.Username, &node.RawURL, &node.NodeName, &node.Protocol, &node.ParsedConfig, &node.ClashConfig, &enabled, &node.Tag, &node.OriginalServer, &tagsJSON, &node.CreatedAt, &node.UpdatedAt); err != nil {
+		if err := rows.Scan(&node.ID, &node.Username, &node.RawURL, &node.NodeName, &node.Protocol, &node.ParsedConfig, &node.ClashConfig, &enabled, &node.Tag, &node.OriginalServer, &tagsJSON, &node.SourceType, &node.SourceRefID, &node.SourceRefName, &node.SourceUpdatedAt, &node.CreatedAt, &node.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scan node: %w", err)
 		}
 		node.Enabled = enabled != 0
@@ -136,8 +137,8 @@ func (r *TrafficRepository) GetNode(ctx context.Context, id int64, username stri
 
 	var enabled int
 	var tagsJSON string
-	row := r.db.QueryRowContext(ctx, `SELECT id, username, raw_url, node_name, protocol, parsed_config, clash_config, enabled, COALESCE(tag, 'personal'), COALESCE(original_server, ''), COALESCE(tags, '[]'), created_at, updated_at FROM nodes WHERE id = ? AND username = ? LIMIT 1`, id, username)
-	if err := row.Scan(&node.ID, &node.Username, &node.RawURL, &node.NodeName, &node.Protocol, &node.ParsedConfig, &node.ClashConfig, &enabled, &node.Tag, &node.OriginalServer, &tagsJSON, &node.CreatedAt, &node.UpdatedAt); err != nil {
+	row := r.db.QueryRowContext(ctx, `SELECT id, username, raw_url, node_name, protocol, parsed_config, clash_config, enabled, COALESCE(tag, 'personal'), COALESCE(original_server, ''), COALESCE(tags, '[]'), COALESCE(source_type, ''), COALESCE(source_ref_id, ''), COALESCE(source_ref_name, ''), COALESCE(source_updated_at, ''), created_at, updated_at FROM nodes WHERE id = ? AND username = ? LIMIT 1`, id, username)
+	if err := row.Scan(&node.ID, &node.Username, &node.RawURL, &node.NodeName, &node.Protocol, &node.ParsedConfig, &node.ClashConfig, &enabled, &node.Tag, &node.OriginalServer, &tagsJSON, &node.SourceType, &node.SourceRefID, &node.SourceRefName, &node.SourceUpdatedAt, &node.CreatedAt, &node.UpdatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return node, ErrNodeNotFound
 		}
@@ -185,7 +186,7 @@ func (r *TrafficRepository) CreateNode(ctx context.Context, node Node) (Node, er
 		enabled = 1
 	}
 
-	res, err := r.db.ExecContext(ctx, `INSERT INTO nodes (username, raw_url, node_name, protocol, parsed_config, clash_config, enabled, tag, tags, original_server) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, node.Username, node.RawURL, node.NodeName, node.Protocol, node.ParsedConfig, node.ClashConfig, enabled, node.Tag, tagsJSON, node.OriginalServer)
+	res, err := r.db.ExecContext(ctx, `INSERT INTO nodes (username, raw_url, node_name, protocol, parsed_config, clash_config, enabled, tag, tags, original_server, source_type, source_ref_id, source_ref_name, source_updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, node.Username, node.RawURL, node.NodeName, node.Protocol, node.ParsedConfig, node.ClashConfig, enabled, node.Tag, tagsJSON, node.OriginalServer, node.SourceType, node.SourceRefID, node.SourceRefName, time.Now().UTC())
 	if err != nil {
 		return Node{}, fmt.Errorf("create node: %w", err)
 	}
@@ -238,7 +239,7 @@ func (r *TrafficRepository) UpdateNode(ctx context.Context, node Node) (Node, er
 		enabled = 1
 	}
 
-	res, err := r.db.ExecContext(ctx, `UPDATE nodes SET raw_url = ?, node_name = ?, protocol = ?, parsed_config = ?, clash_config = ?, enabled = ?, tag = ?, tags = ?, original_server = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND username = ?`, node.RawURL, node.NodeName, node.Protocol, node.ParsedConfig, node.ClashConfig, enabled, node.Tag, tagsJSON, node.OriginalServer, node.ID, node.Username)
+	res, err := r.db.ExecContext(ctx, `UPDATE nodes SET raw_url = ?, node_name = ?, protocol = ?, parsed_config = ?, clash_config = ?, enabled = ?, tag = ?, tags = ?, original_server = ?, source_type = ?, source_ref_id = ?, source_ref_name = ?, source_updated_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND username = ?`, node.RawURL, node.NodeName, node.Protocol, node.ParsedConfig, node.ClashConfig, enabled, node.Tag, tagsJSON, node.OriginalServer, node.SourceType, node.SourceRefID, node.SourceRefName, node.ID, node.Username)
 	if err != nil {
 		return Node{}, fmt.Errorf("update node: %w", err)
 	}
@@ -252,6 +253,101 @@ func (r *TrafficRepository) UpdateNode(ctx context.Context, node Node) (Node, er
 	}
 
 	return r.GetNode(ctx, node.ID, node.Username)
+}
+
+// UpsertNodeBySource creates or updates a node by source identity and protocol.
+func (r *TrafficRepository) UpsertNodeBySource(ctx context.Context, node Node) (Node, bool, error) {
+	if r == nil || r.db == nil {
+		return Node{}, false, errors.New("traffic repository not initialized")
+	}
+	node.SourceType = strings.TrimSpace(node.SourceType)
+	node.SourceRefID = strings.TrimSpace(node.SourceRefID)
+	node.Protocol = strings.ToLower(strings.TrimSpace(node.Protocol))
+	if node.SourceType == "" || node.SourceRefID == "" || node.Protocol == "" {
+		return Node{}, false, errors.New("source type, source ref id, and protocol are required")
+	}
+
+	existing, err := r.getNodeBySourceProtocol(ctx, node.SourceType, node.SourceRefID, node.Protocol)
+	if err == nil {
+		node.ID = existing.ID
+		if strings.TrimSpace(node.Username) == "" {
+			node.Username = existing.Username
+		}
+		updated, updateErr := r.UpdateNode(ctx, node)
+		return updated, false, updateErr
+	}
+	if !errors.Is(err, ErrNodeNotFound) {
+		return Node{}, false, err
+	}
+	created, err := r.CreateNode(ctx, node)
+	return created, true, err
+}
+
+// ListNodesBySource returns nodes for a source type and reference id.
+func (r *TrafficRepository) ListNodesBySource(ctx context.Context, sourceType, sourceRefID string) ([]Node, error) {
+	if r == nil || r.db == nil {
+		return nil, errors.New("traffic repository not initialized")
+	}
+	rows, err := r.db.QueryContext(ctx, `SELECT id, username, raw_url, node_name, protocol, parsed_config, clash_config, enabled, COALESCE(tag, 'personal'), COALESCE(original_server, ''), COALESCE(tags, '[]'), COALESCE(source_type, ''), COALESCE(source_ref_id, ''), COALESCE(source_ref_name, ''), COALESCE(source_updated_at, ''), created_at, updated_at FROM nodes WHERE source_type = ? AND source_ref_id = ? ORDER BY protocol ASC`, strings.TrimSpace(sourceType), strings.TrimSpace(sourceRefID))
+	if err != nil {
+		return nil, fmt.Errorf("list nodes by source: %w", err)
+	}
+	defer rows.Close()
+
+	var nodes []Node
+	for rows.Next() {
+		var node Node
+		var enabled int
+		var tagsJSON string
+		if err := rows.Scan(&node.ID, &node.Username, &node.RawURL, &node.NodeName, &node.Protocol, &node.ParsedConfig, &node.ClashConfig, &enabled, &node.Tag, &node.OriginalServer, &tagsJSON, &node.SourceType, &node.SourceRefID, &node.SourceRefName, &node.SourceUpdatedAt, &node.CreatedAt, &node.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("scan source node: %w", err)
+		}
+		node.Enabled = enabled != 0
+		scanNodeTags(&node, tagsJSON)
+		nodes = append(nodes, node)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate source nodes: %w", err)
+	}
+	return nodes, nil
+}
+
+// DeleteNodeBySourceID deletes a source-linked node without touching ordinary nodes.
+func (r *TrafficRepository) DeleteNodeBySourceID(ctx context.Context, id int64, sourceType string) error {
+	if r == nil || r.db == nil {
+		return errors.New("traffic repository not initialized")
+	}
+	if id <= 0 {
+		return errors.New("node id is required")
+	}
+	res, err := r.db.ExecContext(ctx, `DELETE FROM nodes WHERE id = ? AND source_type = ?`, id, strings.TrimSpace(sourceType))
+	if err != nil {
+		return fmt.Errorf("delete node by source id: %w", err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("node source delete rows affected: %w", err)
+	}
+	if affected == 0 {
+		return ErrNodeNotFound
+	}
+	return nil
+}
+
+func (r *TrafficRepository) getNodeBySourceProtocol(ctx context.Context, sourceType, sourceRefID, protocol string) (Node, error) {
+	var node Node
+	row := r.db.QueryRowContext(ctx, `SELECT id, username, raw_url, node_name, protocol, parsed_config, clash_config, enabled, COALESCE(tag, 'personal'), COALESCE(original_server, ''), COALESCE(tags, '[]'), COALESCE(source_type, ''), COALESCE(source_ref_id, ''), COALESCE(source_ref_name, ''), COALESCE(source_updated_at, ''), created_at, updated_at FROM nodes WHERE source_type = ? AND source_ref_id = ? AND protocol = ? LIMIT 1`, sourceType, sourceRefID, protocol)
+	var enabled int
+	var tagsJSON string
+	if err := row.Scan(&node.ID, &node.Username, &node.RawURL, &node.NodeName, &node.Protocol, &node.ParsedConfig, &node.ClashConfig, &enabled, &node.Tag, &node.OriginalServer, &tagsJSON, &node.SourceType, &node.SourceRefID, &node.SourceRefName, &node.SourceUpdatedAt, &node.CreatedAt, &node.UpdatedAt); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return Node{}, ErrNodeNotFound
+		}
+		return Node{}, fmt.Errorf("get node by source protocol: %w", err)
+	}
+	node.Enabled = enabled != 0
+	scanNodeTags(&node, tagsJSON)
+	return node, nil
 }
 
 // DeleteNode removes a proxy node.

@@ -165,19 +165,23 @@ var (
 
 // Node represents a proxy node stored in the database.
 type Node struct {
-	ID             int64
-	Username       string
-	RawURL         string
-	NodeName       string
-	Protocol       string
-	ParsedConfig   string
-	ClashConfig    string
-	Enabled        bool
-	Tag            string   // 向后兼容，等于 Tags[0]
-	Tags           []string // 多标签支持
-	OriginalServer string
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	ID              int64
+	Username        string
+	RawURL          string
+	NodeName        string
+	Protocol        string
+	ParsedConfig    string
+	ClashConfig     string
+	Enabled         bool
+	Tag             string   // 向后兼容，等于 Tags[0]
+	Tags            []string // 多标签支持
+	OriginalServer  string
+	SourceType      string
+	SourceRefID     string
+	SourceRefName   string
+	SourceUpdatedAt string
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
 }
 
 // SubscribeFile represents a subscription file configuration.
@@ -601,6 +605,23 @@ CREATE INDEX IF NOT EXISTS idx_nodes_enabled ON nodes(enabled);
 	}
 	// Migrate existing tag data to tags column
 	r.db.Exec(`UPDATE nodes SET tags = '["' || REPLACE(tag, '"', '\"') || '"]' WHERE (tags = '[]' OR tags = '') AND tag != '' AND tag IS NOT NULL`)
+
+	// Add source tracking columns for Sing-box published nodes
+	if err := r.ensureNodeColumn("source_type", "TEXT NOT NULL DEFAULT ''"); err != nil {
+		return err
+	}
+	if err := r.ensureNodeColumn("source_ref_id", "TEXT NOT NULL DEFAULT ''"); err != nil {
+		return err
+	}
+	if err := r.ensureNodeColumn("source_ref_name", "TEXT NOT NULL DEFAULT ''"); err != nil {
+		return err
+	}
+	if err := r.ensureNodeColumn("source_updated_at", "TIMESTAMP"); err != nil {
+		return err
+	}
+	if _, err := r.db.Exec(`CREATE INDEX IF NOT EXISTS idx_nodes_source ON nodes(source_type, source_ref_id, protocol);`); err != nil {
+		return fmt.Errorf("create source index: %w", err)
+	}
 
 	// Create tag index after ensuring column exists
 	if _, err := r.db.Exec(`CREATE INDEX IF NOT EXISTS idx_nodes_tag ON nodes(tag);`); err != nil {

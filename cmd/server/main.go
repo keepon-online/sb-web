@@ -189,6 +189,9 @@ func main() {
 	mux.Handle("/api/admin/singbox/deploy", auth.RequireAdmin(tokenStore, userRepo, handler.NewSingboxDeployHandler(repo)))
 	mux.Handle("/api/admin/singbox/config/save", auth.RequireAdmin(tokenStore, userRepo, handler.NewSingboxConfigSaveHandler(repo)))
 	mux.Handle("/api/admin/singbox/config/list", auth.RequireAdmin(tokenStore, userRepo, handler.NewSingboxConfigListHandler(repo)))
+	mux.Handle("/api/admin/singbox/config/publish", auth.RequireAdmin(tokenStore, userRepo, handler.NewSingboxConfigPublishHandler(repo)))
+	mux.Handle("/api/admin/singbox/config/published-nodes", auth.RequireAdmin(tokenStore, userRepo, handler.NewSingboxPublishedNodesHandler(repo)))
+	mux.Handle("/api/admin/singbox/config/published-node", auth.RequireAdmin(tokenStore, userRepo, handler.NewSingboxPublishedNodeDeleteHandler(repo)))
 
 	// Sing-box 端口管理 endpoints (admin only)
 	mux.Handle("/api/admin/singbox/port/allocate", auth.RequireAdmin(tokenStore, userRepo, handler.NewSingboxPortAllocateHandler(repo)))

@@ -2,6 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import {
   CheckCircle2,
   Copy,
+  ExternalLink,
   FileJson,
   KeyRound,
   Link2,
@@ -25,6 +26,38 @@ interface Config {
   port: number
   enabled: boolean
   created_at: string
+}
+
+interface PublishedNode {
+  id: number
+  node_name: string
+  protocol: string
+  tags: string[]
+  enabled: boolean
+  original_server: string
+  source_ref_name: string
+  source_updated_at: string
+}
+
+interface PublishState {
+  config: Config
+  protocols: string[]
+  tags: string
+  enabled: boolean
+  externalHost: string
+  realityPublicKey: string
+  nodes: PublishedNode[]
+}
+
+interface PublishResponse {
+  success: boolean
+  message: string
+  created_count: number
+  updated_count: number
+}
+
+interface PublishedNodesResponse {
+  nodes: PublishedNode[]
 }
 
 interface PortStatus {
@@ -124,6 +157,8 @@ const singleProtocols = [
   ['anytls', 'AnyTLS'],
 ] as const
 
+const publishProtocolValues = singleProtocols.map(([value]) => value)
+
 export const Route = createFileRoute('/singbox/config')({
   component: SingboxConfigPage,
 })
@@ -167,6 +202,9 @@ function SingboxConfigPage() {
   const [error, setError] = useState<string | null>(null)
   const [mode, setMode] = useState<GenerateMode>('server')
   const [generatedResult, setGeneratedResult] = useState<GeneratedResult | null>(null)
+  const [publishState, setPublishState] = useState<PublishState | null>(null)
+  const [publishing, setPublishing] = useState(false)
+  const [loadingPublishedNodes, setLoadingPublishedNodes] = useState(false)
 
   const [serverForm, setServerForm] = useState<ServerForm>({
     ...defaultServerForm,
@@ -408,6 +446,88 @@ function SingboxConfigPage() {
       name: name,
       config: config,
     })
+  }
+
+  const loadPublishedNodes = async (configID: number) => {
+    const response = await api.get<PublishedNodesResponse>(
+      `/api/admin/singbox/config/published-nodes?config_id=${configID}`,
+    )
+    return response.data.nodes || []
+  }
+
+  const openPublishDialog = async (config: Config) => {
+    setLoadingPublishedNodes(true)
+    try {
+      const nodes = await loadPublishedNodes(config.id)
+      setPublishState({
+        config,
+        protocols: [...publishProtocolValues],
+        tags: `singbox, singbox:${config.name}`,
+        enabled: true,
+        externalHost: serverForm.externalHost.trim(),
+        realityPublicKey: serverForm.realityPublicKey.trim(),
+        nodes,
+      })
+    } catch (err) {
+      setError(getErrorMessage(err, '加载已发布节点失败'))
+    } finally {
+      setLoadingPublishedNodes(false)
+    }
+  }
+
+  const updatePublishProtocol = (protocol: string, checked: boolean) => {
+    setPublishState((current) => {
+      if (!current) return current
+      return {
+        ...current,
+        protocols: checked
+          ? Array.from(new Set([...current.protocols, protocol]))
+          : current.protocols.filter((value) => value !== protocol),
+      }
+    })
+  }
+
+  const handlePublishConfig = async () => {
+    if (!publishState) return
+    setPublishing(true)
+    setError(null)
+    try {
+      const tags = publishState.tags
+        .split(',')
+        .map((tag) => tag.trim())
+        .filter(Boolean)
+      const response = await api.post<PublishResponse>('/api/admin/singbox/config/publish', {
+        config_id: publishState.config.id,
+        protocols: publishState.protocols,
+        tags,
+        enabled: publishState.enabled,
+        external_host: publishState.externalHost.trim(),
+        reality_public_key: publishState.realityPublicKey.trim(),
+      })
+      const nodes = await loadPublishedNodes(publishState.config.id)
+      setPublishState((current) => (current ? { ...current, nodes } : current))
+      toast.success(
+        `已创建 ${response.data.created_count} 个节点，已更新 ${response.data.updated_count} 个节点`,
+      )
+    } catch (err) {
+      setError(getErrorMessage(err, '发布到订阅失败'))
+    } finally {
+      setPublishing(false)
+    }
+  }
+
+  const handleUnpublishNode = async (node: PublishedNode) => {
+    if (!publishState) return
+    if (!confirm(`确定要取消发布节点 "${node.node_name}" 吗？`)) return
+
+    try {
+      await api.delete(`/api/admin/singbox/config/published-node?id=${node.id}`)
+      const nodes = await loadPublishedNodes(publishState.config.id)
+      setPublishState((current) => (current ? { ...current, nodes } : current))
+      toast.success('已取消发布')
+    } catch (err) {
+      setError(getErrorMessage(err, '取消发布失败'))
+    }
   }
 
   const handleDeleteConfig = async (id: number, name: string) => {
@@ -854,16 +974,28 @@ function SingboxConfigPage() {
                       {new Date(config.created_at).toLocaleString()}
                     </td>
                     <td className='px-4 py-3'>
-                      <Button
-                        type='button'
-                        variant='ghost'
-                        size='sm'
-                        onClick={() => handleDeleteConfig(config.id, config.name)}
-                        className='text-destructive hover:text-destructive'
-                      >
-                        <Trash2 className='size-4' />
-                        删除
-                      </Button>
+                      <div className='flex flex-wrap gap-2'>
+                        <Button
+                          type='button'
+                          variant='outline'
+                          size='sm'
+                          onClick={() => openPublishDialog(config)}
+                          disabled={loadingPublishedNodes}
+                        >
+                          <ExternalLink className='size-4' />
+                          发布到订阅
+                        </Button>
+                        <Button
+                          type='button'
+                          variant='ghost'
+                          size='sm'
+                          onClick={() => handleDeleteConfig(config.id, config.name)}
+                          className='text-destructive hover:text-destructive'
+                        >
+                          <Trash2 className='size-4' />
+                          删除
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -872,6 +1004,192 @@ function SingboxConfigPage() {
           </div>
         )}
       </div>
+
+      {publishState && (
+        <div className='fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm'>
+          <div className='max-h-[90vh] w-full max-w-3xl overflow-y-auto border border-border bg-card p-5 shadow-lg'>
+            <div className='mb-4 flex items-start justify-between gap-4'>
+              <div>
+                <h2 className='text-lg font-semibold'>发布到订阅</h2>
+                <p className='mt-1 text-sm text-muted-foreground'>
+                  {publishState.config.name} 将发布为 admin 公共节点，可通过 singbox 标签加入订阅文件。
+                </p>
+              </div>
+              <Button type='button' variant='ghost' size='sm' onClick={() => setPublishState(null)}>
+                关闭
+              </Button>
+            </div>
+
+            <div className='space-y-5'>
+              <div>
+                <div className='mb-2 text-sm font-medium'>协议</div>
+                <div className='grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5'>
+                  {singleProtocols.map(([protocol, label]) => (
+                    <label
+                      key={protocol}
+                      className='flex items-center gap-2 border border-border bg-background px-3 py-2 text-sm'
+                    >
+                      <input
+                        type='checkbox'
+                        checked={publishState.protocols.includes(protocol)}
+                        onChange={(event) => updatePublishProtocol(protocol, event.target.checked)}
+                      />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className='mb-2 block text-sm font-medium'>标签</label>
+                <input
+                  type='text'
+                  value={publishState.tags}
+                  onChange={(event) =>
+                    setPublishState((current) =>
+                      current ? { ...current, tags: event.target.value } : current,
+                    )
+                  }
+                  className='h-10 w-full border border-input bg-background px-3 text-sm outline-none focus:border-ring'
+                  placeholder='用英文逗号分隔多个标签'
+                />
+                <p className='mt-1 text-xs text-muted-foreground'>
+                  默认会自动补充 singbox、singbox:配置名、protocol:协议。
+                </p>
+              </div>
+
+              <div className='grid grid-cols-1 gap-3 md:grid-cols-2'>
+                <div>
+                  <label className='mb-2 block text-sm font-medium'>对外服务器地址</label>
+                  <input
+                    type='text'
+                    value={publishState.externalHost}
+                    onChange={(event) =>
+                      setPublishState((current) =>
+                        current ? { ...current, externalHost: event.target.value } : current,
+                      )
+                    }
+                    className='h-10 w-full border border-input bg-background px-3 text-sm outline-none focus:border-ring'
+                    placeholder='example.com 或 IP'
+                  />
+                </div>
+                <div>
+                  <label className='mb-2 block text-sm font-medium'>Reality 公钥</label>
+                  <input
+                    type='text'
+                    value={publishState.realityPublicKey}
+                    onChange={(event) =>
+                      setPublishState((current) =>
+                        current ? { ...current, realityPublicKey: event.target.value } : current,
+                      )
+                    }
+                    className='h-10 w-full border border-input bg-background px-3 text-sm outline-none focus:border-ring'
+                    placeholder='发布 VLESS 时必填'
+                  />
+                </div>
+              </div>
+
+              <label className='flex items-center gap-2 text-sm'>
+                <input
+                  type='checkbox'
+                  checked={publishState.enabled}
+                  onChange={(event) =>
+                    setPublishState((current) =>
+                      current ? { ...current, enabled: event.target.checked } : current,
+                    )
+                  }
+                />
+                发布后启用节点
+              </label>
+
+              <div className='flex justify-end gap-2'>
+                <Button type='button' variant='outline' onClick={() => setPublishState(null)}>
+                  取消
+                </Button>
+                <Button
+                  type='button'
+                  onClick={handlePublishConfig}
+                  disabled={publishing || publishState.protocols.length === 0}
+                >
+                  {publishing ? <RefreshCw className='size-4 animate-spin' /> : <ExternalLink className='size-4' />}
+                  {publishing ? '发布中' : '发布'}
+                </Button>
+              </div>
+
+              <div className='border-t border-border pt-4'>
+                <div className='mb-3 flex items-center justify-between gap-2'>
+                  <h3 className='text-sm font-semibold'>已发布节点</h3>
+                  <Button
+                    type='button'
+                    variant='outline'
+                    size='sm'
+                    onClick={() => openPublishDialog(publishState.config)}
+                    disabled={loadingPublishedNodes}
+                  >
+                    <RefreshCw className='size-4' />
+                    刷新
+                  </Button>
+                </div>
+                {publishState.nodes.length === 0 ? (
+                  <div className='border border-border bg-muted/35 py-6 text-center text-sm text-muted-foreground'>
+                    暂无已发布节点
+                  </div>
+                ) : (
+                  <div className='space-y-3'>
+                    {publishState.nodes.map((node) => (
+                      <div key={node.id} className='border border-border bg-background p-3'>
+                        <div className='flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between'>
+                          <div className='min-w-0 space-y-2'>
+                            <div className='flex flex-wrap items-center gap-2'>
+                              <span className='font-medium'>{node.node_name}</span>
+                              <span className='border border-primary/25 bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary'>
+                                {node.protocol}
+                              </span>
+                              <span
+                                className={cn(
+                                  'border px-2 py-0.5 text-xs',
+                                  node.enabled
+                                    ? 'border-emerald-500/25 text-emerald-700 dark:text-emerald-300'
+                                    : 'border-destructive/25 text-destructive',
+                                )}
+                              >
+                                {node.enabled ? '启用' : '禁用'}
+                              </span>
+                            </div>
+                            <div className='break-all text-xs text-muted-foreground'>
+                              服务器：{node.original_server || '-'} · 最后发布：
+                              {node.source_updated_at
+                                ? new Date(node.source_updated_at).toLocaleString()
+                                : '-'}
+                            </div>
+                            <div className='flex flex-wrap gap-1'>
+                              {node.tags.map((tag) => (
+                                <span key={tag} className='border border-border px-2 py-0.5 text-xs'>
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                          <Button
+                            type='button'
+                            variant='ghost'
+                            size='sm'
+                            onClick={() => handleUnpublishNode(node)}
+                            className='text-destructive hover:text-destructive'
+                          >
+                            <Trash2 className='size-4' />
+                            取消发布
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
