@@ -42,11 +42,11 @@ type ConfigPaths struct {
 
 // SystemInfo 系统信息
 type SystemInfo struct {
-	OS           string `json:"os"`
-	Arch         string `json:"arch"`
-	Kernel       string `json:"kernel"`
-	Hostname     string `json:"hostname"`
-	Environment  string `json:"environment"`
+	OS           string   `json:"os"`
+	Arch         string   `json:"arch"`
+	Kernel       string   `json:"kernel"`
+	Hostname     string   `json:"hostname"`
+	Environment  string   `json:"environment"`
 	Capabilities []string `json:"capabilities,omitempty"`
 }
 
@@ -65,8 +65,8 @@ func DetectEnvironment() Environment {
 	// 检查 cgroup 信息中的 docker 标记
 	if data, err := os.ReadFile("/proc/1/cgroup"); err == nil {
 		if strings.Contains(string(data), "docker") ||
-		   strings.Contains(string(data), "kubepods") ||
-		   strings.Contains(string(data), "containerd") {
+			strings.Contains(string(data), "kubepods") ||
+			strings.Contains(string(data), "containerd") {
 			return EnvDocker
 		}
 	}
@@ -77,6 +77,17 @@ func DetectEnvironment() Environment {
 
 // GetConfigPaths 根据环境类型获取配置路径
 func GetConfigPaths(env Environment) ConfigPaths {
+	if baseDir := LocalBaseDir(); baseDir != "" {
+		return ConfigPaths{
+			BaseDir:    baseDir,
+			ConfigDir:  baseDir,
+			BinDir:     filepath.Join(baseDir, "bin"),
+			ServiceDir: filepath.Join(baseDir, "service"),
+			LogDir:     filepath.Join(baseDir, "logs"),
+			DataDir:    filepath.Join(baseDir, "data"),
+		}
+	}
+
 	if env == EnvDocker {
 		return ConfigPaths{
 			BaseDir:    "/app/singbox",
@@ -99,15 +110,25 @@ func GetConfigPaths(env Environment) ConfigPaths {
 	}
 }
 
+// LocalBaseDir returns the optional writable base directory for local development.
+func LocalBaseDir() string {
+	return strings.TrimSpace(os.Getenv("SINGBOX_BASE_DIR"))
+}
+
+// IsLocalMode reports whether sing-box operations should avoid system paths and systemd.
+func IsLocalMode() bool {
+	return LocalBaseDir() != ""
+}
+
 // EnsureDirectories 确保所有必要的目录存在
 func EnsureDirectories(paths ConfigPaths) error {
 	dirs := []string{
-	 paths.BaseDir,
-	 paths.ConfigDir,
-	 paths.BinDir,
-	 paths.ServiceDir,
-	 paths.LogDir,
-	 paths.DataDir,
+		paths.BaseDir,
+		paths.ConfigDir,
+		paths.BinDir,
+		paths.ServiceDir,
+		paths.LogDir,
+		paths.DataDir,
 	}
 
 	for _, dir := range dirs {

@@ -161,7 +161,7 @@ func (i *Installer) Uninstall() error {
 // checkEnvironment 检查运行环境
 func (i *Installer) checkEnvironment() error {
 	// 检查是否为 root
-	if !IsRoot() {
+	if !IsLocalMode() && !IsRoot() {
 		return fmt.Errorf("需要 root 权限进行安装")
 	}
 
@@ -294,6 +294,11 @@ func extractSingboxBinaryFromTarGz(archivePath, targetPath string) error {
 
 // configureService 配置系统服务
 func (i *Installer) configureService() error {
+	if IsLocalMode() {
+		logger.Info("[Sing-box 安装] 本地开发模式跳过 systemd 服务配置")
+		return nil
+	}
+
 	if i.env == EnvDocker {
 		// Docker 环境不需要配置 systemd 服务
 		logger.Info("[Sing-box 安装] Docker 环境跳过服务配置")

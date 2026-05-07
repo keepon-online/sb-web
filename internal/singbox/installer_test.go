@@ -62,6 +62,25 @@ func TestNewReadOnlyInstallerDoesNotEnsureSystemDirectories(t *testing.T) {
 	_ = installer.IsInstalled()
 }
 
+func TestLocalInstallerDoesNotRequireRootAndSkipsSystemdService(t *testing.T) {
+	baseDir := t.TempDir()
+	t.Setenv("SINGBOX_BASE_DIR", baseDir)
+
+	installer, err := NewInstaller()
+	if err != nil {
+		t.Fatalf("NewInstaller returned error: %v", err)
+	}
+	if err := installer.checkEnvironment(); err != nil {
+		t.Fatalf("checkEnvironment returned error: %v", err)
+	}
+	if err := installer.configureService(); err != nil {
+		t.Fatalf("configureService returned error: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(baseDir, "service", "sing-box.service")); !os.IsNotExist(err) {
+		t.Fatalf("local configureService should not create systemd service, stat err = %v", err)
+	}
+}
+
 func writeTestSingboxArchive(path, content string) error {
 	file, err := os.Create(path)
 	if err != nil {
