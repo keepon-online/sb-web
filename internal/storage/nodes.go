@@ -267,20 +267,43 @@ func (r *TrafficRepository) UpsertNodeBySource(ctx context.Context, node Node) (
 		return Node{}, false, errors.New("source type, source ref id, and protocol are required")
 	}
 
-	existing, err := r.getNodeBySourceProtocol(ctx, node.SourceType, node.SourceRefID, node.Protocol)
-	if err == nil {
-		node.ID = existing.ID
-		if strings.TrimSpace(node.Username) == "" {
-			node.Username = existing.Username
-		}
-		updated, updateErr := r.UpdateNode(ctx, node)
-		return updated, false, updateErr
+	_, existingErr := r.getNodeBySourceProtocol(ctx, node.SourceType, node.SourceRefID, node.Protocol)
+	if existingErr != nil && !errors.Is(existingErr, ErrNodeNotFound) {
+		return Node{}, false, existingErr
 	}
-	if !errors.Is(err, ErrNodeNotFound) {
+
+	node.Username = strings.TrimSpace(node.Username)
+	node.RawURL = strings.TrimSpace(node.RawURL)
+	node.NodeName = strings.TrimSpace(node.NodeName)
+	node.Tag = strings.TrimSpace(node.Tag)
+	if node.Username == "" {
+		return Node{}, false, errors.New("username is required")
+	}
+	if node.RawURL == "" && node.ClashConfig == "" {
+		return Node{}, false, errors.New("raw URL or clash config is required")
+	}
+	if node.NodeName == "" {
+		return Node{}, false, errors.New("node name is required")
+	}
+	if node.Tag == "" {
+		node.Tag = "手动输入"
+	}
+	tagsJSON := serializeNodeTags(&node)
+	enabled := 0
+	if node.Enabled {
+		enabled = 1
+	}
+
+	var id int64
+	err := r.db.QueryRowContext(ctx, `INSERT INTO nodes (username, raw_url, node_name, protocol, parsed_config, clash_config, enabled, tag, tags, original_server, source_type, source_ref_id, source_ref_name, source_updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP) ON CONFLICT(source_type, source_ref_id, protocol) WHERE source_type != '' AND source_ref_id != '' AND protocol != '' DO UPDATE SET username = excluded.username, raw_url = excluded.raw_url, node_name = excluded.node_name, parsed_config = excluded.parsed_config, clash_config = excluded.clash_config, enabled = excluded.enabled, tag = excluded.tag, tags = excluded.tags, original_server = excluded.original_server, source_ref_name = excluded.source_ref_name, source_updated_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP RETURNING id`, node.Username, node.RawURL, node.NodeName, node.Protocol, node.ParsedConfig, node.ClashConfig, enabled, node.Tag, tagsJSON, node.OriginalServer, node.SourceType, node.SourceRefID, node.SourceRefName).Scan(&id)
+	if err != nil {
+		return Node{}, false, fmt.Errorf("upsert node by source: %w", err)
+	}
+	stored, err := r.GetNode(ctx, id, node.Username)
+	if err != nil {
 		return Node{}, false, err
 	}
-	created, err := r.CreateNode(ctx, node)
-	return created, true, err
+	return stored, errors.Is(existingErr, ErrNodeNotFound), nil
 }
 
 // ListNodesBySource returns nodes for a source type and reference id.

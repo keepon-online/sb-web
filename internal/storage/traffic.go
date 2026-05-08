@@ -619,7 +619,7 @@ CREATE INDEX IF NOT EXISTS idx_nodes_enabled ON nodes(enabled);
 	if err := r.ensureNodeColumn("source_updated_at", "TIMESTAMP"); err != nil {
 		return err
 	}
-	if _, err := r.db.Exec(`CREATE INDEX IF NOT EXISTS idx_nodes_source ON nodes(source_type, source_ref_id, protocol);`); err != nil {
+	if _, err := r.db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_nodes_source ON nodes(source_type, source_ref_id, protocol) WHERE source_type != '' AND source_ref_id != '' AND protocol != '';`); err != nil {
 		return fmt.Errorf("create source index: %w", err)
 	}
 
