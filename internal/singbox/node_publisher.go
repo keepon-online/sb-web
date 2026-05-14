@@ -2,10 +2,8 @@ package singbox
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"net/url"
 	"strconv"
 	"strings"
 
@@ -120,53 +118,7 @@ func buildPublishedNodes(config storage.SingboxConfig, req PublishRequest, admin
 		return nil, fmt.Errorf("parse singbox config JSON: %w", err)
 	}
 
-	links, err := linksFromConfig(sbConfig, req)
-	if err != nil {
-		return nil, err
-	}
-	selected := normalizeProtocols(req.Protocols, links)
-	if len(selected) == 0 {
-		return nil, fmt.Errorf("no publishable protocols selected")
-	}
-
-	nodes := make([]storage.Node, 0, len(selected))
-	for _, protocol := range selected {
-		link := strings.TrimSpace(links[protocol])
-		if link == "" {
-			return nil, fmt.Errorf("protocol %s is not publishable", protocol)
-		}
-		parsed, originalServer, err := parseShareLink(link, protocol)
-		if err != nil {
-			return nil, fmt.Errorf("convert %s share link: %w", protocol, err)
-		}
-		parsedJSON, err := json.Marshal(parsed)
-		if err != nil {
-			return nil, fmt.Errorf("marshal %s parsed config: %w", protocol, err)
-		}
-		clashJSON, err := json.Marshal(bestEffortClashConfig(parsed))
-		if err != nil {
-			return nil, fmt.Errorf("marshal %s clash config: %w", protocol, err)
-		}
-		nodes = append(nodes, storage.Node{
-			Username:       adminUsername,
-			RawURL:         link,
-			NodeName:       fmt.Sprintf("%s-%s", config.Name, protocol),
-			Protocol:       protocol,
-			ParsedConfig:   string(parsedJSON),
-			ClashConfig:    string(clashJSON),
-			Enabled:        req.Enabled,
-			Tags:           mergePublishTags(config.Name, protocol, req.Tags),
-			OriginalServer: originalServer,
-			SourceType:     publishedNodeSourceType,
-			SourceRefID:    strconv.FormatInt(config.ID, 10),
-			SourceRefName:  config.Name,
-		})
-	}
-	return nodes, nil
-}
-
-func linksFromConfig(config SingboxConfig, req PublishRequest) (map[string]string, error) {
-	opts, protocols, err := optionsFromServerConfig(config, req)
+	opts, protocols, err := optionsFromServerConfig(sbConfig, req)
 	if err != nil {
 		return nil, err
 	}
@@ -179,16 +131,54 @@ func linksFromConfig(config SingboxConfig, req PublishRequest) (map[string]strin
 			delete(links, protocol)
 		}
 	}
-	return links, nil
+	selected := normalizeProtocols(req.Protocols, links)
+	if len(selected) == 0 {
+		return nil, fmt.Errorf("no publishable protocols selected")
+	}
+
+	nodes := make([]storage.Node, 0, len(selected))
+	for _, protocol := range selected {
+		link := strings.TrimSpace(links[protocol])
+		if link == "" {
+			return nil, fmt.Errorf("protocol %s is not publishable", protocol)
+		}
+		nodeName := fmt.Sprintf("%s-%s", config.Name, protocol)
+		clashConfig := clashConfigFromServerOptions(opts, protocol, nodeName)
+		parsed := copyConfigMap(clashConfig)
+		parsed["raw"] = link
+		parsedJSON, err := json.Marshal(parsed)
+		if err != nil {
+			return nil, fmt.Errorf("marshal %s parsed config: %w", protocol, err)
+		}
+		clashJSON, err := json.Marshal(clashConfig)
+		if err != nil {
+			return nil, fmt.Errorf("marshal %s clash config: %w", protocol, err)
+		}
+		nodes = append(nodes, storage.Node{
+			Username:       adminUsername,
+			RawURL:         link,
+			NodeName:       nodeName,
+			Protocol:       protocol,
+			ParsedConfig:   string(parsedJSON),
+			ClashConfig:    string(clashJSON),
+			Enabled:        req.Enabled,
+			Tags:           mergePublishTags(config.Name, protocol, req.Tags),
+			OriginalServer: opts.ExternalHost,
+			SourceType:     publishedNodeSourceType,
+			SourceRefID:    strconv.FormatInt(config.ID, 10),
+			SourceRefName:  config.Name,
+		})
+	}
+	return nodes, nil
 }
 
 func optionsFromServerConfig(config SingboxConfig, req PublishRequest) (ServerConfigOptions, map[string]bool, error) {
 	var opts ServerConfigOptions
 	protocols := map[string]bool{}
 	for _, inbound := range config.Inbounds {
-		protocol := strings.ToLower(strings.TrimSpace(inbound.Type))
-		if protocol == "hy2" {
-			protocol = "hysteria2"
+		protocol := normalizePublishProtocol(inbound.Type)
+		if !isPublishableProtocol(protocol) {
+			continue
 		}
 		protocols[protocol] = true
 		switch protocol {
@@ -223,6 +213,7 @@ func optionsFromServerConfig(config SingboxConfig, req PublishRequest) (ServerCo
 	if len(protocols) == 0 {
 		return ServerConfigOptions{}, nil, fmt.Errorf("no publishable protocols found")
 	}
+	selectedProtocols := selectedProtocolSet(req.Protocols, protocols)
 	if opts.VlessRealityPort == 0 {
 		opts.VlessRealityPort = fallbackPort(protocols, "vless", 10001)
 	}
@@ -243,8 +234,13 @@ func optionsFromServerConfig(config SingboxConfig, req PublishRequest) (ServerCo
 		return ServerConfigOptions{}, nil, fmt.Errorf("external host is required for publishing")
 	}
 	realityPublicKey := strings.TrimSpace(req.RealityPublicKey)
-	if protocols["vless"] && realityPublicKey == "" {
+	if selectedProtocols["vless"] && realityPublicKey == "" {
 		return ServerConfigOptions{}, nil, fmt.Errorf("reality public key is required for publishing vless")
+	}
+	if realityPublicKey == "" {
+		// vless not selected; satisfy BuildServerConfig validation. The placeholder is
+		// confined to ServerConfigOptions and never reaches downstream Clash/share-link output.
+		realityPublicKey = "unused-public-key"
 	}
 	opts.ExternalHost = externalHost
 	opts.Hostname = externalHost
@@ -260,75 +256,112 @@ func optionsFromServerConfig(config SingboxConfig, req PublishRequest) (ServerCo
 	return opts, protocols, nil
 }
 
-func parseShareLink(raw, protocol string) (map[string]any, string, error) {
-	if protocol == "vmess" {
-		return parseVmessShareLink(raw)
+func clashConfigFromServerOptions(opts ServerConfigOptions, protocol, nodeName string) map[string]any {
+	config := map[string]any{
+		"name":   nodeName,
+		"type":   protocol,
+		"server": opts.ExternalHost,
+		"udp":    true,
 	}
-	u, err := url.Parse(raw)
-	if err != nil {
-		return nil, "", err
-	}
-	host := u.Hostname()
-	port, _ := strconv.Atoi(u.Port())
-	config := map[string]any{"type": protocol, "name": strings.TrimPrefix(u.Fragment, "#"), "server": host, "port": port, "raw": raw}
-	if u.User != nil {
-		config["user"] = u.User.Username()
-		if password, ok := u.User.Password(); ok {
-			config["password"] = password
+	switch protocol {
+	case "vless":
+		config["port"] = opts.VlessRealityPort
+		config["uuid"] = opts.UUID
+		config["network"] = "tcp"
+		config["tls"] = true
+		config["flow"] = "xtls-rprx-vision"
+		config["encryption"] = "none"
+		config["servername"] = defaultRealitySNI(opts.RealitySNI)
+		config["client-fingerprint"] = "chrome"
+		config["skip-cert-verify"] = false
+		config["reality-opts"] = map[string]any{
+			"public-key": opts.RealityPublicKey,
+			"short-id":   opts.RealityShortID,
 		}
-	}
-	for key, values := range u.Query() {
-		if len(values) > 0 {
-			config[key] = values[0]
+	case "vmess":
+		config["port"] = opts.VmessWebSocketPort
+		config["uuid"] = opts.UUID
+		config["alterId"] = 0
+		config["cipher"] = "auto"
+		config["network"] = "ws"
+		config["tls"] = false
+		config["ws-opts"] = map[string]any{
+			"path": defaultWebSocketPath(opts.WebSocketPath),
+			"headers": map[string]any{
+				"Host": opts.ExternalHost,
+			},
 		}
+	case "hysteria2":
+		config["port"] = opts.Hysteria2Port
+		config["password"] = opts.Password
+		config["sni"] = defaultRealitySNI(opts.RealitySNI)
+		config["alpn"] = []string{"h3"}
+		config["skip-cert-verify"] = false
+	case "tuic":
+		config["port"] = opts.TUICPort
+		config["uuid"] = opts.UUID
+		config["password"] = opts.Password
+		config["sni"] = defaultRealitySNI(opts.RealitySNI)
+		config["alpn"] = []string{"h3"}
+		config["skip-cert-verify"] = false
+		config["congestion-controller"] = "bbr"
+		config["udp-relay-mode"] = "native"
+	case "anytls":
+		config["port"] = opts.AnyTLSPort
+		config["password"] = opts.Password
+		config["sni"] = defaultRealitySNI(opts.RealitySNI)
+		config["skip-cert-verify"] = false
 	}
-	return config, host, nil
+	return config
 }
 
-func parseVmessShareLink(raw string) (map[string]any, string, error) {
-	payload := strings.TrimPrefix(raw, "vmess://")
-	decoded, err := base64.RawStdEncoding.DecodeString(payload)
-	if err != nil {
-		decoded, err = base64.StdEncoding.DecodeString(payload)
-		if err != nil {
-			return nil, "", err
-		}
+func copyConfigMap(config map[string]any) map[string]any {
+	copied := make(map[string]any, len(config))
+	for key, value := range config {
+		copied[key] = deepCopyConfigValue(value)
 	}
-	var vmess map[string]any
-	if err := json.Unmarshal(decoded, &vmess); err != nil {
-		return nil, "", err
-	}
-	host, _ := vmess["add"].(string)
-	port := 0
-	if portText, ok := vmess["port"].(string); ok {
-		port, _ = strconv.Atoi(portText)
-	}
-	vmess["type"] = "vmess"
-	vmess["server"] = host
-	vmess["port"] = port
-	vmess["raw"] = raw
-	if name, ok := vmess["ps"].(string); ok {
-		vmess["name"] = name
-	}
-	return vmess, host, nil
+	return copied
 }
 
-func bestEffortClashConfig(parsed map[string]any) map[string]any {
-	clash := make(map[string]any, len(parsed))
-	for key, value := range parsed {
-		clash[key] = value
+func deepCopyConfigValue(value any) any {
+	switch v := value.(type) {
+	case map[string]any:
+		return copyConfigMap(v)
+	case []any:
+		out := make([]any, len(v))
+		for i, item := range v {
+			out[i] = deepCopyConfigValue(item)
+		}
+		return out
+	case []string:
+		out := make([]string, len(v))
+		copy(out, v)
+		return out
+	default:
+		return value
 	}
-	if name, ok := clash["name"].(string); !ok || name == "" {
-		clash["name"] = fmt.Sprintf("%s-%s", clash["type"], clash["server"])
+}
+
+func defaultRealitySNI(sni string) string {
+	return firstNonEmpty(sni, "apple.com")
+}
+
+func defaultWebSocketPath(path string) string {
+	path = firstNonEmpty(path, "/vmessws")
+	if !strings.HasPrefix(path, "/") {
+		return "/" + path
 	}
-	return clash
+	return path
 }
 
 func normalizeProtocols(requested []string, links map[string]string) []string {
 	order := []string{"vless", "vmess", "hysteria2", "tuic", "anytls"}
 	wanted := make(map[string]bool)
 	for _, protocol := range requested {
-		wanted[strings.ToLower(strings.TrimSpace(protocol))] = true
+		protocol = normalizePublishProtocol(protocol)
+		if protocol != "" {
+			wanted[protocol] = true
+		}
 	}
 	selected := make([]string, 0, len(order))
 	for _, protocol := range order {
@@ -340,6 +373,40 @@ func normalizeProtocols(requested []string, links map[string]string) []string {
 		}
 	}
 	return selected
+}
+
+func selectedProtocolSet(requested []string, available map[string]bool) map[string]bool {
+	selected := make(map[string]bool)
+	wanted := make(map[string]bool)
+	for _, protocol := range requested {
+		protocol = normalizePublishProtocol(protocol)
+		if protocol != "" {
+			wanted[protocol] = true
+		}
+	}
+	for protocol := range available {
+		if len(wanted) == 0 || wanted[protocol] {
+			selected[protocol] = true
+		}
+	}
+	return selected
+}
+
+func normalizePublishProtocol(protocol string) string {
+	protocol = strings.ToLower(strings.TrimSpace(protocol))
+	if protocol == "hy2" {
+		return "hysteria2"
+	}
+	return protocol
+}
+
+func isPublishableProtocol(protocol string) bool {
+	switch protocol {
+	case "vless", "vmess", "hysteria2", "tuic", "anytls":
+		return true
+	default:
+		return false
+	}
 }
 
 func mergePublishTags(configName, protocol string, userTags []string) []string {

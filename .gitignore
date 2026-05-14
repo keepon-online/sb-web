@@ -39,3 +39,4 @@ VALIDATION_INTEGRATION_PLAN.md
 *.md
 bin/*
 /server
+miaomiaowu/.tanstack/
