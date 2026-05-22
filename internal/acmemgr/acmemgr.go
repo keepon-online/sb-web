@@ -17,6 +17,8 @@ package acmemgr
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"net"
@@ -241,13 +243,31 @@ func (m *Manager) MarkReady() {
 
 // Status describes the current readiness for the Web UI.
 type Status struct {
-	Ready         bool      `json:"ready"`
-	Started       time.Time `json:"started,omitempty"`
-	CacheDir      string    `json:"cache_dir"`
-	Email         string    `json:"email,omitempty"`
-	AllowedHosts  []string  `json:"allowed_hosts"`
-	CachedDomains []string  `json:"cached_domains,omitempty"`
+	Ready         bool          `json:"ready"`
+	Started       time.Time     `json:"started,omitempty"`
+	CacheDir      string        `json:"cache_dir"`
+	Email         string        `json:"email,omitempty"`
+	AllowedHosts  []string      `json:"allowed_hosts"`
+	CachedDomains []string      `json:"cached_domains,omitempty"`
+	Certificates  []Certificate `json:"certificates,omitempty"`
 }
+
+// Certificate is the Sprint 15 expiry-monitoring projection. NotAfter is
+// surfaced so Web UI can warn operators when renewal is overdue (autocert
+// renews automatically at ~30 days, but visibility is still required).
+type Certificate struct {
+	Domain   string    `json:"domain"`
+	NotAfter time.Time `json:"not_after"`
+	DaysLeft int       `json:"days_left"`
+	Issuer   string    `json:"issuer,omitempty"`
+	Expired  bool      `json:"expired"`
+	Expiring bool      `json:"expiring"` // < ExpiringSoonDays
+	ParseErr string    `json:"parse_error,omitempty"`
+}
+
+// ExpiringSoonDays is the threshold below which a cert is flagged as
+// "expiring". 30 days matches the autocert default renewal window.
+const ExpiringSoonDays = 30
 
 // Snapshot returns the current Status. Cached domain enumeration is best-
 // effort — directory read errors are swallowed (an empty list is informative
@@ -268,6 +288,7 @@ func (m *Manager) Snapshot() Status {
 
 	entries, err := os.ReadDir(m.cacheDir)
 	if err == nil {
+		now := time.Now()
 		for _, e := range entries {
 			if e.IsDir() || strings.HasPrefix(e.Name(), "acme_account") {
 				continue
@@ -279,9 +300,48 @@ func (m *Manager) Snapshot() Status {
 				continue
 			}
 			out.CachedDomains = append(out.CachedDomains, name)
+			out.Certificates = append(out.Certificates, parseCachedCert(filepath.Join(m.cacheDir, name), name, now))
 		}
 	}
 	return out
+}
+
+// parseCachedCert reads a single autocert cache entry and projects its leaf
+// certificate into a Certificate summary. Parse errors do not abort the
+// snapshot — the entry is still returned with ParseErr set so the operator
+// can investigate via the UI.
+func parseCachedCert(path, domain string, now time.Time) Certificate {
+	c := Certificate{Domain: domain}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		c.ParseErr = err.Error()
+		return c
+	}
+	// autocert writes "ec private key" PEM block followed by certificate PEM
+	// block(s). Walk the chain and pick the first CERTIFICATE.
+	var block *pem.Block
+	rest := data
+	for {
+		block, rest = pem.Decode(rest)
+		if block == nil {
+			c.ParseErr = "no CERTIFICATE PEM block found"
+			return c
+		}
+		if block.Type == "CERTIFICATE" {
+			break
+		}
+	}
+	leaf, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		c.ParseErr = err.Error()
+		return c
+	}
+	c.NotAfter = leaf.NotAfter
+	c.Issuer = leaf.Issuer.CommonName
+	c.DaysLeft = int(leaf.NotAfter.Sub(now).Hours() / 24)
+	c.Expired = !leaf.NotAfter.After(now)
+	c.Expiring = !c.Expired && c.DaysLeft < ExpiringSoonDays
+	return c
 }
 
 // HTTPChallengeHandler returns the http.Handler that solves HTTP-01

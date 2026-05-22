@@ -2,7 +2,14 @@ package acmemgr
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
 	"errors"
+	"math/big"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -462,6 +469,159 @@ func TestBootstrap_InvalidConfigBubblesUp(t *testing.T) {
 	_, err := Bootstrap(context.Background(), cfg, nil)
 	if err == nil {
 		t.Error("invalid hostname should propagate from NewManager")
+	}
+}
+
+// --- Sprint 15: Certificate expiry monitoring tests ---
+
+// makeFakeCertPEM produces a minimal self-signed certificate PEM with the
+// given NotAfter. Used to plant fake autocert cache entries in tests.
+func makeFakeCertPEM(t *testing.T, cn string, notAfter time.Time) []byte {
+	t.Helper()
+	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("genkey: %v", err)
+	}
+	tmpl := &x509.Certificate{
+		SerialNumber: big.NewInt(42),
+		Subject:      pkix.Name{CommonName: cn},
+		Issuer:       pkix.Name{CommonName: "Test CA"},
+		NotBefore:    notAfter.Add(-30 * 24 * time.Hour),
+		NotAfter:     notAfter,
+		KeyUsage:     x509.KeyUsageDigitalSignature,
+	}
+	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &priv.PublicKey, priv)
+	if err != nil {
+		t.Fatalf("create cert: %v", err)
+	}
+	return pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
+}
+
+func TestParseCachedCert_HappyPathWithExpiry(t *testing.T) {
+	dir := t.TempDir()
+	notAfter := time.Now().Add(60 * 24 * time.Hour)
+	pemBytes := makeFakeCertPEM(t, "example.com", notAfter)
+	path := filepath.Join(dir, "example.com")
+	if err := os.WriteFile(path, pemBytes, 0o600); err != nil {
+		t.Fatalf("write cert: %v", err)
+	}
+	now := time.Now()
+	got := parseCachedCert(path, "example.com", now)
+	if got.ParseErr != "" {
+		t.Fatalf("ParseErr should be empty, got %q", got.ParseErr)
+	}
+	if got.Domain != "example.com" {
+		t.Errorf("Domain = %q", got.Domain)
+	}
+	// Self-signed certs report Subject CN as Issuer (Go x509 ignores template
+	// Issuer when parent==template); validate non-empty instead of exact text.
+	if got.Issuer == "" {
+		t.Errorf("Issuer should be populated, got empty")
+	}
+	if got.DaysLeft < 59 || got.DaysLeft > 60 {
+		t.Errorf("DaysLeft = %d, want ~60", got.DaysLeft)
+	}
+	if got.Expired || got.Expiring {
+		t.Errorf("flags wrong (60d ahead): expired=%v expiring=%v", got.Expired, got.Expiring)
+	}
+}
+
+func TestParseCachedCert_ExpiringFlag(t *testing.T) {
+	dir := t.TempDir()
+	notAfter := time.Now().Add(10 * 24 * time.Hour) // < 30 day threshold
+	path := filepath.Join(dir, "soon.com")
+	if err := os.WriteFile(path, makeFakeCertPEM(t, "soon.com", notAfter), 0o600); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	got := parseCachedCert(path, "soon.com", time.Now())
+	if !got.Expiring {
+		t.Errorf("Expiring should be true for cert <30d, days_left=%d", got.DaysLeft)
+	}
+	if got.Expired {
+		t.Error("Expired must stay false when NotAfter is still in the future")
+	}
+}
+
+func TestParseCachedCert_ExpiredFlag(t *testing.T) {
+	dir := t.TempDir()
+	notAfter := time.Now().Add(-5 * 24 * time.Hour)
+	path := filepath.Join(dir, "stale.com")
+	if err := os.WriteFile(path, makeFakeCertPEM(t, "stale.com", notAfter), 0o600); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	got := parseCachedCert(path, "stale.com", time.Now())
+	if !got.Expired {
+		t.Error("Expired should be true for past NotAfter")
+	}
+	if got.Expiring {
+		t.Error("Expiring must stay false once Expired (UI shouldn't double-warn)")
+	}
+	if got.DaysLeft >= 0 {
+		t.Errorf("DaysLeft = %d, want negative for expired cert", got.DaysLeft)
+	}
+}
+
+func TestParseCachedCert_NonExistentFileSetsParseErr(t *testing.T) {
+	got := parseCachedCert("/no/such/file", "x", time.Now())
+	if got.ParseErr == "" {
+		t.Error("ParseErr should surface read failure")
+	}
+}
+
+func TestParseCachedCert_NonPEMSetsParseErr(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "junk")
+	if err := os.WriteFile(path, []byte("not a pem file"), 0o600); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	got := parseCachedCert(path, "junk", time.Now())
+	if got.ParseErr == "" {
+		t.Error("ParseErr should surface no-PEM-block")
+	}
+}
+
+func TestParseCachedCert_KeyPEMBlockIsSkipped(t *testing.T) {
+	// autocert writes a key block followed by certificate block(s). The
+	// loop must skip the key and find the certificate.
+	dir := t.TempDir()
+	notAfter := time.Now().Add(45 * 24 * time.Hour)
+	cert := makeFakeCertPEM(t, "skipkey.com", notAfter)
+	keyBlock := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: []byte{1, 2, 3}})
+	combined := append(keyBlock, cert...)
+	path := filepath.Join(dir, "skipkey.com")
+	if err := os.WriteFile(path, combined, 0o600); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	got := parseCachedCert(path, "skipkey.com", time.Now())
+	if got.ParseErr != "" {
+		t.Errorf("key block should be skipped, got ParseErr %q", got.ParseErr)
+	}
+	if got.NotAfter.IsZero() {
+		t.Error("NotAfter should be populated after skipping key block")
+	}
+}
+
+func TestSnapshot_PopulatesCertificatesField(t *testing.T) {
+	dir := t.TempDir()
+	notAfter := time.Now().Add(80 * 24 * time.Hour)
+	for _, name := range []string{"a.com", "b.com"} {
+		path := filepath.Join(dir, name)
+		if err := os.WriteFile(path, makeFakeCertPEM(t, name, notAfter), 0o600); err != nil {
+			t.Fatalf("write %s: %v", name, err)
+		}
+	}
+	m, _ := NewManager(Config{CacheDir: dir, AllowedHosts: []string{"a.com"}})
+	s := m.Snapshot()
+	if len(s.Certificates) != 2 {
+		t.Fatalf("len = %d, want 2", len(s.Certificates))
+	}
+	for _, c := range s.Certificates {
+		if c.Expired || c.Expiring {
+			t.Errorf("cert %s flagged unexpectedly: %+v", c.Domain, c)
+		}
+		if c.Issuer == "" {
+			t.Errorf("Issuer should be populated: %+v", c)
+		}
 	}
 }
 
