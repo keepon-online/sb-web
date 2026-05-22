@@ -1,5 +1,5 @@
-import { Link } from '@tanstack/react-router'
 import { useState, useEffect } from 'react'
+import { Link } from '@tanstack/react-router'
 import { api } from '@/lib/api'
 
 interface SingboxStatus {
@@ -66,7 +66,9 @@ export function SingboxPage() {
     setInstalling(true)
     setError(null)
     try {
-      const response = await api.post('/api/admin/singbox/install', { version: '' })
+      const response = await api.post('/api/admin/singbox/install', {
+        version: '',
+      })
       if (response.data.status === 'success') {
         await loadStatus()
         await loadServiceStatus()
@@ -98,7 +100,9 @@ export function SingboxPage() {
     }
   }
 
-  const handleServiceAction = async (action: 'start' | 'stop' | 'restart' | 'enable' | 'disable') => {
+  const handleServiceAction = async (
+    action: 'start' | 'stop' | 'restart' | 'enable' | 'disable'
+  ) => {
     setError(null)
     try {
       const response = await api.post(`/api/admin/singbox/service/${action}`)
@@ -113,29 +117,29 @@ export function SingboxPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-lg">加载中...</div>
+      <div className='flex h-screen items-center justify-center'>
+        <div className='text-lg'>加载中...</div>
       </div>
     )
   }
 
   return (
-    <div className="container mx-auto p-6">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold">Sing-box 管理</h1>
-        <p className="text-gray-600 mt-2">管理 Sing-box 代理服务的安装和运行</p>
+    <div className='container mx-auto p-6'>
+      <div className='mb-6'>
+        <h1 className='text-3xl font-bold'>Sing-box 管理</h1>
+        <p className='mt-2 text-gray-600'>管理 Sing-box 代理服务的安装和运行</p>
 
         {/* 导航链接 */}
-        <div className="mt-4 flex space-x-4">
+        <div className='mt-4 flex space-x-4'>
           <Link
-            to="/singbox"
-            className="text-blue-600 hover:text-blue-800 font-medium"
+            to='/singbox'
+            className='font-medium text-blue-600 hover:text-blue-800'
           >
             服务管理
           </Link>
           <Link
-            to="/singbox/config"
-            className="text-blue-600 hover:text-blue-800 font-medium"
+            to='/singbox/config'
+            className='font-medium text-blue-600 hover:text-blue-800'
           >
             配置管理
           </Link>
@@ -143,43 +147,45 @@ export function SingboxPage() {
       </div>
 
       {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+        <div className='mb-4 rounded border border-red-400 bg-red-100 px-4 py-3 text-red-700'>
           {error}
         </div>
       )}
 
       {/* 安装状态 */}
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
-        <h2 className="text-xl font-semibold mb-4">安装状态</h2>
+      <div className='mb-6 rounded-lg bg-white p-6 shadow'>
+        <h2 className='mb-4 text-xl font-semibold'>安装状态</h2>
         {status ? (
-          <div className="space-y-2">
-            <div className="flex items-center">
-              <span className="w-32 text-gray-600">安装状态:</span>
-              <span className={`font-medium ${status.installed ? 'text-green-600' : 'text-red-600'}`}>
+          <div className='space-y-2'>
+            <div className='flex items-center'>
+              <span className='w-32 text-gray-600'>安装状态:</span>
+              <span
+                className={`font-medium ${status.installed ? 'text-green-600' : 'text-red-600'}`}
+              >
                 {status.installed ? '已安装' : '未安装'}
               </span>
             </div>
             {status.installed && (
-              <div className="flex items-center">
-                <span className="w-32 text-gray-600">版本:</span>
-                <span className="font-medium">{status.version}</span>
+              <div className='flex items-center'>
+                <span className='w-32 text-gray-600'>版本:</span>
+                <span className='font-medium'>{status.version}</span>
               </div>
             )}
-            <div className="flex items-center">
-              <span className="w-32 text-gray-600">环境:</span>
-              <span className="font-medium">{status.environment}</span>
+            <div className='flex items-center'>
+              <span className='w-32 text-gray-600'>环境:</span>
+              <span className='font-medium'>{status.environment}</span>
             </div>
           </div>
         ) : (
-          <div className="text-gray-500">无法获取安装状态</div>
+          <div className='text-gray-500'>无法获取安装状态</div>
         )}
 
-        <div className="mt-4 space-x-2">
+        <div className='mt-4 space-x-2'>
           {!status?.installed && (
             <button
               onClick={handleInstall}
               disabled={installing}
-              className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 disabled:opacity-50"
+              className='rounded bg-blue-500 px-4 py-2 text-white hover:bg-blue-600 disabled:opacity-50'
             >
               {installing ? '安装中...' : '安装 Sing-box'}
             </button>
@@ -188,7 +194,7 @@ export function SingboxPage() {
             <button
               onClick={handleUninstall}
               disabled={installing}
-              className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 disabled:opacity-50"
+              className='rounded bg-red-500 px-4 py-2 text-white hover:bg-red-600 disabled:opacity-50'
             >
               {installing ? '卸载中...' : '卸载 Sing-box'}
             </button>
@@ -198,51 +204,55 @@ export function SingboxPage() {
 
       {/* 服务状态 */}
       {status?.installed && (
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <h2 className="text-xl font-semibold mb-4">服务状态</h2>
+        <div className='mb-6 rounded-lg bg-white p-6 shadow'>
+          <h2 className='mb-4 text-xl font-semibold'>服务状态</h2>
           {serviceStatus ? (
-            <div className="space-y-2">
-              <div className="flex items-center">
-                <span className="w-32 text-gray-600">运行状态:</span>
-                <span className={`font-medium ${serviceStatus.running ? 'text-green-600' : 'text-red-600'}`}>
+            <div className='space-y-2'>
+              <div className='flex items-center'>
+                <span className='w-32 text-gray-600'>运行状态:</span>
+                <span
+                  className={`font-medium ${serviceStatus.running ? 'text-green-600' : 'text-red-600'}`}
+                >
                   {serviceStatus.running ? '运行中' : '已停止'}
                 </span>
               </div>
-              <div className="flex items-center">
-                <span className="w-32 text-gray-600">开机自启:</span>
-                <span className={`font-medium ${serviceStatus.enabled ? 'text-green-600' : 'text-gray-600'}`}>
+              <div className='flex items-center'>
+                <span className='w-32 text-gray-600'>开机自启:</span>
+                <span
+                  className={`font-medium ${serviceStatus.enabled ? 'text-green-600' : 'text-gray-600'}`}
+                >
                   {serviceStatus.enabled ? '已启用' : '未启用'}
                 </span>
               </div>
               {serviceStatus.running && serviceStatus.pid > 0 && (
-                <div className="flex items-center">
-                  <span className="w-32 text-gray-600">进程ID:</span>
-                  <span className="font-medium">{serviceStatus.pid}</span>
+                <div className='flex items-center'>
+                  <span className='w-32 text-gray-600'>进程ID:</span>
+                  <span className='font-medium'>{serviceStatus.pid}</span>
                 </div>
               )}
               {serviceStatus.version && (
-                <div className="flex items-center">
-                  <span className="w-32 text-gray-600">版本:</span>
-                  <span className="font-medium">{serviceStatus.version}</span>
+                <div className='flex items-center'>
+                  <span className='w-32 text-gray-600'>版本:</span>
+                  <span className='font-medium'>{serviceStatus.version}</span>
                 </div>
               )}
             </div>
           ) : (
-            <div className="text-gray-500">无法获取服务状态</div>
+            <div className='text-gray-500'>无法获取服务状态</div>
           )}
 
-          <div className="mt-4 space-x-2">
+          <div className='mt-4 space-x-2'>
             {serviceStatus?.running ? (
               <>
                 <button
                   onClick={() => handleServiceAction('stop')}
-                  className="bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600"
+                  className='rounded bg-yellow-500 px-4 py-2 text-white hover:bg-yellow-600'
                 >
                   停止服务
                 </button>
                 <button
                   onClick={() => handleServiceAction('restart')}
-                  className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                  className='rounded bg-blue-500 px-4 py-2 text-white hover:bg-blue-600'
                 >
                   重启服务
                 </button>
@@ -250,7 +260,7 @@ export function SingboxPage() {
             ) : (
               <button
                 onClick={() => handleServiceAction('start')}
-                className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+                className='rounded bg-green-500 px-4 py-2 text-white hover:bg-green-600'
               >
                 启动服务
               </button>
@@ -258,14 +268,14 @@ export function SingboxPage() {
             {serviceStatus?.enabled ? (
               <button
                 onClick={() => handleServiceAction('disable')}
-                className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
+                className='rounded bg-gray-500 px-4 py-2 text-white hover:bg-gray-600'
               >
                 禁用开机自启
               </button>
             ) : (
               <button
                 onClick={() => handleServiceAction('enable')}
-                className="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600"
+                className='rounded bg-purple-500 px-4 py-2 text-white hover:bg-purple-600'
               >
                 启用开机自启
               </button>
@@ -276,27 +286,30 @@ export function SingboxPage() {
 
       {/* 系统信息 */}
       {status?.system_info && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold mb-4">系统信息</h2>
-          <div className="space-y-2">
-            <div className="flex items-center">
-              <span className="w-32 text-gray-600">操作系统:</span>
-              <span className="font-medium">{status.system_info.os}</span>
+        <div className='rounded-lg bg-white p-6 shadow'>
+          <h2 className='mb-4 text-xl font-semibold'>系统信息</h2>
+          <div className='space-y-2'>
+            <div className='flex items-center'>
+              <span className='w-32 text-gray-600'>操作系统:</span>
+              <span className='font-medium'>{status.system_info.os}</span>
             </div>
-            <div className="flex items-center">
-              <span className="w-32 text-gray-600">架构:</span>
-              <span className="font-medium">{status.system_info.arch}</span>
+            <div className='flex items-center'>
+              <span className='w-32 text-gray-600'>架构:</span>
+              <span className='font-medium'>{status.system_info.arch}</span>
             </div>
-            <div className="flex items-center">
-              <span className="w-32 text-gray-600">主机名:</span>
-              <span className="font-medium">{status.system_info.hostname}</span>
+            <div className='flex items-center'>
+              <span className='w-32 text-gray-600'>主机名:</span>
+              <span className='font-medium'>{status.system_info.hostname}</span>
             </div>
             {status.system_info.capabilities.length > 0 && (
-              <div className="flex items-center">
-                <span className="w-32 text-gray-600">系统能力:</span>
-                <div className="flex flex-wrap gap-2">
+              <div className='flex items-center'>
+                <span className='w-32 text-gray-600'>系统能力:</span>
+                <div className='flex flex-wrap gap-2'>
                   {status.system_info.capabilities.map((cap, index) => (
-                    <span key={index} className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm">
+                    <span
+                      key={index}
+                      className='rounded bg-blue-100 px-2 py-1 text-sm text-blue-800'
+                    >
                       {cap}
                     </span>
                   ))}

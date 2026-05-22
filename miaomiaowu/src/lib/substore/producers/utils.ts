@@ -88,7 +88,10 @@ export function getIfPresent<T>(obj: T | null | undefined, defaultValue: T): T {
   return isPresent(obj) ? obj! : defaultValue
 }
 
-export function getPolicyDescriptor(str: string): { 'policy-descriptor'?: string; policy?: string } {
+export function getPolicyDescriptor(str: string): {
+  'policy-descriptor'?: string
+  policy?: string
+} {
   if (!str) return {}
   return /^.+?\s*?=\s*?.+?\s*?,.+?/.test(str)
     ? {
@@ -123,11 +126,16 @@ export function numberToString(value: number | bigint): string {
 export function isValidUUID(uuid: string): boolean {
   return (
     typeof uuid === 'string' &&
-    /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(uuid)
+    /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(
+      uuid
+    )
   )
 }
 
-export function formatDateTime(date: Date | string | number, format = 'YYYY-MM-DD_HH-mm-ss'): string {
+export function formatDateTime(
+  date: Date | string | number,
+  format = 'YYYY-MM-DD_HH-mm-ss'
+): string {
   const d = date instanceof Date ? date : new Date(date)
 
   if (isNaN(d.getTime())) {
@@ -145,15 +153,17 @@ export function formatDateTime(date: Date | string | number, format = 'YYYY-MM-D
     ss: pad(d.getSeconds()),
   }
 
-  return format.replace(/YYYY|MM|DD|HH|mm|ss/g, (match) => String(replacements[match]))
+  return format.replace(/YYYY|MM|DD|HH|mm|ss/g, (match) =>
+    String(replacements[match])
+  )
 }
-
-
 
 /**
  * 返回第一个已定义（允许空字符串）的值
  */
-export function pickFirstDefined(...values: Array<string | undefined>): string | undefined {
+export function pickFirstDefined(
+  ...values: Array<string | undefined>
+): string | undefined {
   for (const value of values) {
     if (value !== undefined) {
       return value
@@ -161,7 +171,6 @@ export function pickFirstDefined(...values: Array<string | undefined>): string |
   }
   return undefined
 }
-
 
 /**
  * 判断节点是否需要执行 TLS SNI 回填逻辑
@@ -182,7 +191,7 @@ export function getTransportHost(node: ProxyNode): string {
   const network = typeof node.network === 'string' ? node.network : ''
   if (!network) return ''
 
-  const optsKeys = [(`${network}-opts`)]
+  const optsKeys = [`${network}-opts`]
   if (network === 'http' || network === 'h2') {
     optsKeys.push('h2-opts')
   }
@@ -198,7 +207,10 @@ export function getTransportHost(node: ProxyNode): string {
       transportHost = transportHost[0]
     }
 
-    if ((!transportHost || typeof transportHost !== 'string') && (network === 'h2' || network === 'http')) {
+    if (
+      (!transportHost || typeof transportHost !== 'string') &&
+      (network === 'h2' || network === 'http')
+    ) {
       let h2Host = transportOpts.host
       if (Array.isArray(h2Host)) {
         h2Host = h2Host[0]

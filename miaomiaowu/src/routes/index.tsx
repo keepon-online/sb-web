@@ -2,6 +2,7 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
+import { Activity, HardDrive, PieChart, TrendingUp } from 'lucide-react'
 import {
   Area,
   AreaChart,
@@ -11,10 +12,8 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { Activity, HardDrive, PieChart, TrendingUp } from 'lucide-react'
-import { Topbar } from '@/components/layout/topbar'
-import { api } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth-store'
+import { api } from '@/lib/api'
 import {
   Card,
   CardContent,
@@ -24,6 +23,7 @@ import {
 } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Topbar } from '@/components/layout/topbar'
 
 // @ts-ignore - retained simple route definition
 export const Route = createFileRoute('/')({
@@ -103,11 +103,10 @@ function DashboardPage() {
   const hasHistory = chartData.length > 0
 
   return (
-    <div className='min-h-svh bg-background'>
+    <div className='bg-background min-h-svh'>
       <Topbar />
-      <main className='mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 pt-24'>
-
-        <section className=' grid gap-4 sm:grid-cols-2 lg:grid-cols-4'>
+      <main className='mx-auto w-full max-w-5xl px-4 py-8 pt-24 sm:px-6'>
+        <section className='grid gap-4 sm:grid-cols-2 lg:grid-cols-4'>
           {isLoading
             ? Array.from({ length: 4 }).map((_, index) => (
                 <Card key={index}>
@@ -125,28 +124,34 @@ function DashboardPage() {
                   </CardContent>
                 </Card>
               ))
-            : cards.map(({ title, description, value, icon: Icon, progress }) => (
-                <Card key={title}>
-                  <CardHeader className='space-y-2'>
-                    <CardTitle className='flex flex-row items-center justify-between text-base'>
-                      {title}
-                      <Icon className='size-8 text-primary' />
-                    </CardTitle>
-                    <CardDescription>{description}</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className='text-3xl font-semibold'>{value}</div>
-                    {typeof progress === 'number' && !Number.isNaN(progress) ? (
-                      <div className='mt-4 space-y-2'>
-                        <Progress value={Math.min(Math.max(progress, 0), 100)} max={100} />
-                        <div className='text-xs text-muted-foreground'>
-                          已使用 {numberFormatter.format(progress)}%
+            : cards.map(
+                ({ title, description, value, icon: Icon, progress }) => (
+                  <Card key={title}>
+                    <CardHeader className='space-y-2'>
+                      <CardTitle className='flex flex-row items-center justify-between text-base'>
+                        {title}
+                        <Icon className='text-primary size-8' />
+                      </CardTitle>
+                      <CardDescription>{description}</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className='text-3xl font-semibold'>{value}</div>
+                      {typeof progress === 'number' &&
+                      !Number.isNaN(progress) ? (
+                        <div className='mt-4 space-y-2'>
+                          <Progress
+                            value={Math.min(Math.max(progress, 0), 100)}
+                            max={100}
+                          />
+                          <div className='text-muted-foreground text-xs'>
+                            已使用 {numberFormatter.format(progress)}%
+                          </div>
                         </div>
-                      </div>
-                    ) : null}
-                  </CardContent>
-                </Card>
-              ))}
+                      ) : null}
+                    </CardContent>
+                  </Card>
+                )
+              )}
         </section>
 
         <Card className='mt-8'>
@@ -161,19 +166,48 @@ function DashboardPage() {
                   <Skeleton className='h-32 w-full max-w-3xl' />
                 </div>
               ) : !hasHistory ? (
-                <div className='flex h-full items-center justify-center text-sm text-muted-foreground'>
+                <div className='text-muted-foreground flex h-full items-center justify-center text-sm'>
                   {isError ? '数据加载失败，请稍后重试。' : '暂无历史记录。'}
                 </div>
               ) : (
                 <ResponsiveContainer width='100%' height='100%'>
-                  <AreaChart data={chartData} margin={{ left: 16, right: 16, top: 24, bottom: 8 }}>
+                  <AreaChart
+                    data={chartData}
+                    margin={{ left: 16, right: 16, top: 24, bottom: 8 }}
+                  >
                     <defs>
-                      <linearGradient id='dailyUsageGradient' x1='0' y1='0' x2='0' y2='1'>
-                        <stop offset='0%' stopColor='#d97757' stopOpacity={0.7} />
-                        <stop offset='100%' stopColor='#d97757' stopOpacity={0.2} />
+                      <linearGradient
+                        id='dailyUsageGradient'
+                        x1='0'
+                        y1='0'
+                        x2='0'
+                        y2='1'
+                      >
+                        <stop
+                          offset='0%'
+                          stopColor='#d97757'
+                          stopOpacity={0.7}
+                        />
+                        <stop
+                          offset='100%'
+                          stopColor='#d97757'
+                          stopOpacity={0.2}
+                        />
                       </linearGradient>
-                      <filter id='shadow' x='-50%' y='-50%' width='200%' height='200%'>
-                        <feDropShadow dx='0' dy='2' stdDeviation='3' floodColor='#d97757' floodOpacity='0.3'/>
+                      <filter
+                        id='shadow'
+                        x='-50%'
+                        y='-50%'
+                        width='200%'
+                        height='200%'
+                      >
+                        <feDropShadow
+                          dx='0'
+                          dy='2'
+                          stdDeviation='3'
+                          floodColor='#d97757'
+                          floodOpacity='0.3'
+                        />
                       </filter>
                     </defs>
                     <XAxis
@@ -188,14 +222,21 @@ function DashboardPage() {
                       tickLine={false}
                       axisLine={false}
                       splitLine={false}
-                      tickFormatter={(value: number) => `${numberFormatter.format(value)}`}
+                      tickFormatter={(value: number) =>
+                        `${numberFormatter.format(value)}`
+                      }
                       className='fill-foreground'
                       stroke='#a1a1aa'
                     />
                     <Tooltip
                       cursor={{ stroke: '#d97757', strokeWidth: 2 }}
-                      labelFormatter={(label: string) => `日期：${chartData.find((item) => item.label === label)?.date ?? label}`}
-                      formatter={(value: number) => [`${numberFormatter.format(value)} GB`, '日消耗']}
+                      labelFormatter={(label: string) =>
+                        `日期：${chartData.find((item) => item.label === label)?.date ?? label}`
+                      }
+                      formatter={(value: number) => [
+                        `${numberFormatter.format(value)} GB`,
+                        '日消耗',
+                      ]}
                       contentStyle={{
                         backgroundColor: 'hsl(var(--popover))',
                         border: '1px solid hsl(var(--border))',
@@ -236,7 +277,10 @@ function formatMetric(value: number | undefined, formatter: Intl.NumberFormat) {
   return `${formatter.format(displayValue)} ${unit}`
 }
 
-function formatPercentage(value: number | undefined, formatter: Intl.NumberFormat) {
+function formatPercentage(
+  value: number | undefined,
+  formatter: Intl.NumberFormat
+) {
   if (value === undefined || value === null) return '--'
   return `${formatter.format(value)} %`
 }

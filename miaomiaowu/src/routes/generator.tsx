@@ -1,29 +1,42 @@
 import { useState, useMemo, useEffect } from 'react'
-import { createFileRoute, redirect } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Loader2, Save, Layers, MapPin, Plus, Eye, Pencil, Trash2, Settings, FileText, Upload } from 'lucide-react'
-import { Topbar } from '@/components/layout/topbar'
+import { createFileRoute, redirect } from '@tanstack/react-router'
+import yaml from 'js-yaml'
+import {
+  Loader2,
+  Save,
+  Layers,
+  MapPin,
+  Plus,
+  Eye,
+  Pencil,
+  Trash2,
+  Settings,
+  FileText,
+  Upload,
+} from 'lucide-react'
+import { toast } from 'sonner'
 import { useAuthStore } from '@/stores/auth-store'
 import { api } from '@/lib/api'
-import { EditNodesDialog } from '@/components/edit-nodes-dialog'
-import { MobileEditNodesDialog } from '@/components/mobile-edit-nodes-dialog'
-import { useMediaQuery } from '@/hooks/use-media-query'
-import { DataTable } from '@/components/data-table'
-import type { DataTableColumn } from '@/components/data-table'
-import { Button } from '@/components/ui/button'
-import { ButtonGroup } from '@/components/ui/button-group'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import { Checkbox } from '@/components/ui/checkbox'
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+  validateClashConfig,
+  formatValidationIssues,
+} from '@/lib/clash-validator'
+import {
+  extractRegionFromNodeName,
+  findRegionGroupName,
+} from '@/lib/country-flag'
+import { ClashConfigBuilder } from '@/lib/sublink/clash-builder'
+import type { PredefinedRuleSetType, CustomRule } from '@/lib/sublink/types'
+import type { ProxyConfig } from '@/lib/sublink/types'
+import {
+  ACL4SSR_PRESETS,
+  Aethersailor_PRESETS,
+  ALL_TEMPLATE_PRESETS,
+  type ACL4SSRPreset,
+} from '@/lib/template-presets'
+import { useMediaQuery } from '@/hooks/use-media-query'
+import { useProxyGroupCategories } from '@/hooks/use-proxy-groups'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,7 +47,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Switch } from '@/components/ui/switch'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { ButtonGroup } from '@/components/ui/button-group'
 import {
   Card,
   CardContent,
@@ -42,7 +57,17 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { Checkbox } from '@/components/ui/checkbox'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import {
   Select,
   SelectContent,
@@ -52,18 +77,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { toast } from 'sonner'
-import { Twemoji } from '@/components/twemoji'
-import { ClashConfigBuilder } from '@/lib/sublink/clash-builder'
+import { Switch } from '@/components/ui/switch'
+import { Textarea } from '@/components/ui/textarea'
 import { CustomRulesEditor } from '@/components/custom-rules-editor'
+import { DataTable } from '@/components/data-table'
+import type { DataTableColumn } from '@/components/data-table'
+import { EditNodesDialog } from '@/components/edit-nodes-dialog'
+import { Topbar } from '@/components/layout/topbar'
+import { MobileEditNodesDialog } from '@/components/mobile-edit-nodes-dialog'
 import { RuleSelector } from '@/components/rule-selector'
-import { useProxyGroupCategories } from '@/hooks/use-proxy-groups'
-import type { PredefinedRuleSetType, CustomRule } from '@/lib/sublink/types'
-import type { ProxyConfig } from '@/lib/sublink/types'
-import { extractRegionFromNodeName, findRegionGroupName } from '@/lib/country-flag'
-import { ACL4SSR_PRESETS, Aethersailor_PRESETS, ALL_TEMPLATE_PRESETS, type ACL4SSRPreset } from '@/lib/template-presets'
-import { validateClashConfig, formatValidationIssues } from '@/lib/clash-validator'
-import yaml from 'js-yaml'
+import { Twemoji } from '@/components/twemoji'
 
 // 代理集合配置类型
 interface ProxyProviderConfig {
@@ -84,7 +107,7 @@ interface ProxyProviderConfig {
 const YAML_DUMP_OPTIONS: yaml.DumpOptions = {
   lineWidth: -1,
   noRefs: true,
-  quotingType: '"',  // 使用双引号而不是单引号
+  quotingType: '"', // 使用双引号而不是单引号
 }
 
 // 预处理 YAML 字符串，将以 [ 或 { 开头的未引用值用引号包裹，避免解析错误
@@ -96,7 +119,10 @@ function preprocessYaml(yamlStr: string): string {
     (match, prefix, value) => {
       // 检查是否是有效的 YAML 数组格式（如 [a, b, c] 或 [1, 2, 3]）
       // 如果看起来像节点名称（包含中文或特殊字符），则加引号
-      if (/[\u4e00-\u9fa5]/.test(value) || /\[[^\[\]]*[^\],\s\w.-][^\[\]]*\]?/.test(value)) {
+      if (
+        /[\u4e00-\u9fa5]/.test(value) ||
+        /\[[^\[\]]*[^\],\s\w.-][^\[\]]*\]?/.test(value)
+      ) {
         return `${prefix}"${value.replace(/"/g, '\\"')}"`
       }
       return match
@@ -159,13 +185,22 @@ function ensureShortIdAsString(obj: any): any {
 function fixShortIdInYaml(yamlStr: string): string {
   let result = yamlStr
   // 1. 将 short-id: '' (单引号空字符串) 替换为 short-id: ""
-  result = result.replace(/^([ \t]*)short-id:[ \t]*''[ \t]*$/gm, '$1short-id: ""')
+  result = result.replace(
+    /^([ \t]*)short-id:[ \t]*''[ \t]*$/gm,
+    '$1short-id: ""'
+  )
   // 2. 将 short-id: 后面没有值的行替换为 short-id: ""
   result = result.replace(/^([ \t]*)short-id:[ \t]*$/gm, '$1short-id: ""')
   // 3. 将 short-id: 'value' (单引号非空值) 替换为 short-id: "value"
-  result = result.replace(/^([ \t]*)short-id:[ \t]*'([^']*)'[ \t]*$/gm, '$1short-id: "$2"')
+  result = result.replace(
+    /^([ \t]*)short-id:[ \t]*'([^']*)'[ \t]*$/gm,
+    '$1short-id: "$2"'
+  )
   // 4. 将 short-id: value (无引号值，如纯数字) 替换为 short-id: "value"
-  result = result.replace(/^([ \t]*)short-id:[ \t]+([^"'\s][^\s]*)[ \t]*$/gm, '$1short-id: "$2"')
+  result = result.replace(
+    /^([ \t]*)short-id:[ \t]+([^"'\s][^\s]*)[ \t]*$/gm,
+    '$1short-id: "$2"'
+  )
   return result
 }
 
@@ -240,7 +275,9 @@ function SubscriptionGeneratorPage() {
   const [loading, setLoading] = useState(false)
   const [clashConfig, setClashConfig] = useState('')
   const [selectedNodeIds, setSelectedNodeIds] = useState<Set<number>>(new Set())
-  const [selectedProtocols, setSelectedProtocols] = useState<Set<string>>(new Set())
+  const [selectedProtocols, setSelectedProtocols] = useState<Set<string>>(
+    new Set()
+  )
 
   // Fetch proxy group categories for ClashConfigBuilder
   const { data: proxyGroupCategories } = useProxyGroupCategories()
@@ -252,15 +289,23 @@ function SubscriptionGeneratorPage() {
   const [hasManuallyGrouped, setHasManuallyGrouped] = useState(false)
 
   // 模板管理对话框状态
-  const [templateManageDialogOpen, setTemplateManageDialogOpen] = useState(false)
-  const [isTemplateFormDialogOpen, setIsTemplateFormDialogOpen] = useState(false)
-  const [isTemplateDeleteDialogOpen, setIsTemplateDeleteDialogOpen] = useState(false)
-  const [isTemplatePreviewDialogOpen, setIsTemplatePreviewDialogOpen] = useState(false)
+  const [templateManageDialogOpen, setTemplateManageDialogOpen] =
+    useState(false)
+  const [isTemplateFormDialogOpen, setIsTemplateFormDialogOpen] =
+    useState(false)
+  const [isTemplateDeleteDialogOpen, setIsTemplateDeleteDialogOpen] =
+    useState(false)
+  const [isTemplatePreviewDialogOpen, setIsTemplatePreviewDialogOpen] =
+    useState(false)
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null)
-  const [deletingTemplateId, setDeletingTemplateId] = useState<number | null>(null)
+  const [deletingTemplateId, setDeletingTemplateId] = useState<number | null>(
+    null
+  )
   const [templatePreviewContent, setTemplatePreviewContent] = useState('')
-  const [isTemplatePreviewLoading, setIsTemplatePreviewLoading] = useState(false)
-  const [isSourcePreviewDialogOpen, setIsSourcePreviewDialogOpen] = useState(false)
+  const [isTemplatePreviewLoading, setIsTemplatePreviewLoading] =
+    useState(false)
+  const [isSourcePreviewDialogOpen, setIsSourcePreviewDialogOpen] =
+    useState(false)
   const [sourcePreviewContent, setSourcePreviewContent] = useState('')
   const [isSourcePreviewLoading, setIsSourcePreviewLoading] = useState(false)
   const [sourcePreviewTitle, setSourcePreviewTitle] = useState('')
@@ -274,15 +319,25 @@ function SubscriptionGeneratorPage() {
   })
 
   // 旧模板系统管理状态
-  const [oldTemplateManageDialogOpen, setOldTemplateManageDialogOpen] = useState(false)
-  const [oldTemplateEditDialogOpen, setOldTemplateEditDialogOpen] = useState(false)
-  const [editingOldTemplate, setEditingOldTemplate] = useState<string | null>(null)
+  const [oldTemplateManageDialogOpen, setOldTemplateManageDialogOpen] =
+    useState(false)
+  const [oldTemplateEditDialogOpen, setOldTemplateEditDialogOpen] =
+    useState(false)
+  const [editingOldTemplate, setEditingOldTemplate] = useState<string | null>(
+    null
+  )
   const [oldTemplateContent, setOldTemplateContent] = useState('')
   const [isOldTemplateLoading, setIsOldTemplateLoading] = useState(false)
-  const [deletingOldTemplate, setDeletingOldTemplate] = useState<string | null>(null)
-  const [isOldTemplateDeleteDialogOpen, setIsOldTemplateDeleteDialogOpen] = useState(false)
-  const [isOldTemplateRenameDialogOpen, setIsOldTemplateRenameDialogOpen] = useState(false)
-  const [renamingOldTemplate, setRenamingOldTemplate] = useState<string | null>(null)
+  const [deletingOldTemplate, setDeletingOldTemplate] = useState<string | null>(
+    null
+  )
+  const [isOldTemplateDeleteDialogOpen, setIsOldTemplateDeleteDialogOpen] =
+    useState(false)
+  const [isOldTemplateRenameDialogOpen, setIsOldTemplateRenameDialogOpen] =
+    useState(false)
+  const [renamingOldTemplate, setRenamingOldTemplate] = useState<string | null>(
+    null
+  )
   const [newOldTemplateName, setNewOldTemplateName] = useState('')
 
   // 保存订阅对话框状态
@@ -304,7 +359,8 @@ function SubscriptionGeneratorPage() {
   const [missingNodesDialogOpen, setMissingNodesDialogOpen] = useState(false)
   const [missingNodes, setMissingNodes] = useState<string[]>([])
   const [replacementChoice, setReplacementChoice] = useState<string>('DIRECT')
-  const [pendingConfigAfterGrouping, setPendingConfigAfterGrouping] = useState<string>('')
+  const [pendingConfigAfterGrouping, setPendingConfigAfterGrouping] =
+    useState<string>('')
 
   // 获取用户配置
   const { data: userConfig } = useQuery({
@@ -364,7 +420,9 @@ function SubscriptionGeneratorPage() {
     queryKey: ['template-v3-list'],
     queryFn: async () => {
       const response = await api.get('/api/admin/template-v3')
-      return response.data as { templates: Array<{ name: string; filename: string }> }
+      return response.data as {
+        templates: Array<{ name: string; filename: string }>
+      }
     },
     enabled: Boolean(auth.accessToken) && isV3Mode,
   })
@@ -397,7 +455,7 @@ function SubscriptionGeneratorPage() {
   const userToken = userTokenData?.token ?? ''
 
   const savedNodes = nodesData?.nodes ?? []
-  const enabledNodes = savedNodes.filter(n => n.enabled)
+  const enabledNodes = savedNodes.filter((n) => n.enabled)
 
   // 按节点管理的排序顺序排列
   const sortedEnabledNodes = useMemo(() => {
@@ -419,7 +477,7 @@ function SubscriptionGeneratorPage() {
   const allTemplates = useMemo(() => {
     if (useNewTemplateSystem) {
       // 新模板系统：数据库模板 + 预设模板
-      const dbTemplateItems: ACL4SSRPreset[] = dbTemplates.map(t => ({
+      const dbTemplateItems: ACL4SSRPreset[] = dbTemplates.map((t) => ({
         name: `db-${t.id}`,
         url: t.rule_source,
         label: t.name,
@@ -427,7 +485,7 @@ function SubscriptionGeneratorPage() {
       return [...dbTemplateItems, ...ALL_TEMPLATE_PRESETS]
     } else {
       // 旧模板系统：从 rule_templates 目录读取的 YAML 文件
-      return oldTemplates.map(filename => ({
+      return oldTemplates.map((filename) => ({
         name: filename,
         url: `/api/admin/rule-templates/${filename}`,
         label: filename.replace(/\.(yaml|yml)$/, ''),
@@ -437,7 +495,11 @@ function SubscriptionGeneratorPage() {
 
   // 默认选择第一个模板
   useEffect(() => {
-    if (ruleMode === 'template' && allTemplates.length > 0 && !selectedTemplateUrl) {
+    if (
+      ruleMode === 'template' &&
+      allTemplates.length > 0 &&
+      !selectedTemplateUrl
+    ) {
       setSelectedTemplateUrl(allTemplates[0].url)
     }
   }, [ruleMode, selectedTemplateUrl, allTemplates])
@@ -461,7 +523,10 @@ function SubscriptionGeneratorPage() {
 
   // 更新模板 mutation
   const updateTemplateMutation = useMutation({
-    mutationFn: async ({ id, ...template }: TemplateFormData & { id: number }) => {
+    mutationFn: async ({
+      id,
+      ...template
+    }: TemplateFormData & { id: number }) => {
       const response = await api.put(`/api/admin/templates/${id}`, template)
       return response.data
     },
@@ -494,7 +559,13 @@ function SubscriptionGeneratorPage() {
 
   // 旧模板更新 mutation
   const updateOldTemplateMutation = useMutation({
-    mutationFn: async ({ filename, content }: { filename: string; content: string }) => {
+    mutationFn: async ({
+      filename,
+      content,
+    }: {
+      filename: string
+      content: string
+    }) => {
       await api.put(`/api/admin/rule-templates/${filename}`, { content })
     },
     onSuccess: () => {
@@ -529,7 +600,10 @@ function SubscriptionGeneratorPage() {
     mutationFn: async (file: File) => {
       const formData = new FormData()
       formData.append('template', file)
-      const response = await api.post('/api/admin/rule-templates/upload', formData)
+      const response = await api.post(
+        '/api/admin/rule-templates/upload',
+        formData
+      )
       return response.data
     },
     onSuccess: (data) => {
@@ -543,8 +617,17 @@ function SubscriptionGeneratorPage() {
 
   // 旧模板重命名 mutation
   const renameOldTemplateMutation = useMutation({
-    mutationFn: async ({ oldName, newName }: { oldName: string; newName: string }) => {
-      const response = await api.post('/api/admin/rule-templates/rename', { old_name: oldName, new_name: newName })
+    mutationFn: async ({
+      oldName,
+      newName,
+    }: {
+      oldName: string
+      newName: string
+    }) => {
+      const response = await api.post('/api/admin/rule-templates/rename', {
+        old_name: oldName,
+        new_name: newName,
+      })
       return response.data
     },
     onSuccess: (data) => {
@@ -712,7 +795,9 @@ function SubscriptionGeneratorPage() {
     }
 
     // 找到当前选中的模板名称
-    const selectedTemplate = allTemplates.find(t => t.url === selectedTemplateUrl)
+    const selectedTemplate = allTemplates.find(
+      (t) => t.url === selectedTemplateUrl
+    )
     const templateName = selectedTemplate?.label || '模板源文件'
 
     // 旧模板系统：直接打开编辑对话框
@@ -754,9 +839,11 @@ function SubscriptionGeneratorPage() {
     // 准备提交数据，如果启用代理下载则自动拼接 1ms.cc 代理前缀
     const submitData = {
       ...templateFormData,
-      rule_source: templateFormData.use_proxy && !templateFormData.rule_source.startsWith('https://1ms.cc/')
-        ? `https://1ms.cc/${templateFormData.rule_source}`
-        : templateFormData.rule_source,
+      rule_source:
+        templateFormData.use_proxy &&
+        !templateFormData.rule_source.startsWith('https://1ms.cc/')
+          ? `https://1ms.cc/${templateFormData.rule_source}`
+          : templateFormData.rule_source,
       // 默认使用 Clash 格式和启用 include-all
       category: 'clash' as const,
       enable_include_all: true,
@@ -771,11 +858,13 @@ function SubscriptionGeneratorPage() {
 
   // 获取可用的预设模板（过滤掉已添加的）
   const getAvailablePresets = () => {
-    const existingNames = new Set(dbTemplates.map(t => t.name))
-    const existingUrls = new Set(dbTemplates.map(t => t.rule_source))
+    const existingNames = new Set(dbTemplates.map((t) => t.name))
+    const existingUrls = new Set(dbTemplates.map((t) => t.rule_source))
 
     const filterPresets = (presets: ACL4SSRPreset[]) =>
-      presets.filter(p => !existingNames.has(p.name) && !existingUrls.has(p.url))
+      presets.filter(
+        (p) => !existingNames.has(p.name) && !existingUrls.has(p.url)
+      )
 
     return {
       aethersailor: filterPresets(Aethersailor_PRESETS),
@@ -785,7 +874,7 @@ function SubscriptionGeneratorPage() {
 
   // 处理预设模板选择
   const handleTemplatePresetSelect = (presetUrl: string) => {
-    const preset = ALL_TEMPLATE_PRESETS.find(p => p.url === presetUrl)
+    const preset = ALL_TEMPLATE_PRESETS.find((p) => p.url === presetUrl)
     if (preset) {
       setTemplateFormData({
         ...templateFormData,
@@ -796,10 +885,18 @@ function SubscriptionGeneratorPage() {
   }
 
   // 获取所有协议类型
-  const protocols = Array.from(new Set(sortedEnabledNodes.map(n => n.protocol.toLowerCase()))).sort()
+  const protocols = Array.from(
+    new Set(sortedEnabledNodes.map((n) => n.protocol.toLowerCase()))
+  ).sort()
 
   // 获取所有标签类型
-  const tags = Array.from(new Set(sortedEnabledNodes.flatMap(n => n.tags?.length ? n.tags : (n.tag ? [n.tag] : [])))).sort()
+  const tags = Array.from(
+    new Set(
+      sortedEnabledNodes.flatMap((n) =>
+        n.tags?.length ? n.tags : n.tag ? [n.tag] : []
+      )
+    )
+  ).sort()
 
   // 节点列表根据选中的协议和标签筛选
   const filteredNodes = useMemo(() => {
@@ -808,15 +905,19 @@ function SubscriptionGeneratorPage() {
       return sortedEnabledNodes
     }
 
-    return sortedEnabledNodes.filter(node => {
+    return sortedEnabledNodes.filter((node) => {
       // 协议筛选
       if (selectedProtocols.size > 0) {
         return selectedProtocols.has(node.protocol.toLowerCase())
       }
       // 标签筛选
       if (selectedTags.size > 0) {
-        const nodeTags = node.tags?.length ? node.tags : (node.tag ? [node.tag] : [])
-        return nodeTags.some(t => selectedTags.has(t))
+        const nodeTags = node.tags?.length
+          ? node.tags
+          : node.tag
+            ? [node.tag]
+            : []
+        return nodeTags.some((t) => selectedTags.has(t))
       }
       return true
     })
@@ -836,7 +937,7 @@ function SubscriptionGeneratorPage() {
     if (selectedNodeIds.size === filteredNodes.length) {
       setSelectedNodeIds(new Set())
     } else {
-      setSelectedNodeIds(new Set(filteredNodes.map(n => n.id)))
+      setSelectedNodeIds(new Set(filteredNodes.map((n) => n.id)))
     }
   }
 
@@ -844,7 +945,7 @@ function SubscriptionGeneratorPage() {
     name: string
     type: string
     proxies: string[]
-    use?: string[]  // 代理集合引用
+    use?: string[] // 代理集合引用
     url?: string
     interval?: number
     lazy?: boolean
@@ -859,14 +960,14 @@ function SubscriptionGeneratorPage() {
 
     // 收集所有已使用的节点
     const usedNodes = new Set<string>()
-    proxyGroups.forEach(group => {
-      group.proxies.forEach(proxy => {
+    proxyGroups.forEach((group) => {
+      group.proxies.forEach((proxy) => {
         usedNodes.add(proxy)
       })
     })
 
     // 只返回未使用的节点
-    return allProxies.filter(name => !usedNodes.has(name))
+    return allProxies.filter((name) => !usedNodes.has(name))
   }, [allProxies, proxyGroups, showAllNodes])
 
   // 加载模板（根据模板系统选择不同的加载方式）
@@ -893,10 +994,14 @@ function SubscriptionGeneratorPage() {
     try {
       // V3 模式：使用 V3 模板处理器
       if (isV3Mode) {
-        const response = await api.post('/api/admin/template-v3/preview-with-tags', {
-          template_filename: selectedV3Template,
-          selected_tags: selectedV3Tags.length > 0 ? selectedV3Tags : undefined,
-        })
+        const response = await api.post(
+          '/api/admin/template-v3/preview-with-tags',
+          {
+            template_filename: selectedV3Template,
+            selected_tags:
+              selectedV3Tags.length > 0 ? selectedV3Tags : undefined,
+          }
+        )
 
         setClashConfig(response.data.content)
         setHasManuallyGrouped(true) // V3 模式下不需要手动分组
@@ -905,15 +1010,23 @@ function SubscriptionGeneratorPage() {
       }
 
       // 获取选中的节点并转换为ProxyConfig（使用排序后的节点列表）
-      const selectedNodes = sortedEnabledNodes.filter(n => selectedNodeIds.has(n.id))
-      const proxies: ProxyConfig[] = selectedNodes.map(node => {
-        try {
-          return JSON.parse(node.clash_config) as ProxyConfig
-        } catch (e) {
-          console.error('Failed to parse clash config for node:', node.node_name, e)
-          return null
-        }
-      }).filter((p): p is ProxyConfig => p !== null)
+      const selectedNodes = sortedEnabledNodes.filter((n) =>
+        selectedNodeIds.has(n.id)
+      )
+      const proxies: ProxyConfig[] = selectedNodes
+        .map((node) => {
+          try {
+            return JSON.parse(node.clash_config) as ProxyConfig
+          } catch (e) {
+            console.error(
+              'Failed to parse clash config for node:',
+              node.node_name,
+              e
+            )
+            return null
+          }
+        })
+        .filter((p): p is ProxyConfig => p !== null)
 
       if (proxies.length === 0) {
         toast.error('未能解析到任何有效节点')
@@ -924,10 +1037,10 @@ function SubscriptionGeneratorPage() {
 
       if (useNewTemplateSystem) {
         // 新模板系统：使用 ACL4SSR 模板转换功能
-        const proxyNames = proxies.map(p => p.name)
+        const proxyNames = proxies.map((p) => p.name)
 
         const convertResponse = await api.post('/api/admin/templates/convert', {
-          template_url: '',  // 使用默认模板
+          template_url: '', // 使用默认模板
           rule_source: selectedTemplateUrl,
           category: 'clash',
           use_proxy: false,
@@ -939,7 +1052,9 @@ function SubscriptionGeneratorPage() {
         const templateConfig = yaml.load(convertResponse.data.content) as any
 
         // 插入代理节点，并重新排序字段
-        templateConfig.proxies = proxies.map(proxy => reorderProxyFields(proxy))
+        templateConfig.proxies = proxies.map((proxy) =>
+          reorderProxyFields(proxy)
+        )
 
         // 确保 short-id 字段始终作为字符串
         const processedConfig = ensureShortIdAsString(templateConfig)
@@ -958,7 +1073,9 @@ function SubscriptionGeneratorPage() {
         const templateConfig = yaml.load(templateContent) as any
 
         // 插入代理节点，并重新排序字段
-        templateConfig.proxies = proxies.map(proxy => reorderProxyFields(proxy))
+        templateConfig.proxies = proxies.map((proxy) =>
+          reorderProxyFields(proxy)
+        )
 
         // 确保 short-id 字段始终作为字符串
         const processedConfig = ensureShortIdAsString(templateConfig)
@@ -972,9 +1089,12 @@ function SubscriptionGeneratorPage() {
 
       // 应用自定义规则
       try {
-        const applyRulesResponse = await api.post('/api/admin/apply-custom-rules', {
-          yaml_content: finalConfig
-        })
+        const applyRulesResponse = await api.post(
+          '/api/admin/apply-custom-rules',
+          {
+            yaml_content: finalConfig,
+          }
+        )
         finalConfig = applyRulesResponse.data.yaml_content
       } catch (error) {
         console.error('Apply custom rules error:', error)
@@ -992,7 +1112,7 @@ function SubscriptionGeneratorPage() {
             const errorMessage = formatValidationIssues(validationResult.issues)
             toast.error('配置校验失败', {
               description: errorMessage,
-              duration: 10000
+              duration: 10000,
             })
             console.error('Clash配置校验失败:', validationResult.issues)
             return
@@ -1003,21 +1123,26 @@ function SubscriptionGeneratorPage() {
             finalConfig = yaml.dump(validationResult.fixedConfig, {
               indent: 2,
               lineWidth: -1,
-              noRefs: true
+              noRefs: true,
             })
 
             // 显示修复提示
-            const warningIssues = validationResult.issues.filter(i => i.level === 'warning')
+            const warningIssues = validationResult.issues.filter(
+              (i) => i.level === 'warning'
+            )
             if (warningIssues.length > 0) {
               toast.warning('配置已自动修复', {
                 description: formatValidationIssues(warningIssues),
-                duration: 8000
+                duration: 8000,
               })
             }
           }
         } catch (error) {
           console.error('配置校验异常:', error)
-          toast.error('配置校验时发生错误: ' + (error instanceof Error ? error.message : '未知错误'))
+          toast.error(
+            '配置校验时发生错误: ' +
+              (error instanceof Error ? error.message : '未知错误')
+          )
           return
         }
       } else {
@@ -1044,15 +1169,23 @@ function SubscriptionGeneratorPage() {
     setLoading(true)
     try {
       // 获取选中的节点并转换为ProxyConfig（使用排序后的节点列表）
-      const selectedNodes = sortedEnabledNodes.filter(n => selectedNodeIds.has(n.id))
-      const proxies: ProxyConfig[] = selectedNodes.map(node => {
-        try {
-          return JSON.parse(node.clash_config) as ProxyConfig
-        } catch (e) {
-          console.error('Failed to parse clash config for node:', node.node_name, e)
-          return null
-        }
-      }).filter((p): p is ProxyConfig => p !== null)
+      const selectedNodes = sortedEnabledNodes.filter((n) =>
+        selectedNodeIds.has(n.id)
+      )
+      const proxies: ProxyConfig[] = selectedNodes
+        .map((node) => {
+          try {
+            return JSON.parse(node.clash_config) as ProxyConfig
+          } catch (e) {
+            console.error(
+              'Failed to parse clash config for node:',
+              node.node_name,
+              e
+            )
+            return null
+          }
+        })
+        .filter((p): p is ProxyConfig => p !== null)
 
       if (proxies.length === 0) {
         toast.error('未能解析到任何有效节点')
@@ -1062,7 +1195,9 @@ function SubscriptionGeneratorPage() {
       toast.success(`成功加载 ${proxies.length} 个节点`)
 
       // Validate custom rules
-      const validCustomRules = customRules.filter((rule) => rule.name.trim() !== '')
+      const validCustomRules = customRules.filter(
+        (rule) => rule.name.trim() !== ''
+      )
       if (validCustomRules.length > 0) {
         toast.info(`应用 ${validCustomRules.length} 条自定义规则`)
       }
@@ -1084,9 +1219,12 @@ function SubscriptionGeneratorPage() {
       // 应用自定义规则
       let addedProxyGroups: string[] = []
       try {
-        const applyRulesResponse = await api.post('/api/admin/apply-custom-rules', {
-          yaml_content: generatedConfig
-        })
+        const applyRulesResponse = await api.post(
+          '/api/admin/apply-custom-rules',
+          {
+            yaml_content: generatedConfig,
+          }
+        )
         generatedConfig = applyRulesResponse.data.yaml_content
         addedProxyGroups = applyRulesResponse.data.added_proxy_groups || []
       } catch (error) {
@@ -1104,7 +1242,7 @@ function SubscriptionGeneratorPage() {
           const errorMessage = formatValidationIssues(validationResult.issues)
           toast.error('配置校验失败', {
             description: errorMessage,
-            duration: 10000
+            duration: 10000,
           })
           console.error('Clash配置校验失败:', validationResult.issues)
           return
@@ -1115,21 +1253,26 @@ function SubscriptionGeneratorPage() {
           generatedConfig = yaml.dump(validationResult.fixedConfig, {
             indent: 2,
             lineWidth: -1,
-            noRefs: true
+            noRefs: true,
           })
 
           // 显示修复提示
-          const warningIssues = validationResult.issues.filter(i => i.level === 'warning')
+          const warningIssues = validationResult.issues.filter(
+            (i) => i.level === 'warning'
+          )
           if (warningIssues.length > 0) {
             toast.warning('配置已自动修复', {
               description: formatValidationIssues(warningIssues),
-              duration: 8000
+              duration: 8000,
             })
           }
         }
       } catch (error) {
         console.error('配置校验异常:', error)
-        toast.error('配置校验时发生错误: ' + (error instanceof Error ? error.message : '未知错误'))
+        toast.error(
+          '配置校验时发生错误: ' +
+            (error instanceof Error ? error.message : '未知错误')
+        )
         return
       }
 
@@ -1172,7 +1315,10 @@ function SubscriptionGeneratorPage() {
       selected_tags?: string[]
       traffic_limit?: number | null
     }) => {
-      const response = await api.post('/api/admin/subscribe-files/create-from-config', data)
+      const response = await api.post(
+        '/api/admin/subscribe-files/create-from-config',
+        data
+      )
       return response.data
     },
     onSuccess: () => {
@@ -1228,7 +1374,8 @@ function SubscriptionGeneratorPage() {
     // V3 模式下传递模板和标签信息
     if (isV3Mode && selectedV3Template) {
       data.template_filename = selectedV3Template
-      data.selected_tags = selectedV3Tags.length > 0 ? selectedV3Tags : undefined
+      data.selected_tags =
+        selectedV3Tags.length > 0 ? selectedV3Tags : undefined
     }
 
     // 流量配置
@@ -1256,15 +1403,17 @@ function SubscriptionGeneratorPage() {
       }
 
       // 获取所有代理组，确保每个组都有 proxies 数组
-      const groups = (parsedConfig['proxy-groups'] as any[]).map(group => ({
+      const groups = (parsedConfig['proxy-groups'] as any[]).map((group) => ({
         ...group,
         proxies: group.proxies || [],
         dialerProxyGroup: group['dialer-proxy-group'] || undefined,
       })) as ProxyGroup[]
 
       // 获取用户选中的节点，添加默认的特殊节点（使用排序后的节点列表）
-      const selectedNodes = sortedEnabledNodes.filter(n => selectedNodeIds.has(n.id))
-      const nodeNames = selectedNodes.map(n => n.node_name)
+      const selectedNodes = sortedEnabledNodes.filter((n) =>
+        selectedNodeIds.has(n.id)
+      )
+      const nodeNames = selectedNodes.map((n) => n.node_name)
       const specialNodes = ['♻️ 自动选择', '🚀 节点选择', 'DIRECT', 'REJECT']
       const availableNodes = [...specialNodes, ...nodeNames]
 
@@ -1284,19 +1433,19 @@ function SubscriptionGeneratorPage() {
 
       // 获取所有 MMW 模式代理集合的名称（用于后续检查）
       const allMmwProviderNames = proxyProviderConfigs
-        .filter(c => c.process_mode === 'mmw')
-        .map(c => c.name)
+        .filter((c) => c.process_mode === 'mmw')
+        .map((c) => c.name)
 
       // 收集所有被使用的 provider 名称
       const usedProviders = new Set<string>()
-      proxyGroups.forEach(group => {
+      proxyGroups.forEach((group) => {
         // 从 use 属性收集（客户端模式）
         if (group.use) {
-          group.use.forEach(provider => usedProviders.add(provider))
+          group.use.forEach((provider) => usedProviders.add(provider))
         }
         // 从 proxies 属性收集 MMW 代理集合的引用（MMW 模式下代理集合名称作为代理组名称出现在 proxies 中）
         if (group.proxies) {
-          group.proxies.forEach(proxy => {
+          group.proxies.forEach((proxy) => {
             if (proxy && allMmwProviderNames.includes(proxy)) {
               usedProviders.add(proxy)
             }
@@ -1306,21 +1455,25 @@ function SubscriptionGeneratorPage() {
 
       // 筛选 MMW 模式和非 MMW 模式的代理集合
       const mmwProviders = proxyProviderConfigs.filter(
-        c => usedProviders.has(c.name) && c.process_mode === 'mmw'
+        (c) => usedProviders.has(c.name) && c.process_mode === 'mmw'
       )
       const nonMmwProviders = proxyProviderConfigs.filter(
-        c => usedProviders.has(c.name) && c.process_mode !== 'mmw'
+        (c) => usedProviders.has(c.name) && c.process_mode !== 'mmw'
       )
 
       // 找出不再被使用的 MMW 代理集合（需要清理其自动创建的代理组和节点）
       // allMmwProviderNames 已在函数开头定义
-      const unusedMmwProviders = allMmwProviderNames.filter(name => !usedProviders.has(name))
+      const unusedMmwProviders = allMmwProviderNames.filter(
+        (name) => !usedProviders.has(name)
+      )
 
       // 获取 MMW 节点数据
-      const mmwNodesMap: Record<string, { nodes: any[], prefix: string }> = {}
+      const mmwNodesMap: Record<string, { nodes: any[]; prefix: string }> = {}
       for (const config of mmwProviders) {
         try {
-          const resp = await api.get(`/api/user/proxy-provider-nodes?id=${config.id}`)
+          const resp = await api.get(
+            `/api/user/proxy-provider-nodes?id=${config.id}`
+          )
           if (resp.data && resp.data.nodes) {
             mmwNodesMap[config.name] = resp.data
           }
@@ -1332,17 +1485,17 @@ function SubscriptionGeneratorPage() {
       // 1. 更新使用代理集合的代理组
       // 对于 MMW 模式：添加代理组名称到 proxies（而不是节点名称），移除 use 引用
       // 对于非 MMW 模式：保留 use 字段
-      parsedConfig['proxy-groups'] = proxyGroups.map(group => {
+      parsedConfig['proxy-groups'] = proxyGroups.map((group) => {
         const groupConfig: any = {
           ...group,
-          proxies: group.proxies.filter((p): p is string => p !== undefined)
+          proxies: group.proxies.filter((p): p is string => p !== undefined),
         }
 
         if (group.use && group.use.length > 0) {
           const newUse: string[] = []
           const mmwGroupNames: string[] = []
 
-          group.use.forEach(providerName => {
+          group.use.forEach((providerName) => {
             if (mmwNodesMap[providerName]) {
               // MMW 模式：添加代理组名称（而非节点名称）
               mmwGroupNames.push(providerName)
@@ -1395,7 +1548,7 @@ function SubscriptionGeneratorPage() {
             url: 'http://www.gstatic.com/generate_204',
             interval: 300,
             tolerance: 50,
-            proxies: nodeNames
+            proxies: nodeNames,
           })
         }
       }
@@ -1404,20 +1557,22 @@ function SubscriptionGeneratorPage() {
       if (mmwGroupsToAdd.length > 0) {
         parsedConfig['proxy-groups'] = [
           ...parsedConfig['proxy-groups'],
-          ...mmwGroupsToAdd
+          ...mmwGroupsToAdd,
         ]
       }
 
       // 4. 清理不再使用的 MMW 代理集合的自动创建代理组
       if (unusedMmwProviders.length > 0 && parsedConfig['proxy-groups']) {
         // 删除自动创建的代理组（名称与代理集合相同的代理组）
-        parsedConfig['proxy-groups'] = parsedConfig['proxy-groups'].filter((group: any) => {
-          if (unusedMmwProviders.includes(group.name)) {
-            console.log(`[MMW清理] 删除不再使用的代理组: ${group.name}`)
-            return false
+        parsedConfig['proxy-groups'] = parsedConfig['proxy-groups'].filter(
+          (group: any) => {
+            if (unusedMmwProviders.includes(group.name)) {
+              console.log(`[MMW清理] 删除不再使用的代理组: ${group.name}`)
+              return false
+            }
+            return true
           }
-          return true
-        })
+        )
       }
 
       // 添加 MMW 节点到 proxies
@@ -1428,9 +1583,12 @@ function SubscriptionGeneratorPage() {
         data.nodes.forEach((node: any) => {
           const prefixedNode = { ...node, name: data.prefix + node.name }
           // 检查是否已存在同名节点，避免重复添加
-          const existingIndex = parsedConfig.proxies.findIndex((p: any) => p.name === prefixedNode.name)
+          const existingIndex = parsedConfig.proxies.findIndex(
+            (p: any) => p.name === prefixedNode.name
+          )
           if (existingIndex >= 0) {
-            parsedConfig.proxies[existingIndex] = reorderProxyFields(prefixedNode)
+            parsedConfig.proxies[existingIndex] =
+              reorderProxyFields(prefixedNode)
           } else {
             parsedConfig.proxies.push(reorderProxyFields(prefixedNode))
           }
@@ -1440,7 +1598,7 @@ function SubscriptionGeneratorPage() {
       // 只为非 MMW 代理集合生成 proxy-providers 配置
       if (nonMmwProviders.length > 0) {
         const providers: Record<string, any> = {}
-        nonMmwProviders.forEach(config => {
+        nonMmwProviders.forEach((config) => {
           const baseUrl = window.location.origin
           const providerConfig: Record<string, any> = {
             type: config.type || 'http',
@@ -1451,7 +1609,9 @@ function SubscriptionGeneratorPage() {
           if (config.health_check_enabled) {
             providerConfig['health-check'] = {
               enable: true,
-              url: config.health_check_url || 'http://www.gstatic.com/generate_204',
+              url:
+                config.health_check_url ||
+                'http://www.gstatic.com/generate_204',
               interval: config.health_check_interval || 300,
             }
           }
@@ -1464,13 +1624,24 @@ function SubscriptionGeneratorPage() {
 
       // 收集所有代理组中使用的节点名称（包括 MMW 节点）
       const usedNodeNames = new Set<string>()
-      const groupNames = new Set(parsedConfig['proxy-groups'].map((g: any) => g.name))
+      const groupNames = new Set(
+        parsedConfig['proxy-groups'].map((g: any) => g.name)
+      )
       parsedConfig['proxy-groups'].forEach((group: any) => {
         if (group.proxies && Array.isArray(group.proxies)) {
           group.proxies.forEach((proxy: string) => {
             // 只添加实际节点（不是特殊节点，也不是其他代理组）
-            if (!['DIRECT', 'REJECT', 'PROXY', 'no-resolve', '♻️ 自动选择', '🚀 节点选择'].includes(proxy) &&
-                !groupNames.has(proxy)) {
+            if (
+              ![
+                'DIRECT',
+                'REJECT',
+                'PROXY',
+                'no-resolve',
+                '♻️ 自动选择',
+                '🚀 节点选择',
+              ].includes(proxy) &&
+              !groupNames.has(proxy)
+            ) {
               usedNodeNames.add(proxy)
             }
           })
@@ -1485,14 +1656,16 @@ function SubscriptionGeneratorPage() {
         )
         const removedCount = originalCount - parsedConfig.proxies.length
         if (removedCount > 0) {
-          console.log(`[handleApplyGrouping] 已删除 ${removedCount} 个未使用的节点`)
+          console.log(
+            `[handleApplyGrouping] 已删除 ${removedCount} 个未使用的节点`
+          )
         }
       }
 
       // 处理链式代理：根据代理组的 dialerProxyGroup 配置添加 dialer-proxy
       if (parsedConfig.proxies && Array.isArray(parsedConfig.proxies)) {
         const nodeProtocolMap = new Map<string, string>()
-        savedNodes.forEach(node => {
+        savedNodes.forEach((node) => {
           nodeProtocolMap.set(node.node_name, node.protocol)
         })
 
@@ -1507,9 +1680,12 @@ function SubscriptionGeneratorPage() {
         // 根据当前代理组配置重新设置 dialer-proxy
         for (const group of proxyGroups) {
           if (!group.dialerProxyGroup) continue
-          if (!proxyGroups.some(g => g.name === group.dialerProxyGroup)) continue
+          if (!proxyGroups.some((g) => g.name === group.dialerProxyGroup))
+            continue
 
-          const nodeNames = new Set(group.proxies.filter((p): p is string => p !== undefined))
+          const nodeNames = new Set(
+            group.proxies.filter((p): p is string => p !== undefined)
+          )
           parsedConfig.proxies = parsedConfig.proxies.map((proxy: any) => {
             if (nodeNames.has(proxy.name)) {
               const protocol = nodeProtocolMap.get(proxy.name)
@@ -1523,7 +1699,9 @@ function SubscriptionGeneratorPage() {
 
       // 重新排序 proxies 字段
       if (parsedConfig.proxies && Array.isArray(parsedConfig.proxies)) {
-        parsedConfig.proxies = parsedConfig.proxies.map((proxy: any) => reorderProxyFields(proxy))
+        parsedConfig.proxies = parsedConfig.proxies.map((proxy: any) =>
+          reorderProxyFields(proxy)
+        )
       }
 
       // 确保 short-id 字段始终作为字符串
@@ -1559,8 +1737,12 @@ function SubscriptionGeneratorPage() {
   // 验证 rules 中的节点是否存在于 proxy-groups 或 proxies 中
   const validateRulesNodes = (parsedConfig: any) => {
     const rules = parsedConfig.rules || []
-    const proxyGroupNames = new Set(parsedConfig['proxy-groups']?.map((g: any) => g.name) || [])
-    const proxyNames = new Set(parsedConfig.proxies?.map((p: any) => p.name) || [])
+    const proxyGroupNames = new Set(
+      parsedConfig['proxy-groups']?.map((g: any) => g.name) || []
+    )
+    const proxyNames = new Set(
+      parsedConfig.proxies?.map((p: any) => p.name) || []
+    )
 
     // 添加特殊节点
     proxyGroupNames.add('DIRECT')
@@ -1588,7 +1770,11 @@ function SubscriptionGeneratorPage() {
       }
 
       // 如果节点名称不在 proxy-groups 和 proxies 中，添加到缺失列表
-      if (nodeName && !proxyGroupNames.has(nodeName) && !proxyNames.has(nodeName)) {
+      if (
+        nodeName &&
+        !proxyGroupNames.has(nodeName) &&
+        !proxyNames.has(nodeName)
+      ) {
         toast(`[validateRulesNodes] 发现缺失节点: "${nodeName}"`)
         // 此处改为rule, 更直观一点
         missingNodes.add(rule)
@@ -1596,17 +1782,23 @@ function SubscriptionGeneratorPage() {
     })
 
     return {
-      missingNodes: Array.from(missingNodes)
+      missingNodes: Array.from(missingNodes),
     }
   }
 
   // 应用缺失节点替换
   const handleApplyReplacement = () => {
     try {
-      const parsedConfig = yaml.load(preprocessYaml(pendingConfigAfterGrouping)) as any
+      const parsedConfig = yaml.load(
+        preprocessYaml(pendingConfigAfterGrouping)
+      ) as any
       const rules = parsedConfig.rules || []
-      const proxyGroupNames = new Set(parsedConfig['proxy-groups']?.map((g: any) => g.name) || [])
-      const proxyNames = new Set(parsedConfig.proxies?.map((p: any) => p.name) || [])
+      const proxyGroupNames = new Set(
+        parsedConfig['proxy-groups']?.map((g: any) => g.name) || []
+      )
+      const proxyNames = new Set(
+        parsedConfig.proxies?.map((p: any) => p.name) || []
+      )
 
       // 添加特殊节点
       proxyGroupNames.add('DIRECT')
@@ -1621,19 +1813,29 @@ function SubscriptionGeneratorPage() {
           if (parts.length < 2) return rule
           const nodeName = parts[parts.length - 1].trim()
           // 如果节点缺失（不在代理组和节点中），替换为用户选择的值
-          if (nodeName && !proxyGroupNames.has(nodeName) && !proxyNames.has(nodeName)) {
+          if (
+            nodeName &&
+            !proxyGroupNames.has(nodeName) &&
+            !proxyNames.has(nodeName)
+          ) {
             parts[parts.length - 1] = replacementChoice
             return parts.join(',')
           }
         } else if (typeof rule === 'object' && rule !== null) {
           // 对象格式的规则，检查并替换可能的节点字段
-          const nodeName = rule.target || rule.group || rule.proxy || rule.ruleset
-          if (nodeName && !proxyGroupNames.has(nodeName) && !proxyNames.has(nodeName)) {
+          const nodeName =
+            rule.target || rule.group || rule.proxy || rule.ruleset
+          if (
+            nodeName &&
+            !proxyGroupNames.has(nodeName) &&
+            !proxyNames.has(nodeName)
+          ) {
             const updatedRule = { ...rule }
             if (updatedRule.target) updatedRule.target = replacementChoice
             else if (updatedRule.group) updatedRule.group = replacementChoice
             else if (updatedRule.proxy) updatedRule.proxy = replacementChoice
-            else if (updatedRule.ruleset) updatedRule.ruleset = replacementChoice
+            else if (updatedRule.ruleset)
+              updatedRule.ruleset = replacementChoice
             return updatedRule
           }
         }
@@ -1643,7 +1845,9 @@ function SubscriptionGeneratorPage() {
 
       // 重新排序 proxies 字段
       if (parsedConfig.proxies && Array.isArray(parsedConfig.proxies)) {
-        parsedConfig.proxies = parsedConfig.proxies.map((proxy: any) => reorderProxyFields(proxy))
+        parsedConfig.proxies = parsedConfig.proxies.map((proxy: any) =>
+          reorderProxyFields(proxy)
+        )
       }
 
       // 确保 short-id 字段始终作为字符串
@@ -1671,16 +1875,18 @@ function SubscriptionGeneratorPage() {
   // 配置链式代理
   const handleConfigureChainProxy = () => {
     // 检查是否已存在这两个代理组
-    const hasLandingNode = proxyGroups.some(g => g.name === '🌄 落地节点')
-    const hasRelayNode = proxyGroups.some(g => g.name === '🌠 中转节点')
+    const hasLandingNode = proxyGroups.some((g) => g.name === '🌄 落地节点')
+    const hasRelayNode = proxyGroups.some((g) => g.name === '🌠 中转节点')
 
     // 从链式代理节点中提取落地节点和中转节点
-    const chainProxyNodes = sortedEnabledNodes.filter(node => node.node_name.includes('⇋'))
+    const chainProxyNodes = sortedEnabledNodes.filter((node) =>
+      node.node_name.includes('⇋')
+    )
 
     const landingNodeNames = new Set<string>()
     const relayNodeNames = new Set<string>()
 
-    chainProxyNodes.forEach(node => {
+    chainProxyNodes.forEach((node) => {
       const parts = node.node_name.split('⇋')
       if (parts.length === 2) {
         landingNodeNames.add(parts[0].trim())
@@ -1703,24 +1909,26 @@ function SubscriptionGeneratorPage() {
       newGroups.push({
         name: '🌠 中转节点',
         type: 'select',
-        proxies: Array.from(relayNodeNames)
+        proxies: Array.from(relayNodeNames),
       })
     }
 
     if (newGroups.length > 0) {
-      setProxyGroups(groups => {
+      setProxyGroups((groups) => {
         const updatedGroups = [...newGroups, ...groups]
 
         // 如果添加了落地节点，将其添加到"🚀 节点选择"组的第一位
-        if (newGroups.some(g => g.name === '🌄 落地节点')) {
-          return updatedGroups.map(group => {
+        if (newGroups.some((g) => g.name === '🌄 落地节点')) {
+          return updatedGroups.map((group) => {
             if (group.name === '🚀 节点选择') {
               // 过滤掉已存在的"🌄 落地节点"（如果有的话）
-              const filteredProxies = (group.proxies || []).filter(p => p !== '🌄 落地节点')
+              const filteredProxies = (group.proxies || []).filter(
+                (p) => p !== '🌄 落地节点'
+              )
               // 将"🌄 落地节点"添加到第一位
               return {
                 ...group,
-                proxies: ['🌄 落地节点', ...filteredProxies]
+                proxies: ['🌄 落地节点', ...filteredProxies],
               }
             }
             return group
@@ -1729,14 +1937,24 @@ function SubscriptionGeneratorPage() {
 
         return updatedGroups
       })
-      toast.success(`已添加 ${newGroups.map(g => g.name).join('、')}`)
+      toast.success(`已添加 ${newGroups.map((g) => g.name).join('、')}`)
     } else {
       toast.info('链式代理节点已存在')
     }
   }
 
   // 生成单个代理组的 YAML 字符串
-  const generateProxyGroupYaml = (group: { name: string; type: string; url?: string; interval?: number; tolerance?: number; proxies: string[] }, indent: string = '  '): string => {
+  const generateProxyGroupYaml = (
+    group: {
+      name: string
+      type: string
+      url?: string
+      interval?: number
+      tolerance?: number
+      proxies: string[]
+    },
+    indent: string = '  '
+  ): string => {
     const lines: string[] = []
     lines.push(`${indent}- name: ${group.name}`)
     lines.push(`${indent}  type: ${group.type}`)
@@ -1757,7 +1975,11 @@ function SubscriptionGeneratorPage() {
   }
 
   // 在指定代理组后插入节点（字符串操作）
-  const insertProxiesIntoGroup = (yamlStr: string, groupName: string, newProxies: string[]): string => {
+  const insertProxiesIntoGroup = (
+    yamlStr: string,
+    groupName: string,
+    newProxies: string[]
+  ): string => {
     if (newProxies.length === 0) return yamlStr
 
     const lines = yamlStr.split('\n')
@@ -1796,7 +2018,10 @@ function SubscriptionGeneratorPage() {
       // 在 proxies 部分检测是否到了末尾（遇到非 "    - xxx" 格式的行）
       if (inTargetGroup && inProxiesSection && !proxiesInserted) {
         const proxyItemMatch = line.match(/^(\s+)-\s+(.+)$/)
-        if (!proxyItemMatch || proxyItemMatch[1].length <= groupIndent.length + 2) {
+        if (
+          !proxyItemMatch ||
+          proxyItemMatch[1].length <= groupIndent.length + 2
+        ) {
           // 不是 proxy 项，在这里插入新节点
           for (const proxy of newProxies) {
             result.push(`${groupIndent}    - ${proxy}`)
@@ -1821,7 +2046,11 @@ function SubscriptionGeneratorPage() {
   }
 
   // 在指定代理组后插入新代理组（字符串操作）
-  const insertNewGroupsAfter = (yamlStr: string, afterGroupName: string, newGroupsYaml: string): string => {
+  const insertNewGroupsAfter = (
+    yamlStr: string,
+    afterGroupName: string,
+    newGroupsYaml: string
+  ): string => {
     const lines = yamlStr.split('\n')
     const result: string[] = []
     let foundGroup = false
@@ -1883,8 +2112,10 @@ function SubscriptionGeneratorPage() {
       }
 
       // 获取选中的节点名称（使用排序后的节点列表）
-      const selectedNodes = sortedEnabledNodes.filter(n => selectedNodeIds.has(n.id))
-      const nodeNames = selectedNodes.map(n => n.node_name)
+      const selectedNodes = sortedEnabledNodes.filter((n) =>
+        selectedNodeIds.has(n.id)
+      )
+      const nodeNames = selectedNodes.map((n) => n.node_name)
 
       // 按地区分类节点
       const regionNodes: Record<string, string[]> = {}
@@ -1906,10 +2137,10 @@ function SubscriptionGeneratorPage() {
       }
 
       // 获取现有代理组名称和节点
-      const existingGroupNames = new Set(groups.map(g => g.name))
+      const existingGroupNames = new Set(groups.map((g) => g.name))
 
       // 获取"自动选择"组中已有的节点
-      const autoSelectGroup = groups.find(g => g.name === '♻️ 自动选择')
+      const autoSelectGroup = groups.find((g) => g.name === '♻️ 自动选择')
       const existingAutoSelectNodes = new Set(autoSelectGroup?.proxies || [])
 
       let newConfig = clashConfig
@@ -1918,9 +2149,9 @@ function SubscriptionGeneratorPage() {
       for (const [groupName, nodes] of Object.entries(regionNodes)) {
         if (existingGroupNames.has(groupName)) {
           // 获取该组已有的节点，只添加不存在的
-          const existingGroup = groups.find(g => g.name === groupName)
+          const existingGroup = groups.find((g) => g.name === groupName)
           const existingNodes = new Set(existingGroup?.proxies || [])
-          const newNodes = nodes.filter(n => !existingNodes.has(n))
+          const newNodes = nodes.filter((n) => !existingNodes.has(n))
           if (newNodes.length > 0) {
             newConfig = insertProxiesIntoGroup(newConfig, groupName, newNodes)
           }
@@ -1929,9 +2160,9 @@ function SubscriptionGeneratorPage() {
 
       // 为"其他地区"组添加节点（如果存在）
       if (existingGroupNames.has('🌐 其他地区')) {
-        const existingGroup = groups.find(g => g.name === '🌐 其他地区')
+        const existingGroup = groups.find((g) => g.name === '🌐 其他地区')
         const existingNodes = new Set(existingGroup?.proxies || [])
-        const newNodes = otherNodes.filter(n => !existingNodes.has(n))
+        const newNodes = otherNodes.filter((n) => !existingNodes.has(n))
         if (newNodes.length > 0) {
           newConfig = insertProxiesIntoGroup(newConfig, '🌐 其他地区', newNodes)
         }
@@ -1939,14 +2170,23 @@ function SubscriptionGeneratorPage() {
 
       // 为"自动选择"组添加节点（只添加不存在的）
       if (existingGroupNames.has('♻️ 自动选择')) {
-        const newNodes = nodeNames.filter(n => !existingAutoSelectNodes.has(n))
+        const newNodes = nodeNames.filter(
+          (n) => !existingAutoSelectNodes.has(n)
+        )
         if (newNodes.length > 0) {
           newConfig = insertProxiesIntoGroup(newConfig, '♻️ 自动选择', newNodes)
         }
       }
 
       // 2. 创建缺失的地区代理组
-      const newGroups: { name: string; type: string; url: string; interval: number; tolerance: number; proxies: string[] }[] = []
+      const newGroups: {
+        name: string
+        type: string
+        url: string
+        interval: number
+        tolerance: number
+        proxies: string[]
+      }[] = []
       const createdGroupNames: string[] = []
 
       for (const [groupName, nodes] of Object.entries(regionNodes)) {
@@ -1957,7 +2197,7 @@ function SubscriptionGeneratorPage() {
             url: 'https://www.gstatic.com/generate_204',
             interval: 300,
             tolerance: 50,
-            proxies: nodes
+            proxies: nodes,
           })
           createdGroupNames.push(groupName)
         }
@@ -1971,7 +2211,7 @@ function SubscriptionGeneratorPage() {
           url: 'https://www.gstatic.com/generate_204',
           interval: 300,
           tolerance: 50,
-          proxies: otherNodes
+          proxies: otherNodes,
         })
         createdGroupNames.push('🌐 其他地区')
       }
@@ -1987,18 +2227,35 @@ function SubscriptionGeneratorPage() {
           insertAfterGroup = groups[0].name
         }
 
-        const newGroupsYaml = newGroups.map(g => generateProxyGroupYaml(g)).join('\n')
-        newConfig = insertNewGroupsAfter(newConfig, insertAfterGroup, newGroupsYaml)
+        const newGroupsYaml = newGroups
+          .map((g) => generateProxyGroupYaml(g))
+          .join('\n')
+        newConfig = insertNewGroupsAfter(
+          newConfig,
+          insertAfterGroup,
+          newGroupsYaml
+        )
       }
 
       // 3. 把新创建的地区代理组添加到"🚀 节点选择"的 proxies 中
-      if (createdGroupNames.length > 0 && existingGroupNames.has('🚀 节点选择')) {
+      if (
+        createdGroupNames.length > 0 &&
+        existingGroupNames.has('🚀 节点选择')
+      ) {
         // 检查"节点选择"组中已有的 proxies，只添加不存在的
-        const nodeSelectGroup = groups.find(g => g.name === '🚀 节点选择')
-        const existingNodeSelectProxies = new Set(nodeSelectGroup?.proxies || [])
-        const newGroupsToAdd = createdGroupNames.filter(name => !existingNodeSelectProxies.has(name))
+        const nodeSelectGroup = groups.find((g) => g.name === '🚀 节点选择')
+        const existingNodeSelectProxies = new Set(
+          nodeSelectGroup?.proxies || []
+        )
+        const newGroupsToAdd = createdGroupNames.filter(
+          (name) => !existingNodeSelectProxies.has(name)
+        )
         if (newGroupsToAdd.length > 0) {
-          newConfig = insertProxiesIntoGroup(newConfig, '🚀 节点选择', newGroupsToAdd)
+          newConfig = insertProxiesIntoGroup(
+            newConfig,
+            '🚀 节点选择',
+            newGroupsToAdd
+          )
         }
       }
 
@@ -2015,7 +2272,9 @@ function SubscriptionGeneratorPage() {
 
       // 显示结果
       if (createdGroupNames.length > 0) {
-        toast.success(`自动分组完成，新建代理组：${createdGroupNames.join('、')}`)
+        toast.success(
+          `自动分组完成，新建代理组：${createdGroupNames.join('、')}`
+        )
       } else {
         toast.success(`自动分组完成：${stats.join('、')}`)
       }
@@ -2027,12 +2286,12 @@ function SubscriptionGeneratorPage() {
 
   // 删除节点
   const handleRemoveProxy = (groupName: string, proxyIndex: number) => {
-    setProxyGroups(groups =>
-      groups.map(group => {
+    setProxyGroups((groups) =>
+      groups.map((group) => {
         if (group.name === groupName) {
           return {
             ...group,
-            proxies: group.proxies.filter((_, idx) => idx !== proxyIndex)
+            proxies: group.proxies.filter((_, idx) => idx !== proxyIndex),
           }
         }
         return group
@@ -2042,30 +2301,32 @@ function SubscriptionGeneratorPage() {
 
   // 删除整个代理组
   const handleRemoveGroup = (groupName: string) => {
-    setProxyGroups(groups => {
+    setProxyGroups((groups) => {
       // 先过滤掉要删除的组
-      const filteredGroups = groups.filter(group => group.name !== groupName)
+      const filteredGroups = groups.filter((group) => group.name !== groupName)
 
       // 从所有剩余组的 proxies 列表中移除对被删除组的引用
-      return filteredGroups.map(group => ({
+      return filteredGroups.map((group) => ({
         ...group,
-        proxies: group.proxies.filter(proxy => proxy !== groupName)
+        proxies: group.proxies.filter((proxy) => proxy !== groupName),
       }))
     })
   }
 
   // 处理代理组改名
   const handleRenameGroup = (oldName: string, newName: string) => {
-    setProxyGroups(groups => {
+    setProxyGroups((groups) => {
       // 更新被改名的组
-      const updatedGroups = groups.map(group => {
+      const updatedGroups = groups.map((group) => {
         if (group.name === oldName) {
           return { ...group, name: newName }
         }
         // 更新其他组中对这个组的引用
         return {
           ...group,
-          proxies: group.proxies.map(proxy => proxy === oldName ? newName : proxy)
+          proxies: group.proxies.map((proxy) =>
+            proxy === oldName ? newName : proxy
+          ),
         }
       })
       return updatedGroups
@@ -2074,18 +2335,28 @@ function SubscriptionGeneratorPage() {
     // 同时更新待处理的配置（如果存在）
     if (pendingConfigAfterGrouping) {
       try {
-        const parsedConfig = yaml.load(preprocessYaml(pendingConfigAfterGrouping)) as any
+        const parsedConfig = yaml.load(
+          preprocessYaml(pendingConfigAfterGrouping)
+        ) as any
         if (parsedConfig && parsedConfig['proxy-groups']) {
           // 更新 proxy-groups 中的组名
-          parsedConfig['proxy-groups'] = parsedConfig['proxy-groups'].map((group: any) => ({
-            ...group,
-            name: group.name === oldName ? newName : group.name,
-            proxies: group.proxies.map((proxy: string) => proxy === oldName ? newName : proxy)
-          }))
+          parsedConfig['proxy-groups'] = parsedConfig['proxy-groups'].map(
+            (group: any) => ({
+              ...group,
+              name: group.name === oldName ? newName : group.name,
+              proxies: group.proxies.map((proxy: string) =>
+                proxy === oldName ? newName : proxy
+              ),
+            })
+          )
         }
 
         // 更新 rules 中的代理组引用
-        if (parsedConfig && parsedConfig['rules'] && Array.isArray(parsedConfig['rules'])) {
+        if (
+          parsedConfig &&
+          parsedConfig['rules'] &&
+          Array.isArray(parsedConfig['rules'])
+        ) {
           const updatedRules = parsedConfig['rules'].map((rule: any) => {
             if (typeof rule === 'string') {
               // 规则格式: "DOMAIN-SUFFIX,google.com,PROXY_GROUP"
@@ -2126,15 +2397,23 @@ function SubscriptionGeneratorPage() {
         const parsedConfig = yaml.load(preprocessYaml(clashConfig)) as any
         if (parsedConfig && parsedConfig['proxy-groups']) {
           // 更新 proxy-groups 中的组名
-          parsedConfig['proxy-groups'] = parsedConfig['proxy-groups'].map((group: any) => ({
-            ...group,
-            name: group.name === oldName ? newName : group.name,
-            proxies: group.proxies.map((proxy: string) => proxy === oldName ? newName : proxy)
-          }))
+          parsedConfig['proxy-groups'] = parsedConfig['proxy-groups'].map(
+            (group: any) => ({
+              ...group,
+              name: group.name === oldName ? newName : group.name,
+              proxies: group.proxies.map((proxy: string) =>
+                proxy === oldName ? newName : proxy
+              ),
+            })
+          )
         }
 
         // 更新 rules 中的代理组引用
-        if (parsedConfig && parsedConfig['rules'] && Array.isArray(parsedConfig['rules'])) {
+        if (
+          parsedConfig &&
+          parsedConfig['rules'] &&
+          Array.isArray(parsedConfig['rules'])
+        ) {
           const updatedRules = parsedConfig['rules'].map((rule: any) => {
             if (typeof rule === 'string') {
               const parts = rule.split(',')
@@ -2185,13 +2464,15 @@ function SubscriptionGeneratorPage() {
   }
 
   return (
-    <div className='flex min-h-screen flex-col bg-background'>
+    <div className='bg-background flex min-h-screen flex-col'>
       <Topbar />
 
-      <main className='mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 pt-24'>
+      <main className='mx-auto w-full max-w-7xl px-4 py-8 pt-24 sm:px-6'>
         <div className='mx-auto space-y-6'>
           <div className='space-y-2'>
-            <h1 className='text-3xl font-bold tracking-tight'>订阅链接生成器</h1>
+            <h1 className='text-3xl font-bold tracking-tight'>
+              订阅链接生成器
+            </h1>
             <p className='text-muted-foreground'>
               从节点管理中选择节点，快速生成 Clash 订阅配置
             </p>
@@ -2201,35 +2482,45 @@ function SubscriptionGeneratorPage() {
             <CardHeader>
               <CardTitle>选择节点</CardTitle>
               <CardDescription>
-                从已保存的节点中选择需要添加到订阅的节点（已选择 {selectedNodeIds.size} 个）
+                从已保存的节点中选择需要添加到订阅的节点（已选择{' '}
+                {selectedNodeIds.size} 个）
               </CardDescription>
             </CardHeader>
             <CardContent className='space-y-4'>
               {sortedEnabledNodes.length === 0 ? (
-                <div className='text-center py-8 text-muted-foreground'>
+                <div className='text-muted-foreground py-8 text-center'>
                   暂无可用节点，请先在节点管理中添加节点
                 </div>
               ) : (
                 <>
                   {/* 协议快速选择按钮（多选模式，与标签互斥） */}
-                  <div className='flex flex-wrap gap-2 mb-4'>
+                  <div className='mb-4 flex flex-wrap gap-2'>
                     <Button
-                      variant={selectedProtocols.size === 0 && selectedTags.size === 0 ? 'default' : 'outline'}
+                      variant={
+                        selectedProtocols.size === 0 && selectedTags.size === 0
+                          ? 'default'
+                          : 'outline'
+                      }
                       size='sm'
                       onClick={() => {
                         // 计算所有节点
-                        const allNodeIds = new Set(sortedEnabledNodes.map(n => n.id))
+                        const allNodeIds = new Set(
+                          sortedEnabledNodes.map((n) => n.id)
+                        )
                         const currentIds = Array.from(selectedNodeIds).sort()
                         const targetIds = Array.from(allNodeIds).sort()
 
                         // 如果当前已全选且没有选中协议/标签，则取消全部；否则全选
-                        if (selectedProtocols.size === 0 && selectedTags.size === 0 &&
-                            currentIds.length === targetIds.length &&
-                            currentIds.every((id, i) => id === targetIds[i])) {
+                        if (
+                          selectedProtocols.size === 0 &&
+                          selectedTags.size === 0 &&
+                          currentIds.length === targetIds.length &&
+                          currentIds.every((id, i) => id === targetIds[i])
+                        ) {
                           setSelectedNodeIds(new Set())
                         } else {
-                          setSelectedProtocols(new Set())  // 清空协议选择
-                          setSelectedTags(new Set())       // 清空标签选择
+                          setSelectedProtocols(new Set()) // 清空协议选择
+                          setSelectedTags(new Set()) // 清空标签选择
                           setSelectedNodeIds(allNodeIds)
                         }
                       }}
@@ -2237,7 +2528,9 @@ function SubscriptionGeneratorPage() {
                       全部 ({sortedEnabledNodes.length})
                     </Button>
                     {protocols.map((protocol) => {
-                      const count = sortedEnabledNodes.filter(n => n.protocol.toLowerCase() === protocol).length
+                      const count = sortedEnabledNodes.filter(
+                        (n) => n.protocol.toLowerCase() === protocol
+                      ).length
                       const isProtocolSelected = selectedProtocols.has(protocol)
                       return (
                         <Button
@@ -2247,28 +2540,34 @@ function SubscriptionGeneratorPage() {
                           onClick={() => {
                             // 获取该协议的所有节点（协议和标签互斥，不考虑标签）
                             const protocolNodeIds = sortedEnabledNodes
-                              .filter(n => n.protocol.toLowerCase() === protocol)
-                              .map(n => n.id)
+                              .filter(
+                                (n) => n.protocol.toLowerCase() === protocol
+                              )
+                              .map((n) => n.id)
 
                             // 清空标签选择（协议和标签互斥）
                             setSelectedTags(new Set())
 
                             if (isProtocolSelected) {
                               // 已选中 → 移除该协议的节点
-                              setSelectedProtocols(prev => {
+                              setSelectedProtocols((prev) => {
                                 const next = new Set(prev)
                                 next.delete(protocol)
                                 return next
                               })
-                              setSelectedNodeIds(prev => {
+                              setSelectedNodeIds((prev) => {
                                 const next = new Set(prev)
-                                protocolNodeIds.forEach(id => next.delete(id))
+                                protocolNodeIds.forEach((id) => next.delete(id))
                                 return next
                               })
                             } else {
                               // 未选中 → 添加该协议的节点
-                              setSelectedProtocols(prev => new Set([...prev, protocol]))
-                              setSelectedNodeIds(prev => new Set([...prev, ...protocolNodeIds]))
+                              setSelectedProtocols(
+                                (prev) => new Set([...prev, protocol])
+                              )
+                              setSelectedNodeIds(
+                                (prev) => new Set([...prev, ...protocolNodeIds])
+                              )
                             }
                           }}
                         >
@@ -2280,24 +2579,34 @@ function SubscriptionGeneratorPage() {
 
                   {/* 标签快速选择按钮（多选模式，与协议互斥） */}
                   {tags.length > 0 && (
-                    <div className='flex flex-wrap gap-2 mb-4'>
+                    <div className='mb-4 flex flex-wrap gap-2'>
                       <Button
-                        variant={selectedTags.size === 0 && selectedProtocols.size === 0 ? 'default' : 'outline'}
+                        variant={
+                          selectedTags.size === 0 &&
+                          selectedProtocols.size === 0
+                            ? 'default'
+                            : 'outline'
+                        }
                         size='sm'
                         onClick={() => {
                           // 计算所有节点
-                          const allNodeIds = new Set(sortedEnabledNodes.map(n => n.id))
+                          const allNodeIds = new Set(
+                            sortedEnabledNodes.map((n) => n.id)
+                          )
                           const currentIds = Array.from(selectedNodeIds).sort()
                           const targetIds = Array.from(allNodeIds).sort()
 
                           // 如果当前已全选且没有选中协议/标签，则取消全部；否则全选
-                          if (selectedProtocols.size === 0 && selectedTags.size === 0 &&
-                              currentIds.length === targetIds.length &&
-                              currentIds.every((id, i) => id === targetIds[i])) {
+                          if (
+                            selectedProtocols.size === 0 &&
+                            selectedTags.size === 0 &&
+                            currentIds.length === targetIds.length &&
+                            currentIds.every((id, i) => id === targetIds[i])
+                          ) {
                             setSelectedNodeIds(new Set())
                           } else {
-                            setSelectedProtocols(new Set())  // 清空协议选择
-                            setSelectedTags(new Set())       // 清空标签选择
+                            setSelectedProtocols(new Set()) // 清空协议选择
+                            setSelectedTags(new Set()) // 清空标签选择
                             setSelectedNodeIds(allNodeIds)
                           }
                         }}
@@ -2305,7 +2614,9 @@ function SubscriptionGeneratorPage() {
                         全部标签 ({sortedEnabledNodes.length})
                       </Button>
                       {tags.map((tag) => {
-                        const count = sortedEnabledNodes.filter(n => (n.tags?.length ? n.tags : [n.tag]).includes(tag)).length
+                        const count = sortedEnabledNodes.filter((n) =>
+                          (n.tags?.length ? n.tags : [n.tag]).includes(tag)
+                        ).length
                         const isTagSelected = selectedTags.has(tag)
                         return (
                           <Button
@@ -2315,28 +2626,36 @@ function SubscriptionGeneratorPage() {
                             onClick={() => {
                               // 获取该标签的所有节点（协议和标签互斥，不考虑协议）
                               const tagNodeIds = sortedEnabledNodes
-                                .filter(n => (n.tags?.length ? n.tags : [n.tag]).includes(tag))
-                                .map(n => n.id)
+                                .filter((n) =>
+                                  (n.tags?.length ? n.tags : [n.tag]).includes(
+                                    tag
+                                  )
+                                )
+                                .map((n) => n.id)
 
                               // 清空协议选择（协议和标签互斥）
                               setSelectedProtocols(new Set())
 
                               if (isTagSelected) {
                                 // 已选中 → 移除该标签的节点
-                                setSelectedTags(prev => {
+                                setSelectedTags((prev) => {
                                   const next = new Set(prev)
                                   next.delete(tag)
                                   return next
                                 })
-                                setSelectedNodeIds(prev => {
+                                setSelectedNodeIds((prev) => {
                                   const next = new Set(prev)
-                                  tagNodeIds.forEach(id => next.delete(id))
+                                  tagNodeIds.forEach((id) => next.delete(id))
                                   return next
                                 })
                               } else {
                                 // 未选中 → 添加该标签的节点
-                                setSelectedTags(prev => new Set([...prev, tag]))
-                                setSelectedNodeIds(prev => new Set([...prev, ...tagNodeIds]))
+                                setSelectedTags(
+                                  (prev) => new Set([...prev, tag])
+                                )
+                                setSelectedNodeIds(
+                                  (prev) => new Set([...prev, ...tagNodeIds])
+                                )
                               }
                             }}
                           >
@@ -2353,91 +2672,136 @@ function SubscriptionGeneratorPage() {
                     emptyText='没有找到匹配的节点'
                     containerClassName='max-h-[440px] overflow-y-auto'
                     onRowClick={(node) => handleToggleNode(node.id)}
-                    rowClassName={(node) => selectedNodeIds.has(node.id) ? 'bg-accent' : ''}
-
-                    columns={[
-                      {
-                        header: (
-                          <Checkbox
-                            checked={filteredNodes.length > 0 && filteredNodes.every(n => selectedNodeIds.has(n.id))}
-                            onCheckedChange={handleToggleAll}
-                          />
-                        ),
-                        cell: (node) => (
-                          <Checkbox
-                            checked={selectedNodeIds.has(node.id)}
-                            onCheckedChange={() => handleToggleNode(node.id)}
-                          />
-                        ),
-                        width: '50px'
-                      },
-                      {
-                        header: '节点名称',
-                        cell: (node) => <Twemoji>{node.node_name}</Twemoji>,
-                        cellClassName: 'font-medium'
-                      },
-                      {
-                        header: '协议',
-                        cell: (node) => (
-                          <Badge variant='outline' className={getProtocolColor(node.protocol)}>{node.protocol.toUpperCase()}</Badge>
-                        ),
-                        width: '100px'
-                      },
-                      {
-                        header: '服务器地址',
-                        cell: (node) => {
-                          let serverAddress = '-'
-                          try {
-                            if (node.clash_config) {
-                              const clashConfig = JSON.parse(node.clash_config)
-                              if (clashConfig.server) {
-                                const port = clashConfig.port ? `:${clashConfig.port}` : ''
-                                serverAddress = `${clashConfig.server}${port}`
+                    rowClassName={(node) =>
+                      selectedNodeIds.has(node.id) ? 'bg-accent' : ''
+                    }
+                    columns={
+                      [
+                        {
+                          header: (
+                            <Checkbox
+                              checked={
+                                filteredNodes.length > 0 &&
+                                filteredNodes.every((n) =>
+                                  selectedNodeIds.has(n.id)
+                                )
                               }
-                            }
-                          } catch (e) {
-                            // 解析失败，使用默认值
-                          }
-                          return <span className='font-mono text-sm'>{serverAddress}</span>
+                              onCheckedChange={handleToggleAll}
+                            />
+                          ),
+                          cell: (node) => (
+                            <Checkbox
+                              checked={selectedNodeIds.has(node.id)}
+                              onCheckedChange={() => handleToggleNode(node.id)}
+                            />
+                          ),
+                          width: '50px',
                         },
-                        headerClassName: 'min-w-[150px]'
-                      },
-                      {
-                        header: '标签',
-                        cell: (node) => (
-                          <div className='flex flex-wrap gap-1'>
-                            {(node.tags?.length ? node.tags : node.tag ? [node.tag] : []).map(t => (
-                              <Badge key={t} variant='secondary' className='text-xs'>
-                                {t}
-                              </Badge>
-                            ))}
-                          </div>
-                        ),
-                        width: '100px'
-                      }
-                    ] as DataTableColumn<SavedNode>[]}
-
+                        {
+                          header: '节点名称',
+                          cell: (node) => <Twemoji>{node.node_name}</Twemoji>,
+                          cellClassName: 'font-medium',
+                        },
+                        {
+                          header: '协议',
+                          cell: (node) => (
+                            <Badge
+                              variant='outline'
+                              className={getProtocolColor(node.protocol)}
+                            >
+                              {node.protocol.toUpperCase()}
+                            </Badge>
+                          ),
+                          width: '100px',
+                        },
+                        {
+                          header: '服务器地址',
+                          cell: (node) => {
+                            let serverAddress = '-'
+                            try {
+                              if (node.clash_config) {
+                                const clashConfig = JSON.parse(
+                                  node.clash_config
+                                )
+                                if (clashConfig.server) {
+                                  const port = clashConfig.port
+                                    ? `:${clashConfig.port}`
+                                    : ''
+                                  serverAddress = `${clashConfig.server}${port}`
+                                }
+                              }
+                            } catch (e) {
+                              // 解析失败，使用默认值
+                            }
+                            return (
+                              <span className='font-mono text-sm'>
+                                {serverAddress}
+                              </span>
+                            )
+                          },
+                          headerClassName: 'min-w-[150px]',
+                        },
+                        {
+                          header: '标签',
+                          cell: (node) => (
+                            <div className='flex flex-wrap gap-1'>
+                              {(node.tags?.length
+                                ? node.tags
+                                : node.tag
+                                  ? [node.tag]
+                                  : []
+                              ).map((t) => (
+                                <Badge
+                                  key={t}
+                                  variant='secondary'
+                                  className='text-xs'
+                                >
+                                  {t}
+                                </Badge>
+                              ))}
+                            </div>
+                          ),
+                          width: '100px',
+                        },
+                      ] as DataTableColumn<SavedNode>[]
+                    }
                     mobileCard={{
                       header: (node) => (
                         <div className='space-y-1'>
                           {/* 第一行：协议类型 + 节点名称 */}
                           <div className='flex items-center gap-2'>
                             <Checkbox
-                              className='hidden md:flex shrink-0'
+                              className='hidden shrink-0 md:flex'
                               checked={selectedNodeIds.has(node.id)}
                               onCheckedChange={() => handleToggleNode(node.id)}
                             />
-                            <Badge variant='outline' className={`shrink-0 ${getProtocolColor(node.protocol)}`}>{node.protocol.toUpperCase()}</Badge>
-                            <div className='font-medium text-sm truncate flex-1 min-w-0'><Twemoji>{node.node_name}</Twemoji></div>
+                            <Badge
+                              variant='outline'
+                              className={`shrink-0 ${getProtocolColor(node.protocol)}`}
+                            >
+                              {node.protocol.toUpperCase()}
+                            </Badge>
+                            <div className='min-w-0 flex-1 truncate text-sm font-medium'>
+                              <Twemoji>{node.node_name}</Twemoji>
+                            </div>
                           </div>
 
                           {/* 第二行：标签 + 服务器地址 */}
                           <div className='flex items-center gap-2 text-xs'>
                             {/* 标签部分 */}
                             {(node.tags?.length || node.tag) && (
-                              <div className='flex items-center gap-1 shrink-0'>
-                                {(node.tags?.length ? node.tags : node.tag ? [node.tag] : []).map(t => (
-                                  <Badge key={t} variant='secondary' className='text-xs'>
+                              <div className='flex shrink-0 items-center gap-1'>
+                                {(node.tags?.length
+                                  ? node.tags
+                                  : node.tag
+                                    ? [node.tag]
+                                    : []
+                                ).map((t) => (
+                                  <Badge
+                                    key={t}
+                                    variant='secondary'
+                                    className='text-xs'
+                                  >
                                     {t}
                                   </Badge>
                                 ))}
@@ -2445,14 +2809,18 @@ function SubscriptionGeneratorPage() {
                             )}
 
                             {/* 地址部分 */}
-                            <span className='font-mono text-muted-foreground truncate flex-1 min-w-0'>
+                            <span className='text-muted-foreground min-w-0 flex-1 truncate font-mono'>
                               {(() => {
                                 let serverAddress = '-'
                                 try {
                                   if (node.clash_config) {
-                                    const clashConfig = JSON.parse(node.clash_config)
+                                    const clashConfig = JSON.parse(
+                                      node.clash_config
+                                    )
                                     if (clashConfig.server) {
-                                      const port = clashConfig.port ? `:${clashConfig.port}` : ''
+                                      const port = clashConfig.port
+                                        ? `:${clashConfig.port}`
+                                        : ''
                                       serverAddress = `${clashConfig.server}${port}`
                                     }
                                   }
@@ -2465,7 +2833,7 @@ function SubscriptionGeneratorPage() {
                           </div>
                         </div>
                       ),
-                      fields: []
+                      fields: [],
                     }}
                   />
                 </>
@@ -2507,7 +2875,7 @@ function SubscriptionGeneratorPage() {
                 <div className='space-y-4'>
                   <div className='space-y-2'>
                     <Label htmlFor='template-select'>选择模板</Label>
-                    <p className='text-sm text-muted-foreground'>
+                    <p className='text-muted-foreground text-sm'>
                       使用 ACL4SSR 规则模板生成配置，自动解析代理组和规则。
                     </p>
                   </div>
@@ -2522,7 +2890,10 @@ function SubscriptionGeneratorPage() {
                         </SelectTrigger>
                         <SelectContent>
                           {allTemplates.map((template) => (
-                            <SelectItem key={template.name} value={template.url}>
+                            <SelectItem
+                              key={template.name}
+                              value={template.url}
+                            >
                               {template.label}
                             </SelectItem>
                           ))}
@@ -2571,9 +2942,15 @@ function SubscriptionGeneratorPage() {
                         <Button
                           className='w-full'
                           onClick={handleLoadTemplate}
-                          disabled={loading || selectedNodeIds.size === 0 || !selectedTemplateUrl}
+                          disabled={
+                            loading ||
+                            selectedNodeIds.size === 0 ||
+                            !selectedTemplateUrl
+                          }
                         >
-                          {loading && <Loader2 className='mr-2 h-4 w-4 animate-spin' />}
+                          {loading && (
+                            <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                          )}
                           加载
                         </Button>
                       </div>
@@ -2587,7 +2964,7 @@ function SubscriptionGeneratorPage() {
                 <div className='space-y-4'>
                   <div className='space-y-2'>
                     <Label htmlFor='v3-template-select'>选择 V3 模板</Label>
-                    <p className='text-sm text-muted-foreground'>
+                    <p className='text-muted-foreground text-sm'>
                       使用 V3 模板生成配置，支持按标签筛选节点。
                     </p>
                   </div>
@@ -2601,7 +2978,10 @@ function SubscriptionGeneratorPage() {
                       </SelectTrigger>
                       <SelectContent>
                         {v3Templates.map((template) => (
-                          <SelectItem key={template.filename} value={template.filename}>
+                          <SelectItem
+                            key={template.filename}
+                            value={template.filename}
+                          >
                             {template.name}
                           </SelectItem>
                         ))}
@@ -2613,12 +2993,15 @@ function SubscriptionGeneratorPage() {
                   {selectedV3Template && (
                     <div className='space-y-2'>
                       <Label>选择节点标签</Label>
-                      <p className='text-sm text-muted-foreground'>
-                        选择要包含在订阅中的节点标签（已选择 {selectedV3Tags.length} 个）
+                      <p className='text-muted-foreground text-sm'>
+                        选择要包含在订阅中的节点标签（已选择{' '}
+                        {selectedV3Tags.length} 个）
                       </p>
                       <div className='flex flex-wrap gap-2'>
                         <Button
-                          variant={selectedV3Tags.length === 0 ? 'default' : 'outline'}
+                          variant={
+                            selectedV3Tags.length === 0 ? 'default' : 'outline'
+                          }
                           size='sm'
                           onClick={() => setSelectedV3Tags([])}
                         >
@@ -2626,7 +3009,9 @@ function SubscriptionGeneratorPage() {
                         </Button>
                         {tags.map((tag) => {
                           const isSelected = selectedV3Tags.includes(tag)
-                          const count = sortedEnabledNodes.filter(n => (n.tags?.length ? n.tags : [n.tag]).includes(tag)).length
+                          const count = sortedEnabledNodes.filter((n) =>
+                            (n.tags?.length ? n.tags : [n.tag]).includes(tag)
+                          ).length
                           return (
                             <Button
                               key={tag}
@@ -2634,9 +3019,11 @@ function SubscriptionGeneratorPage() {
                               size='sm'
                               onClick={() => {
                                 if (isSelected) {
-                                  setSelectedV3Tags(prev => prev.filter(t => t !== tag))
+                                  setSelectedV3Tags((prev) =>
+                                    prev.filter((t) => t !== tag)
+                                  )
                                 } else {
-                                  setSelectedV3Tags(prev => [...prev, tag])
+                                  setSelectedV3Tags((prev) => [...prev, tag])
                                 }
                               }}
                             >
@@ -2654,7 +3041,9 @@ function SubscriptionGeneratorPage() {
                       onClick={handleLoadTemplate}
                       disabled={loading || !selectedV3Template}
                     >
-                      {loading && <Loader2 className='mr-2 h-4 w-4 animate-spin' />}
+                      {loading && (
+                        <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                      )}
                       加载
                     </Button>
                   </div>
@@ -2671,8 +3060,14 @@ function SubscriptionGeneratorPage() {
                       }
                     }}
                   >
-                    <Button onClick={handleGenerate} disabled={loading || selectedNodeIds.size === 0} className='w-full'>
-                      {loading && <Loader2 className='mr-2 h-4 w-4 animate-spin' />}
+                    <Button
+                      onClick={handleGenerate}
+                      disabled={loading || selectedNodeIds.size === 0}
+                      className='w-full'
+                    >
+                      {loading && (
+                        <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                      )}
                       {loading ? '生成中...' : '生成订阅文件'}
                     </Button>
                   </div>
@@ -2705,7 +3100,7 @@ function SubscriptionGeneratorPage() {
                     value={trafficLimit}
                     onChange={(e) => setTrafficLimit(e.target.value)}
                   />
-                  <p className='text-xs text-muted-foreground'>
+                  <p className='text-muted-foreground text-xs'>
                     手动指定订阅总流量上限，留空表示不限制。
                   </p>
                 </div>
@@ -2719,18 +3114,24 @@ function SubscriptionGeneratorPage() {
                 <div className='flex flex-col gap-2 md:flex-row md:items-center md:justify-between'>
                   <div>
                     <CardTitle>生成的 Clash 配置</CardTitle>
-                    <CardDescription>
-                      预览生成的 YAML 配置文件
-                    </CardDescription>
+                    <CardDescription>预览生成的 YAML 配置文件</CardDescription>
                   </div>
                   <ButtonGroup mode='responsive' hideIconOnMobile>
                     {(!isV3Mode || ruleMode === 'custom') && (
                       <>
-                        <Button variant='outline' size='sm' onClick={handleAutoGroupByRegion}>
+                        <Button
+                          variant='outline'
+                          size='sm'
+                          onClick={handleAutoGroupByRegion}
+                        >
                           <MapPin className='h-4 w-4' />
                           地域分组
                         </Button>
-                        <Button variant='outline' size='sm' onClick={handleOpenGroupDialog}>
+                        <Button
+                          variant='outline'
+                          size='sm'
+                          onClick={handleOpenGroupDialog}
+                        >
                           <Layers className='h-4 w-4' />
                           手动分组
                         </Button>
@@ -2744,7 +3145,7 @@ function SubscriptionGeneratorPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className='rounded-lg border bg-muted/30'>
+                <div className='bg-muted/30 rounded-lg border'>
                   <Textarea
                     value={clashConfig}
                     onChange={(e) => setClashConfig(e.target.value)}
@@ -2755,7 +3156,10 @@ function SubscriptionGeneratorPage() {
                 <div className='mt-4 flex justify-end gap-2'>
                   {(!isV3Mode || ruleMode === 'custom') && (
                     <>
-                      <Button variant='outline' onClick={handleAutoGroupByRegion}>
+                      <Button
+                        variant='outline'
+                        onClick={handleAutoGroupByRegion}
+                      >
                         <MapPin className='mr-2 h-4 w-4' />
                         地域分组
                       </Button>
@@ -2770,9 +3174,9 @@ function SubscriptionGeneratorPage() {
                     保存订阅
                   </Button>
                 </div>
-                <div className='mt-4 rounded-lg border bg-muted/50 p-4'>
+                <div className='bg-muted/50 mt-4 rounded-lg border p-4'>
                   <h3 className='mb-2 font-semibold'>使用说明</h3>
-                  <ul className='space-y-1 text-sm text-muted-foreground'>
+                  <ul className='text-muted-foreground space-y-1 text-sm'>
                     <li>• 点击"保存为订阅"按钮保存为clash yaml格式配置文件</li>
                     <li>• 在订阅链接将订阅地址导入 Clash 客户端即可使用</li>
                     <li>• 支持 Clash、Clash Meta、Mihomo 等客户端</li>
@@ -2813,7 +3217,7 @@ function SubscriptionGeneratorPage() {
                 value={subscribeFilename}
                 onChange={(e) => setSubscribeFilename(e.target.value)}
               />
-              <p className='text-xs text-muted-foreground'>
+              <p className='text-muted-foreground text-xs'>
                 文件将保存到 subscribes 目录，自动添加 .yaml 扩展名
               </p>
             </div>
@@ -2832,8 +3236,13 @@ function SubscriptionGeneratorPage() {
             <Button variant='outline' onClick={() => setSaveDialogOpen(false)}>
               取消
             </Button>
-            <Button onClick={handleSaveSubscribe} disabled={saveSubscribeMutation.isPending}>
-              {saveSubscribeMutation.isPending && <Loader2 className='mr-2 h-4 w-4 animate-spin' />}
+            <Button
+              onClick={handleSaveSubscribe}
+              disabled={saveSubscribeMutation.isPending}
+            >
+              {saveSubscribeMutation.isPending && (
+                <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+              )}
               保存
             </Button>
           </DialogFooter>
@@ -2845,10 +3254,10 @@ function SubscriptionGeneratorPage() {
         <EditNodesDialog
           open={groupDialogOpen}
           onOpenChange={handleGroupDialogOpenChange}
-          title="手动分组节点"
+          title='手动分组节点'
           proxyGroups={proxyGroups}
           availableNodes={availableProxies}
-          allNodes={savedNodes.filter(n => selectedNodeIds.has(n.id))}
+          allNodes={savedNodes.filter((n) => selectedNodeIds.has(n.id))}
           onProxyGroupsChange={setProxyGroups}
           onSave={handleApplyGrouping}
           onConfigureChainProxy={handleConfigureChainProxy}
@@ -2857,7 +3266,7 @@ function SubscriptionGeneratorPage() {
           onRemoveNodeFromGroup={handleRemoveProxy}
           onRemoveGroup={handleRemoveGroup}
           onRenameGroup={handleRenameGroup}
-          saveButtonText="确定"
+          saveButtonText='确定'
           proxyProviderConfigs={proxyProviderConfigs}
         />
       ) : (
@@ -2866,7 +3275,7 @@ function SubscriptionGeneratorPage() {
           onOpenChange={handleGroupDialogOpenChange}
           proxyGroups={proxyGroups}
           availableNodes={availableProxies}
-          allNodes={savedNodes.filter(n => selectedNodeIds.has(n.id))}
+          allNodes={savedNodes.filter((n) => selectedNodeIds.has(n.id))}
           onProxyGroupsChange={setProxyGroups}
           onSave={handleApplyGrouping}
           onRemoveNodeFromGroup={handleRemoveProxy}
@@ -2877,7 +3286,10 @@ function SubscriptionGeneratorPage() {
       )}
 
       {/* 缺失节点替换对话框 */}
-      <Dialog open={missingNodesDialogOpen} onOpenChange={setMissingNodesDialogOpen}>
+      <Dialog
+        open={missingNodesDialogOpen}
+        onOpenChange={setMissingNodesDialogOpen}
+      >
         <DialogContent className='max-w-md'>
           <DialogHeader>
             <DialogTitle>发现缺失节点</DialogTitle>
@@ -2888,9 +3300,12 @@ function SubscriptionGeneratorPage() {
 
           <div className='space-y-4'>
             {/* 缺失节点列表 */}
-            <div className='max-h-[200px] overflow-y-auto border rounded-md p-3 space-y-1'>
+            <div className='max-h-[200px] space-y-1 overflow-y-auto rounded-md border p-3'>
               {missingNodes.map((node, index) => (
-                <div key={index} className='text-sm font-mono bg-muted px-2 py-1 rounded'>
+                <div
+                  key={index}
+                  className='bg-muted rounded px-2 py-1 font-mono text-sm'
+                >
                   {node}
                 </div>
               ))}
@@ -2901,14 +3316,18 @@ function SubscriptionGeneratorPage() {
               <Label>选择替换为：</Label>
               <div className='grid grid-cols-3 gap-2'>
                 <Button
-                  variant={replacementChoice === 'DIRECT' ? 'default' : 'outline'}
+                  variant={
+                    replacementChoice === 'DIRECT' ? 'default' : 'outline'
+                  }
                   onClick={() => setReplacementChoice('DIRECT')}
                   className='w-full'
                 >
                   DIRECT
                 </Button>
                 <Button
-                  variant={replacementChoice === 'REJECT' ? 'default' : 'outline'}
+                  variant={
+                    replacementChoice === 'REJECT' ? 'default' : 'outline'
+                  }
                   onClick={() => setReplacementChoice('REJECT')}
                   className='w-full'
                 >
@@ -2916,12 +3335,18 @@ function SubscriptionGeneratorPage() {
                 </Button>
                 {(() => {
                   try {
-                    const parsedConfig = yaml.load(preprocessYaml(pendingConfigAfterGrouping)) as any
-                    const proxyGroupNames = parsedConfig['proxy-groups']?.map((g: any) => g.name) || []
+                    const parsedConfig = yaml.load(
+                      preprocessYaml(pendingConfigAfterGrouping)
+                    ) as any
+                    const proxyGroupNames =
+                      parsedConfig['proxy-groups']?.map((g: any) => g.name) ||
+                      []
                     return proxyGroupNames.map((name: string) => (
                       <Button
                         key={name}
-                        variant={replacementChoice === name ? 'default' : 'outline'}
+                        variant={
+                          replacementChoice === name ? 'default' : 'outline'
+                        }
                         onClick={() => setReplacementChoice(name)}
                         className='w-full'
                       >
@@ -2933,38 +3358,41 @@ function SubscriptionGeneratorPage() {
                   }
                 })()}
               </div>
-              <p className='text-xs text-muted-foreground'>
-                将把上述缺失的节点替换为 <span className='font-semibold'>{replacementChoice}</span>
+              <p className='text-muted-foreground text-xs'>
+                将把上述缺失的节点替换为{' '}
+                <span className='font-semibold'>{replacementChoice}</span>
               </p>
             </div>
           </div>
 
           <DialogFooter>
-            <Button variant='outline' onClick={() => setMissingNodesDialogOpen(false)}>
+            <Button
+              variant='outline'
+              onClick={() => setMissingNodesDialogOpen(false)}
+            >
               取消
             </Button>
-            <Button onClick={handleApplyReplacement}>
-              确认替换
-            </Button>
+            <Button onClick={handleApplyReplacement}>确认替换</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* 模板管理主对话框 */}
-      <Dialog open={templateManageDialogOpen} onOpenChange={setTemplateManageDialogOpen}>
+      <Dialog
+        open={templateManageDialogOpen}
+        onOpenChange={setTemplateManageDialogOpen}
+      >
         <DialogContent className='max-w-2xl'>
           <DialogHeader className='flex flex-row items-center justify-between'>
             <div>
               <DialogTitle>模板管理</DialogTitle>
-              <DialogDescription>
-                管理 ACL4SSR 规则模板
-              </DialogDescription>
+              <DialogDescription>管理 ACL4SSR 规则模板</DialogDescription>
             </div>
           </DialogHeader>
           <div className='space-y-4'>
             <div className='flex justify-end'>
               <Button onClick={handleCreateTemplate}>
-                <Plus className='h-4 w-4 mr-2' />
+                <Plus className='mr-2 h-4 w-4' />
                 新建模板
               </Button>
             </div>
@@ -2979,8 +3407,13 @@ function SubscriptionGeneratorPage() {
                 {
                   header: '规则源',
                   cell: (template: Template) => (
-                    <span className='text-sm text-muted-foreground truncate max-w-[180px] block' title={template.rule_source}>
-                      {template.rule_source ? template.rule_source.split('/').pop() : '未配置'}
+                    <span
+                      className='text-muted-foreground block max-w-[180px] truncate text-sm'
+                      title={template.rule_source}
+                    >
+                      {template.rule_source
+                        ? template.rule_source.split('/').pop()
+                        : '未配置'}
                     </span>
                   ),
                 },
@@ -3018,7 +3451,7 @@ function SubscriptionGeneratorPage() {
                         onClick={() => handleDeleteTemplate(template.id)}
                         title='删除'
                       >
-                        <Trash2 className='h-4 w-4 text-destructive' />
+                        <Trash2 className='text-destructive h-4 w-4' />
                       </Button>
                     </div>
                   ),
@@ -3033,15 +3466,16 @@ function SubscriptionGeneratorPage() {
       </Dialog>
 
       {/* 模板表单对话框 */}
-      <Dialog open={isTemplateFormDialogOpen} onOpenChange={setIsTemplateFormDialogOpen}>
+      <Dialog
+        open={isTemplateFormDialogOpen}
+        onOpenChange={setIsTemplateFormDialogOpen}
+      >
         <DialogContent className='max-w-md'>
           <DialogHeader>
             <DialogTitle>
               {editingTemplate ? '编辑模板' : '新建模板'}
             </DialogTitle>
-            <DialogDescription>
-              配置模板名称和规则源地址
-            </DialogDescription>
+            <DialogDescription>配置模板名称和规则源地址</DialogDescription>
           </DialogHeader>
 
           <div className='space-y-4 py-4'>
@@ -3054,44 +3488,50 @@ function SubscriptionGeneratorPage() {
                   id='template-name'
                   value={templateFormData.name}
                   onChange={(e) =>
-                    setTemplateFormData({ ...templateFormData, name: e.target.value })
+                    setTemplateFormData({
+                      ...templateFormData,
+                      name: e.target.value,
+                    })
                   }
                   placeholder='输入模板名称'
                   className='flex-1'
                 />
-                {!editingTemplate && (() => {
-                  const available = getAvailablePresets()
-                  const hasPresets = available.aethersailor.length > 0 || available.acl4ssr.length > 0
-                  return hasPresets ? (
-                    <Select onValueChange={handleTemplatePresetSelect}>
-                      <SelectTrigger className='w-[140px]'>
-                        <SelectValue placeholder='选择预设' />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {available.aethersailor.length > 0 && (
-                          <SelectGroup>
-                            <SelectLabel>Aethersailor</SelectLabel>
-                            {available.aethersailor.map((preset) => (
-                              <SelectItem key={preset.url} value={preset.url}>
-                                {preset.label}
-                              </SelectItem>
-                            ))}
-                          </SelectGroup>
-                        )}
-                        {available.acl4ssr.length > 0 && (
-                          <SelectGroup>
-                            <SelectLabel>ACL4SSR</SelectLabel>
-                            {available.acl4ssr.map((preset) => (
-                              <SelectItem key={preset.url} value={preset.url}>
-                                {preset.label}
-                              </SelectItem>
-                            ))}
-                          </SelectGroup>
-                        )}
-                      </SelectContent>
-                    </Select>
-                  ) : null
-                })()}
+                {!editingTemplate &&
+                  (() => {
+                    const available = getAvailablePresets()
+                    const hasPresets =
+                      available.aethersailor.length > 0 ||
+                      available.acl4ssr.length > 0
+                    return hasPresets ? (
+                      <Select onValueChange={handleTemplatePresetSelect}>
+                        <SelectTrigger className='w-[140px]'>
+                          <SelectValue placeholder='选择预设' />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {available.aethersailor.length > 0 && (
+                            <SelectGroup>
+                              <SelectLabel>Aethersailor</SelectLabel>
+                              {available.aethersailor.map((preset) => (
+                                <SelectItem key={preset.url} value={preset.url}>
+                                  {preset.label}
+                                </SelectItem>
+                              ))}
+                            </SelectGroup>
+                          )}
+                          {available.acl4ssr.length > 0 && (
+                            <SelectGroup>
+                              <SelectLabel>ACL4SSR</SelectLabel>
+                              {available.acl4ssr.map((preset) => (
+                                <SelectItem key={preset.url} value={preset.url}>
+                                  {preset.label}
+                                </SelectItem>
+                              ))}
+                            </SelectGroup>
+                          )}
+                        </SelectContent>
+                      </Select>
+                    ) : null
+                  })()}
               </div>
             </div>
 
@@ -3103,11 +3543,14 @@ function SubscriptionGeneratorPage() {
                 id='rule-source'
                 value={templateFormData.rule_source}
                 onChange={(e) =>
-                  setTemplateFormData({ ...templateFormData, rule_source: e.target.value })
+                  setTemplateFormData({
+                    ...templateFormData,
+                    rule_source: e.target.value,
+                  })
                 }
                 placeholder='ACL4SSR 配置 URL'
               />
-              <p className='text-xs text-muted-foreground'>
+              <p className='text-muted-foreground text-xs'>
                 ACL4SSR 格式的规则配置 URL
               </p>
             </div>
@@ -3115,28 +3558,40 @@ function SubscriptionGeneratorPage() {
             <div className='flex items-center justify-between'>
               <div className='space-y-0.5'>
                 <Label>使用代理下载</Label>
-                <p className='text-xs text-muted-foreground'>
+                <p className='text-muted-foreground text-xs'>
                   启用后自动通过 1ms.cc 代理下载
                 </p>
               </div>
               <Switch
                 checked={templateFormData.use_proxy}
                 onCheckedChange={(checked) =>
-                  setTemplateFormData({ ...templateFormData, use_proxy: checked })
+                  setTemplateFormData({
+                    ...templateFormData,
+                    use_proxy: checked,
+                  })
                 }
               />
             </div>
           </div>
 
           <DialogFooter>
-            <Button variant='outline' onClick={() => setIsTemplateFormDialogOpen(false)}>
+            <Button
+              variant='outline'
+              onClick={() => setIsTemplateFormDialogOpen(false)}
+            >
               取消
             </Button>
             <Button
               onClick={handleSubmitTemplate}
-              disabled={createTemplateMutation.isPending || updateTemplateMutation.isPending || !templateFormData.name.trim() || !templateFormData.rule_source.trim()}
+              disabled={
+                createTemplateMutation.isPending ||
+                updateTemplateMutation.isPending ||
+                !templateFormData.name.trim() ||
+                !templateFormData.rule_source.trim()
+              }
             >
-              {(createTemplateMutation.isPending || updateTemplateMutation.isPending) && (
+              {(createTemplateMutation.isPending ||
+                updateTemplateMutation.isPending) && (
                 <Loader2 className='mr-2 h-4 w-4 animate-spin' />
               )}
               {editingTemplate ? '保存' : '创建'}
@@ -3146,7 +3601,10 @@ function SubscriptionGeneratorPage() {
       </Dialog>
 
       {/* 模板删除确认对话框 */}
-      <AlertDialog open={isTemplateDeleteDialogOpen} onOpenChange={setIsTemplateDeleteDialogOpen}>
+      <AlertDialog
+        open={isTemplateDeleteDialogOpen}
+        onOpenChange={setIsTemplateDeleteDialogOpen}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>确认删除</AlertDialogTitle>
@@ -3157,7 +3615,10 @@ function SubscriptionGeneratorPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => deletingTemplateId && deleteTemplateMutation.mutate(deletingTemplateId)}
+              onClick={() =>
+                deletingTemplateId &&
+                deleteTemplateMutation.mutate(deletingTemplateId)
+              }
               className='bg-destructive text-destructive-foreground hover:bg-destructive/90'
             >
               删除
@@ -3167,24 +3628,25 @@ function SubscriptionGeneratorPage() {
       </AlertDialog>
 
       {/* 模板预览对话框 */}
-      <Dialog open={isTemplatePreviewDialogOpen} onOpenChange={setIsTemplatePreviewDialogOpen}>
-        <DialogContent className='max-w-4xl max-h-[80vh]'>
+      <Dialog
+        open={isTemplatePreviewDialogOpen}
+        onOpenChange={setIsTemplatePreviewDialogOpen}
+      >
+        <DialogContent className='max-h-[80vh] max-w-4xl'>
           <DialogHeader>
             <DialogTitle className='flex items-center justify-between'>
               <span>配置预览</span>
             </DialogTitle>
-            <DialogDescription>
-              生成的配置文件预览
-            </DialogDescription>
+            <DialogDescription>生成的配置文件预览</DialogDescription>
           </DialogHeader>
 
-          <div className='overflow-auto max-h-[60vh]'>
+          <div className='max-h-[60vh] overflow-auto'>
             {isTemplatePreviewLoading ? (
               <div className='flex items-center justify-center py-8'>
                 <span className='text-muted-foreground'>正在生成预览...</span>
               </div>
             ) : (
-              <pre className='text-xs bg-muted p-4 rounded-md whitespace-pre-wrap font-mono'>
+              <pre className='bg-muted rounded-md p-4 font-mono text-xs whitespace-pre-wrap'>
                 {templatePreviewContent}
               </pre>
             )}
@@ -3193,19 +3655,22 @@ function SubscriptionGeneratorPage() {
       </Dialog>
 
       {/* 模板源文件预览对话框 */}
-      <Dialog open={isSourcePreviewDialogOpen} onOpenChange={setIsSourcePreviewDialogOpen}>
-        <DialogContent className='sm:max-w-[75vw] max-h-[80vh]'>
+      <Dialog
+        open={isSourcePreviewDialogOpen}
+        onOpenChange={setIsSourcePreviewDialogOpen}
+      >
+        <DialogContent className='max-h-[80vh] sm:max-w-[75vw]'>
           <DialogHeader>
             <DialogTitle>源文件预览 - {sourcePreviewTitle}</DialogTitle>
           </DialogHeader>
 
-          <div className='overflow-auto max-h-[60vh]'>
+          <div className='max-h-[60vh] overflow-auto'>
             {isSourcePreviewLoading ? (
               <div className='flex items-center justify-center py-8'>
                 <span className='text-muted-foreground'>正在获取源文件...</span>
               </div>
             ) : (
-              <pre className='text-xs bg-muted p-4 rounded-md whitespace-pre-wrap font-mono'>
+              <pre className='bg-muted rounded-md p-4 font-mono text-xs whitespace-pre-wrap'>
                 {sourcePreviewContent}
               </pre>
             )}
@@ -3214,7 +3679,10 @@ function SubscriptionGeneratorPage() {
       </Dialog>
 
       {/* 旧模板管理对话框 */}
-      <Dialog open={oldTemplateManageDialogOpen} onOpenChange={setOldTemplateManageDialogOpen}>
+      <Dialog
+        open={oldTemplateManageDialogOpen}
+        onOpenChange={setOldTemplateManageDialogOpen}
+      >
         <DialogContent className='max-w-2xl'>
           <DialogHeader>
             <DialogTitle>模板管理</DialogTitle>
@@ -3229,7 +3697,7 @@ function SubscriptionGeneratorPage() {
                 onClick={handleUploadOldTemplate}
                 disabled={uploadOldTemplateMutation.isPending}
               >
-                <Upload className='h-4 w-4 mr-2' />
+                <Upload className='mr-2 h-4 w-4' />
                 {uploadOldTemplateMutation.isPending ? '上传中...' : '上传模板'}
               </Button>
             </div>
@@ -3259,7 +3727,7 @@ function SubscriptionGeneratorPage() {
                         onClick={() => handleDeleteOldTemplate(filename)}
                         title='删除'
                       >
-                        <Trash2 className='h-4 w-4 text-destructive' />
+                        <Trash2 className='text-destructive h-4 w-4' />
                       </Button>
                     </div>
                   ),
@@ -3274,23 +3742,26 @@ function SubscriptionGeneratorPage() {
       </Dialog>
 
       {/* 旧模板编辑对话框 */}
-      <Dialog open={oldTemplateEditDialogOpen} onOpenChange={setOldTemplateEditDialogOpen}>
-        <DialogContent className='sm:max-w-[80vw] max-h-[90vh]'>
+      <Dialog
+        open={oldTemplateEditDialogOpen}
+        onOpenChange={setOldTemplateEditDialogOpen}
+      >
+        <DialogContent className='max-h-[90vh] sm:max-w-[80vw]'>
           <DialogHeader>
             <DialogTitle>编辑模板 - {editingOldTemplate}</DialogTitle>
-            <DialogDescription>
-              编辑 YAML 模板文件内容
-            </DialogDescription>
+            <DialogDescription>编辑 YAML 模板文件内容</DialogDescription>
           </DialogHeader>
 
-          <div className='overflow-auto max-h-[60vh]'>
+          <div className='max-h-[60vh] overflow-auto'>
             {isOldTemplateLoading ? (
               <div className='flex items-center justify-center py-8'>
-                <span className='text-muted-foreground'>正在加载模板内容...</span>
+                <span className='text-muted-foreground'>
+                  正在加载模板内容...
+                </span>
               </div>
             ) : (
               <Textarea
-                className='font-mono text-xs min-h-[400px]'
+                className='min-h-[400px] font-mono text-xs'
                 value={oldTemplateContent}
                 onChange={(e) => setOldTemplateContent(e.target.value)}
                 placeholder='模板内容'
@@ -3299,12 +3770,17 @@ function SubscriptionGeneratorPage() {
           </div>
 
           <DialogFooter>
-            <Button variant='outline' onClick={() => setOldTemplateEditDialogOpen(false)}>
+            <Button
+              variant='outline'
+              onClick={() => setOldTemplateEditDialogOpen(false)}
+            >
               取消
             </Button>
             <Button
               onClick={handleSaveOldTemplate}
-              disabled={updateOldTemplateMutation.isPending || isOldTemplateLoading}
+              disabled={
+                updateOldTemplateMutation.isPending || isOldTemplateLoading
+              }
             >
               {updateOldTemplateMutation.isPending ? '保存中...' : '保存'}
             </Button>
@@ -3313,7 +3789,10 @@ function SubscriptionGeneratorPage() {
       </Dialog>
 
       {/* 旧模板删除确认对话框 */}
-      <AlertDialog open={isOldTemplateDeleteDialogOpen} onOpenChange={setIsOldTemplateDeleteDialogOpen}>
+      <AlertDialog
+        open={isOldTemplateDeleteDialogOpen}
+        onOpenChange={setIsOldTemplateDeleteDialogOpen}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>确认删除</AlertDialogTitle>
@@ -3324,8 +3803,11 @@ function SubscriptionGeneratorPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => deletingOldTemplate && deleteOldTemplateMutation.mutate(deletingOldTemplate)}
-              className='bg-destructive text-white hover:bg-destructive/90'
+              onClick={() =>
+                deletingOldTemplate &&
+                deleteOldTemplateMutation.mutate(deletingOldTemplate)
+              }
+              className='bg-destructive hover:bg-destructive/90 text-white'
             >
               删除
             </AlertDialogAction>
@@ -3334,7 +3816,10 @@ function SubscriptionGeneratorPage() {
       </AlertDialog>
 
       {/* 旧模板重命名对话框 */}
-      <Dialog open={isOldTemplateRenameDialogOpen} onOpenChange={setIsOldTemplateRenameDialogOpen}>
+      <Dialog
+        open={isOldTemplateRenameDialogOpen}
+        onOpenChange={setIsOldTemplateRenameDialogOpen}
+      >
         <DialogContent className='sm:max-w-md'>
           <DialogHeader>
             <DialogTitle>重命名模板</DialogTitle>
@@ -3357,12 +3842,18 @@ function SubscriptionGeneratorPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant='outline' onClick={() => setIsOldTemplateRenameDialogOpen(false)}>
+            <Button
+              variant='outline'
+              onClick={() => setIsOldTemplateRenameDialogOpen(false)}
+            >
               取消
             </Button>
             <Button
               onClick={handleConfirmRenameOldTemplate}
-              disabled={!newOldTemplateName.trim() || renameOldTemplateMutation.isPending}
+              disabled={
+                !newOldTemplateName.trim() ||
+                renameOldTemplateMutation.isPending
+              }
             >
               {renameOldTemplateMutation.isPending ? '重命名中...' : '确认'}
             </Button>

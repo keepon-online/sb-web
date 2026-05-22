@@ -44,23 +44,28 @@ export function validateClashConfig(config: any): ValidationResult {
   }
 
   // 3. 检查循环引用
-  const circularIssues = detectCircularReferences(fixedConfig['proxy-groups'] || [])
+  const circularIssues = detectCircularReferences(
+    fixedConfig['proxy-groups'] || []
+  )
   issues.push(...circularIssues)
 
   // 判断是否有错误级别的问题
-  const hasErrors = issues.some(issue => issue.level === 'error')
+  const hasErrors = issues.some((issue) => issue.level === 'error')
 
   return {
     valid: !hasErrors,
     issues,
-    fixedConfig: issues.some(i => i.autoFixed) ? fixedConfig : undefined
+    fixedConfig: issues.some((i) => i.autoFixed) ? fixedConfig : undefined,
   }
 }
 
 /**
  * 校验proxies数组
  */
-function validateProxies(proxies: any[]): { issues: ValidationIssue[]; fixed?: any[] } {
+function validateProxies(proxies: any[]): {
+  issues: ValidationIssue[]
+  fixed?: any[]
+} {
   const issues: ValidationIssue[] = []
   const fixed: any[] = []
   const seenNames = new Set<string>()
@@ -74,18 +79,22 @@ function validateProxies(proxies: any[]): { issues: ValidationIssue[]; fixed?: a
       issues.push({
         level: 'error',
         message: `代理节点 #${i + 1} 不是有效的对象`,
-        location
+        location,
       })
       continue
     }
 
     // 检查name字段是否存在
-    if (!proxy.name || typeof proxy.name !== 'string' || proxy.name.trim() === '') {
+    if (
+      !proxy.name ||
+      typeof proxy.name !== 'string' ||
+      proxy.name.trim() === ''
+    ) {
       issues.push({
         level: 'error',
         message: `代理节点 #${i + 1} 缺少name字段或name为空`,
         location,
-        field: 'name'
+        field: 'name',
       })
       continue
     }
@@ -99,7 +108,7 @@ function validateProxies(proxies: any[]): { issues: ValidationIssue[]; fixed?: a
         message: `代理节点名称重复: "${name}"，已自动移除`,
         location,
         field: 'name',
-        autoFixed: true
+        autoFixed: true,
       })
       // 重复的节点不添加到fixed数组
       continue
@@ -114,7 +123,7 @@ function validateProxies(proxies: any[]): { issues: ValidationIssue[]; fixed?: a
         message: `代理节点 "${name}" 的name字段不是第一个字段，已自动调整`,
         location,
         field: 'name',
-        autoFixed: true
+        autoFixed: true,
       })
     }
 
@@ -125,7 +134,7 @@ function validateProxies(proxies: any[]): { issues: ValidationIssue[]; fixed?: a
 
   return {
     issues,
-    fixed: fixed.length > 0 ? fixed : undefined
+    fixed: fixed.length > 0 ? fixed : undefined,
   }
 }
 
@@ -139,16 +148,16 @@ function validateProxyGroups(
   const issues: ValidationIssue[] = []
   const fixed: any[] = []
   const seenNames = new Set<string>()
-  const proxyNames = new Set(proxies.map(p => p.name))
-  const groupNames = new Set(groups.map(g => g?.name).filter(Boolean))
+  const proxyNames = new Set(proxies.map((p) => p.name))
+  const groupNames = new Set(groups.map((g) => g?.name).filter(Boolean))
 
   // 特殊节点名称
   const specialNodes = new Set(['DIRECT', 'REJECT', 'PROXY', 'PASS'])
   // 常见的拼写错误
   const spellingCorrections: Record<string, string> = {
-    'DIRCT': 'DIRECT',
-    'REJET': 'REJECT',
-    'REJCT': 'REJECT',
+    DIRCT: 'DIRECT',
+    REJET: 'REJECT',
+    REJCT: 'REJECT',
   }
 
   for (let i = 0; i < groups.length; i++) {
@@ -160,18 +169,22 @@ function validateProxyGroups(
       issues.push({
         level: 'error',
         message: `代理组 #${i + 1} 不是有效的对象`,
-        location
+        location,
       })
       continue
     }
 
     // 检查name字段是否存在
-    if (!group.name || typeof group.name !== 'string' || group.name.trim() === '') {
+    if (
+      !group.name ||
+      typeof group.name !== 'string' ||
+      group.name.trim() === ''
+    ) {
       issues.push({
         level: 'error',
         message: `代理组 #${i + 1} 缺少name字段或name为空`,
         location,
-        field: 'name'
+        field: 'name',
       })
       continue
     }
@@ -184,7 +197,7 @@ function validateProxyGroups(
         level: 'error',
         message: `代理组名称重复: "${name}"`,
         location,
-        field: 'name'
+        field: 'name',
       })
       continue
     }
@@ -198,14 +211,15 @@ function validateProxyGroups(
         message: `代理组 "${name}" 的name字段不是第一个字段，已自动调整`,
         location,
         field: 'name',
-        autoFixed: true
+        autoFixed: true,
       })
     }
 
     // 检查proxies、use、filter和include-all字段
     const hasProxies = Array.isArray(group.proxies) && group.proxies.length > 0
     const hasUse = Array.isArray(group.use) && group.use.length > 0
-    const hasFilter = typeof group.filter === 'string' && group.filter.trim() !== ''
+    const hasFilter =
+      typeof group.filter === 'string' && group.filter.trim() !== ''
     const hasIncludeAll = group['include-all'] === true
 
     if (!hasProxies && !hasUse && !hasFilter && !hasIncludeAll) {
@@ -213,7 +227,7 @@ function validateProxyGroups(
         level: 'error',
         message: `代理组 "${name}" 的proxies、use、filter和include-all字段都为空或不存在`,
         location,
-        field: 'proxies'
+        field: 'proxies',
       })
       continue
     }
@@ -245,21 +259,22 @@ function validateProxyGroups(
             message: `代理组 "${name}" 中的节点引用 "${proxy}" 已自动修正为 "${correctedProxy}"`,
             location,
             field: 'proxies',
-            autoFixed: true
+            autoFixed: true,
           })
         }
 
         // 检查节点是否存在
         const isSpecial = specialNodes.has(correctedProxy)
         const isProxy = proxyNames.has(correctedProxy)
-        const isGroup = groupNames.has(correctedProxy) && correctedProxy !== name // 不能引用自己
+        const isGroup =
+          groupNames.has(correctedProxy) && correctedProxy !== name // 不能引用自己
 
         if (!isSpecial && !isProxy && !isGroup) {
           issues.push({
             level: 'error',
             message: `代理组 "${name}" 引用了不存在的节点: "${correctedProxy}"`,
             location,
-            field: 'proxies'
+            field: 'proxies',
           })
           continue
         }
@@ -274,7 +289,7 @@ function validateProxyGroups(
           message: `代理组 "${name}" 的proxies字段包含重复引用，已自动去重`,
           location,
           field: 'proxies',
-          autoFixed: true
+          autoFixed: true,
         })
       }
 
@@ -288,7 +303,7 @@ function validateProxyGroups(
 
   return {
     issues,
-    fixed: fixed.length > 0 ? fixed : undefined
+    fixed: fixed.length > 0 ? fixed : undefined,
   }
 }
 
@@ -304,12 +319,17 @@ function detectCircularReferences(groups: any[]): ValidationIssue[] {
     if (!group.name) continue
     const refs = (group.proxies || [])
       .filter((p: any) => typeof p === 'string')
-      .filter((p: string) => groups.some(g => g.name === p))
+      .filter((p: string) => groups.some((g) => g.name === p))
     groupMap.set(group.name, refs)
   }
 
   // DFS检测循环
-  function hasCycle(node: string, visited: Set<string>, recStack: Set<string>, path: string[]): boolean {
+  function hasCycle(
+    node: string,
+    visited: Set<string>,
+    recStack: Set<string>,
+    path: string[]
+  ): boolean {
     visited.add(node)
     recStack.add(node)
     path.push(node)
@@ -327,7 +347,7 @@ function detectCircularReferences(groups: any[]): ValidationIssue[] {
         issues.push({
           level: 'error',
           message: `检测到代理组循环引用: ${cycle}`,
-          location: `proxy-groups[${node}]`
+          location: `proxy-groups[${node}]`,
         })
         return true
       }
@@ -377,7 +397,17 @@ function reorderProxyFields(proxy: any): any {
  */
 function reorderGroupFields(group: any): any {
   const ordered: any = {}
-  const priorityKeys = ['name', 'type', 'proxies', 'use', 'url', 'interval', 'strategy', 'lazy', 'hidden']
+  const priorityKeys = [
+    'name',
+    'type',
+    'proxies',
+    'use',
+    'url',
+    'interval',
+    'strategy',
+    'lazy',
+    'hidden',
+  ]
 
   // 先添加优先字段
   for (const key of priorityKeys) {
@@ -404,9 +434,9 @@ export function formatValidationIssues(issues: ValidationIssue[]): string {
     return '✅ 配置校验通过'
   }
 
-  const errors = issues.filter(i => i.level === 'error')
-  const warnings = issues.filter(i => i.level === 'warning')
-  const autoFixed = issues.filter(i => i.autoFixed)
+  const errors = issues.filter((i) => i.level === 'error')
+  const warnings = issues.filter((i) => i.level === 'warning')
+  const autoFixed = issues.filter((i) => i.autoFixed)
 
   let message = ''
 
@@ -422,11 +452,14 @@ export function formatValidationIssues(issues: ValidationIssue[]): string {
   }
 
   // 辅助函数：格式化分组的问题
-  const formatGroupedIssues = (issueList: ValidationIssue[], maxDisplay = 3): string => {
+  const formatGroupedIssues = (
+    issueList: ValidationIssue[],
+    maxDisplay = 3
+  ): string => {
     // 按错误模式分组
     const grouped = new Map<string, ValidationIssue[]>()
 
-    issueList.forEach(issue => {
+    issueList.forEach((issue) => {
       const pattern = extractPattern(issue.message)
       if (!grouped.has(pattern)) {
         grouped.set(pattern, [])
@@ -449,7 +482,7 @@ export function formatValidationIssues(issues: ValidationIssue[]): string {
         itemIndex++
       } else {
         // 多个相同模式的错误，合并显示
-        const names = items.map(i => extractName(i.message)).filter(Boolean)
+        const names = items.map((i) => extractName(i.message)).filter(Boolean)
 
         // 重建消息，将第一个名称替换为计数
         let baseMessage = pattern.replace('"{name}"', `${items.length} 个项目`)

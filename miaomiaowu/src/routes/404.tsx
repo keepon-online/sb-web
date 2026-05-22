@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { Button } from '@/components/ui/button'
 import { Home } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 
 export const Route = createFileRoute('/404')({
   component: NotFoundPage,
@@ -8,7 +8,7 @@ export const Route = createFileRoute('/404')({
 
 function NotFoundPage() {
   return (
-    <div className='flex min-h-svh flex-col items-center justify-center gap-4 bg-background px-4 text-center'>
+    <div className='bg-background flex min-h-svh flex-col items-center justify-center gap-4 px-4 text-center'>
       <h1 className='text-3xl font-semibold tracking-tight'>404 Not Found</h1>
       <Button asChild variant='outline'>
         <Link to='/'>

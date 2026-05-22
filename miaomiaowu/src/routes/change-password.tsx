@@ -1,5 +1,5 @@
-import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { useEffect } from 'react'
+import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { useAuthStore } from '@/stores/auth-store'
 
 export const Route = createFileRoute('/change-password')({

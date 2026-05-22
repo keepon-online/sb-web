@@ -4,28 +4,26 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 
 const buttonVariants = cva(
-  "pixel-button inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-none text-sm font-medium disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:ring-ring/60 focus-visible:ring-4 focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--background)] transition-all",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:ring-ring/60 focus-visible:ring-4 transition-all active:scale-95",
   {
     variants: {
       variant: {
         default:
-          "bg-primary text-primary-foreground border-[color:rgba(217,119,87,0.5)] hover:bg-primary/85 hover:border-[color:rgba(217,119,87,0.7)]",
+          'bg-primary text-primary-foreground shadow-sm hover:bg-primary/90',
         destructive:
-          "bg-destructive text-white border-[color:rgba(239,68,68,0.65)] hover:bg-destructive/85 hover:border-[color:rgba(239,68,68,0.85)] focus-visible:ring-destructive/30 dark:bg-destructive/70",
+          'bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90',
         outline:
-          "bg-background/75 text-foreground border-[color:rgba(137,110,96,0.45)] hover:bg-accent/35 hover:text-accent-foreground dark:bg-input/30 dark:border-[color:rgba(255,255,255,0.18)] dark:hover:bg-accent/45 dark:hover:text-accent-foreground",
+          'border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground',
         secondary:
-          "bg-secondary text-secondary-foreground border-[color:rgba(241,140,110,0.38)] hover:bg-secondary/80",
-        ghost:
-          "border-transparent bg-transparent hover:bg-accent/40 hover:text-accent-foreground dark:hover:bg-accent/30",
-        link:
-          'border-transparent bg-transparent text-primary underline-offset-4 hover:underline',
+          'bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80',
+        ghost: 'hover:bg-accent hover:text-accent-foreground',
+        link: 'text-primary underline-offset-4 hover:underline',
       },
       size: {
-        default: 'h-10 px-5 has-[>svg]:px-4',
-        sm: 'h-9 gap-1.5 px-4 has-[>svg]:px-3',
-        lg: 'h-11 px-7 has-[>svg]:px-5',
-        icon: 'size-10',
+        default: 'h-10 px-4 py-2',
+        sm: 'h-9 rounded-md px-3',
+        lg: 'h-11 rounded-md px-8',
+        icon: 'h-10 w-10',
       },
     },
     defaultVariants: {

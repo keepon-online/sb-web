@@ -3,6 +3,7 @@ import { useMutation } from '@tanstack/react-query'
 import { Download, Upload, HardDrive, AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
 import { api } from '@/lib/api'
+import { Button } from '@/components/ui/button'
 import {
   Dialog,
   DialogContent,
@@ -10,7 +11,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
@@ -33,7 +33,10 @@ export function BackupDialog({ open, onOpenChange }: BackupDialogProps) {
       const url = window.URL.createObjectURL(new Blob([response.data]))
       const link = document.createElement('a')
       link.href = url
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
+      const timestamp = new Date()
+        .toISOString()
+        .replace(/[:.]/g, '-')
+        .slice(0, 19)
       link.setAttribute('download', `miaomiaowu-backup-${timestamp}.zip`)
       document.body.appendChild(link)
       link.click()
@@ -91,7 +94,7 @@ export function BackupDialog({ open, onOpenChange }: BackupDialogProps) {
               disabled={isDownloading}
               className='w-full'
             >
-              <Download className='size-4 mr-2' />
+              <Download className='mr-2 size-4' />
               {isDownloading ? '正在生成备份...' : '下载当前数据备份'}
             </Button>
           </div>
@@ -111,11 +114,11 @@ export function BackupDialog({ open, onOpenChange }: BackupDialogProps) {
               variant='destructive'
               className='w-full'
             >
-              <Upload className='size-4 mr-2' />
+              <Upload className='mr-2 size-4' />
               {restoreMutation.isPending ? '恢复中...' : '恢复备份'}
             </Button>
-            <div className='flex items-start gap-2 text-xs text-muted-foreground'>
-              <AlertTriangle className='size-4 shrink-0 text-destructive' />
+            <div className='text-muted-foreground flex items-start gap-2 text-xs'>
+              <AlertTriangle className='text-destructive size-4 shrink-0' />
               <span>恢复备份将覆盖当前所有数据，请谨慎操作</span>
             </div>
           </div>

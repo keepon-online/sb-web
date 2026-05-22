@@ -1,5 +1,5 @@
-import { createFileRoute } from '@tanstack/react-router'
 import { useState, useEffect } from 'react'
+import { createFileRoute } from '@tanstack/react-router'
 import { api } from '@/lib/api'
 
 interface Certificate {
@@ -28,7 +28,9 @@ export const Route = createFileRoute('/singbox/certificates')({
 
 function CertificatesPage() {
   const [certs, setCerts] = useState<Certificate[]>([])
-  const [certStatuses, setCertStatuses] = useState<Record<string, CertStatus>>({})
+  const [certStatuses, setCertStatuses] = useState<Record<string, CertStatus>>(
+    {}
+  )
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -153,92 +155,92 @@ function CertificatesPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-lg">加载中...</div>
+      <div className='flex h-screen items-center justify-center'>
+        <div className='text-lg'>加载中...</div>
       </div>
     )
   }
 
   return (
-    <div className="container mx-auto p-6">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold">证书管理</h1>
-        <p className="text-gray-600 mt-2">管理 SSL/TLS 证书</p>
+    <div className='container mx-auto p-6'>
+      <div className='mb-6'>
+        <h1 className='text-3xl font-bold'>证书管理</h1>
+        <p className='mt-2 text-gray-600'>管理 SSL/TLS 证书</p>
       </div>
 
       {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+        <div className='mb-4 rounded border border-red-400 bg-red-100 px-4 py-3 text-red-700'>
           {error}
         </div>
       )}
 
       {/* 证书生成 */}
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
-        <h2 className="text-xl font-semibold mb-4">生成新证书</h2>
+      <div className='mb-6 rounded-lg bg-white p-6 shadow'>
+        <h2 className='mb-4 text-xl font-semibold'>生成新证书</h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className='grid grid-cols-1 gap-4 md:grid-cols-2'>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className='mb-2 block text-sm font-medium text-gray-700'>
               域名 *
             </label>
             <input
-              type="text"
+              type='text'
               value={domain}
               onChange={(e) => setDomain(e.target.value)}
-              placeholder="example.com"
-              className="w-full border border-gray-300 rounded-md px-3 py-2"
+              placeholder='example.com'
+              className='w-full rounded-md border border-gray-300 px-3 py-2'
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className='mb-2 block text-sm font-medium text-gray-700'>
               证书类型
             </label>
             <select
               value={certType}
               onChange={(e) => setCertType(e.target.value)}
-              className="w-full border border-gray-300 rounded-md px-3 py-2"
+              className='w-full rounded-md border border-gray-300 px-3 py-2'
             >
-              <option value="selfsigned">自签名证书</option>
-              <option value="acme">Let's Encrypt (ACME)</option>
+              <option value='selfsigned'>自签名证书</option>
+              <option value='acme'>Let's Encrypt (ACME)</option>
             </select>
           </div>
 
           {certType === 'acme' && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className='mb-2 block text-sm font-medium text-gray-700'>
                 邮箱地址 *
               </label>
               <input
-                type="email"
+                type='email'
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@example.com"
-                className="w-full border border-gray-300 rounded-md px-3 py-2"
+                placeholder='admin@example.com'
+                className='w-full rounded-md border border-gray-300 px-3 py-2'
               />
             </div>
           )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className='mb-2 block text-sm font-medium text-gray-700'>
               有效期 (天)
             </label>
             <input
-              type="number"
+              type='number'
               value={validityDays}
               onChange={(e) => setValidityDays(parseInt(e.target.value))}
               min={1}
               max={3650}
-              className="w-full border border-gray-300 rounded-md px-3 py-2"
+              className='w-full rounded-md border border-gray-300 px-3 py-2'
             />
           </div>
         </div>
 
-        <div className="mt-4">
+        <div className='mt-4'>
           <button
             onClick={handleGenerateCert}
             disabled={generating || !domain}
-            className="bg-green-500 text-white px-6 py-2 rounded hover:bg-green-600 disabled:opacity-50"
+            className='rounded bg-green-500 px-6 py-2 text-white hover:bg-green-600 disabled:opacity-50'
           >
             {generating ? '生成中...' : '生成证书'}
           </button>
@@ -246,13 +248,13 @@ function CertificatesPage() {
       </div>
 
       {/* 批量操作 */}
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
-        <h2 className="text-xl font-semibold mb-4">批量操作</h2>
+      <div className='mb-6 rounded-lg bg-white p-6 shadow'>
+        <h2 className='mb-4 text-xl font-semibold'>批量操作</h2>
 
-        <div className="flex space-x-4">
+        <div className='flex space-x-4'>
           <button
             onClick={handleAutoRenew}
-            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+            className='rounded bg-blue-500 px-4 py-2 text-white hover:bg-blue-600'
           >
             自动更新所有证书
           </button>
@@ -260,82 +262,88 @@ function CertificatesPage() {
       </div>
 
       {/* 证书列表 */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold mb-4">已安装的证书 ({certs.length})</h2>
+      <div className='rounded-lg bg-white p-6 shadow'>
+        <h2 className='mb-4 text-xl font-semibold'>
+          已安装的证书 ({certs.length})
+        </h2>
 
         {certs.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            暂无证书
-          </div>
+          <div className='py-8 text-center text-gray-500'>暂无证书</div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+          <div className='overflow-x-auto'>
+            <table className='min-w-full divide-y divide-gray-200'>
+              <thead className='bg-gray-50'>
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className='px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase'>
                     域名
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className='px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase'>
                     类型
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className='px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase'>
                     状态
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className='px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase'>
                     过期时间
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className='px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase'>
                     自动更新
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className='px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase'>
                     操作
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className='divide-y divide-gray-200 bg-white'>
                 {certs.map((cert) => {
                   const expiryStatus = getExpiryStatus(cert.domain)
                   return (
                     <tr key={cert.id}>
-                      <td className="px-6 py-4 whitespace-nowrap">{cert.domain}</td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                      <td className='px-6 py-4 whitespace-nowrap'>
+                        {cert.domain}
+                      </td>
+                      <td className='px-6 py-4 whitespace-nowrap'>
+                        <span className='inline-flex rounded-full bg-blue-100 px-2 text-xs leading-5 font-semibold text-blue-800'>
                           {cert.cert_type}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          expiryStatus.color === 'green'
-                            ? 'bg-green-100 text-green-800'
-                            : expiryStatus.color === 'yellow'
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : 'bg-red-100 text-red-800'
-                        }`}>
+                      <td className='px-6 py-4 whitespace-nowrap'>
+                        <span
+                          className={`inline-flex rounded-full px-2 text-xs leading-5 font-semibold ${
+                            expiryStatus.color === 'green'
+                              ? 'bg-green-100 text-green-800'
+                              : expiryStatus.color === 'yellow'
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : 'bg-red-100 text-red-800'
+                          }`}
+                        >
                           {expiryStatus.text}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {cert.expires_at ? new Date(cert.expires_at).toLocaleDateString() : '-'}
+                      <td className='px-6 py-4 text-sm whitespace-nowrap text-gray-500'>
+                        {cert.expires_at
+                          ? new Date(cert.expires_at).toLocaleDateString()
+                          : '-'}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className='px-6 py-4 whitespace-nowrap'>
                         <input
-                          type="checkbox"
+                          type='checkbox'
                           checked={cert.auto_renew}
                           disabled
-                          className="w-4 h-4 text-blue-600 rounded"
+                          className='h-4 w-4 rounded text-blue-600'
                           readOnly
                         />
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                      <td className='space-x-2 px-6 py-4 text-sm font-medium whitespace-nowrap'>
                         <button
                           onClick={() => handleRenewCert(cert.domain)}
-                          className="text-blue-600 hover:text-blue-900"
+                          className='text-blue-600 hover:text-blue-900'
                         >
                           更新
                         </button>
                         <button
                           onClick={() => handleDeleteCert(cert.domain)}
-                          className="text-red-600 hover:text-red-900"
+                          className='text-red-600 hover:text-red-900'
                         >
                           删除
                         </button>

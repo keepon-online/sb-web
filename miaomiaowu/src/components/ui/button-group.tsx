@@ -33,7 +33,17 @@ interface ButtonGroupProps extends React.HTMLAttributes<HTMLDivElement> {
  * ```
  */
 const ButtonGroup = React.forwardRef<HTMLDivElement, ButtonGroupProps>(
-  ({ className, mode = 'responsive', gap = 'md', hideIconOnMobile = false, children, ...props }, ref) => {
+  (
+    {
+      className,
+      mode = 'responsive',
+      gap = 'md',
+      hideIconOnMobile = false,
+      children,
+      ...props
+    },
+    ref
+  ) => {
     const gapClass = {
       sm: 'gap-1.5',
       md: 'gap-2',
@@ -42,7 +52,7 @@ const ButtonGroup = React.forwardRef<HTMLDivElement, ButtonGroupProps>(
 
     const modeClass = {
       // 桌面端右对齐，移动端子元素均分宽度
-      'responsive': 'flex justify-end [&>*]:flex-1 sm:[&>*]:flex-none',
+      responsive: 'flex justify-end [&>*]:flex-1 sm:[&>*]:flex-none',
       // 桌面端右对齐，移动端换行显示
       'responsive-wrap': 'flex flex-wrap justify-end',
       // 始终均分宽度

@@ -3,6 +3,7 @@ package singbox
 import (
 	"archive/tar"
 	"compress/gzip"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -12,6 +13,7 @@ import (
 	"strings"
 
 	"miaomiaowu/internal/logger"
+	"miaomiaowu/internal/systemops"
 	"miaomiaowu/internal/util"
 )
 
@@ -305,34 +307,28 @@ func (i *Installer) configureService() error {
 		return nil
 	}
 
-	// 创建 systemd 服务文件
-	serviceContent := fmt.Sprintf(`[Unit]
-Description=Sing-box Service
-After=network.target
-
-[Service]
-Type=simple
-User=root
-ExecStart=%s run -c %s/config.json
-Restart=on-failure
-RestartSec=5s
-
-[Install]
-WantedBy=multi-user.target
-`, filepath.Join(i.paths.BinDir, "sing-box"), i.paths.ConfigDir)
-
-	servicePath := filepath.Join(i.paths.ServiceDir, "sing-box.service")
-	if err := os.WriteFile(servicePath, []byte(serviceContent), 0644); err != nil {
-		return fmt.Errorf("write service file: %w", err)
-	}
-
-	// 重新加载 systemd
-	result, err := i.cmdExec.Execute("systemctl", "daemon-reload")
+	// 使用 ServiceManager 的 InstallPlan
+	serviceManager, err := NewServiceManager(i.env, i.paths)
 	if err != nil {
-		logger.Warn("[Sing-box 安装] systemd daemon-reload 失败", "error", err, "output", result.Output)
+		return fmt.Errorf("create service manager: %w", err)
 	}
 
-	logger.Info("[Sing-box 安装] 系统服务已配置", "path", servicePath)
+	plan := serviceManager.(*SystemdServiceManager).InstallPlan(false)
+	executor := systemops.NewDefaultStepExecutor()
+
+	result, err := plan.Execute(context.Background(), executor)
+	if err != nil {
+		logger.Warn("[Sing-box 安装] 配置服务失败", "error", err)
+		return fmt.Errorf("execute install plan: %w", err)
+	}
+
+	for _, step := range result.Steps {
+		if step.Error != "" {
+			logger.Warn("[Sing-box 安装] 步骤执行失败", "step", step.ID, "error", step.Error)
+		}
+	}
+
+	logger.Info("[Sing-box 安装] 系统服务已配置")
 	return nil
 }
 
@@ -360,8 +356,12 @@ func (i *Installer) stopService() error {
 		return nil // Docker 环境由容器管理
 	}
 
-	_, err := i.cmdExec.Execute("systemctl", "stop", "sing-box")
+	serviceManager, err := NewServiceManager(i.env, i.paths)
 	if err != nil {
+		return fmt.Errorf("create service manager: %w", err)
+	}
+
+	if err := serviceManager.Stop(); err != nil {
 		return fmt.Errorf("stop service: %w", err)
 	}
 	return nil
@@ -373,8 +373,12 @@ func (i *Installer) disableService() error {
 		return nil // Docker 环境由容器管理
 	}
 
-	_, err := i.cmdExec.Execute("systemctl", "disable", "sing-box")
+	serviceManager, err := NewServiceManager(i.env, i.paths)
 	if err != nil {
+		return fmt.Errorf("create service manager: %w", err)
+	}
+
+	if err := serviceManager.Disable(); err != nil {
 		return fmt.Errorf("disable service: %w", err)
 	}
 	return nil
@@ -394,8 +398,25 @@ func (i *Installer) removeBinary() error {
 			logger.Warn("[Sing-box 卸载] 删除服务文件失败", "error", err)
 		}
 
-		// 重新加载 systemd
-		i.cmdExec.Execute("systemctl", "daemon-reload")
+		// 重新加载 systemd - 使用操作计划
+		plan := systemops.OperationPlan{
+			Name: "Reload systemd after service removal",
+			Steps: []systemops.OperationStep{
+				{
+					ID:      "reload-systemd",
+					Title:   "Reload systemd daemon",
+					Kind:    systemops.StepKindSystem,
+					Risk:    systemops.RiskLevelLow,
+					Target:  "systemd",
+					Command: "systemctl",
+					Args:    []string{"daemon-reload"},
+				},
+			},
+		}
+		executor := systemops.NewDefaultStepExecutor()
+		if _, err := plan.Execute(context.Background(), executor); err != nil {
+			logger.Warn("[Sing-box 卸载] systemd daemon-reload 失败", "error", err)
+		}
 	}
 
 	return nil

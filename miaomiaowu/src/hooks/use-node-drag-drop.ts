@@ -16,13 +16,13 @@ interface DraggedNode {
 interface UseNodeDragDropOptions {
   proxyGroups: ProxyGroup[]
   onProxyGroupsChange: (groups: ProxyGroup[]) => void
-  specialNodesToFilter?: string[]  // 特殊节点列表，如 ['♻️ 自动选择', '🚀 节点选择', 'DIRECT', 'REJECT']
+  specialNodesToFilter?: string[] // 特殊节点列表，如 ['♻️ 自动选择', '🚀 节点选择', 'DIRECT', 'REJECT']
 }
 
 export function useNodeDragDrop({
   proxyGroups,
   onProxyGroupsChange,
-  specialNodesToFilter = []
+  specialNodesToFilter = [],
 }: UseNodeDragDropOptions) {
   const [draggedNode, setDraggedNode] = useState<DraggedNode | null>(null)
   const [dragOverGroup, setDragOverGroup] = useState<string | null>(null)
@@ -61,8 +61,8 @@ export function useNodeDragDrop({
       // 如果拖动的是"可用节点"标题，添加筛选后的可用节点到所有代理组
       if (draggedNode.name === '__AVAILABLE_NODES__') {
         const nodesToAdd = draggedNode.filteredNodes || []
-        updatedGroups.forEach(group => {
-          nodesToAdd.forEach(nodeName => {
+        updatedGroups.forEach((group) => {
+          nodesToAdd.forEach((nodeName) => {
             // 过滤掉特殊节点
             const shouldAdd =
               !group.proxies.includes(nodeName) &&
@@ -75,9 +75,12 @@ export function useNodeDragDrop({
         })
       } else {
         // 否则，将单个节点添加到所有代理组
-        updatedGroups.forEach(group => {
+        updatedGroups.forEach((group) => {
           // 防止代理组添加到自己内部，也防止重复添加
-          if (draggedNode.name !== group.name && !group.proxies.includes(draggedNode.name)) {
+          if (
+            draggedNode.name !== group.name &&
+            !group.proxies.includes(draggedNode.name)
+          ) {
             group.proxies.push(draggedNode.name)
           }
         })
@@ -93,22 +96,24 @@ export function useNodeDragDrop({
       draggedNode.fromGroup !== 'available' &&
       draggedNode.name !== '__AVAILABLE_NODES__'
     ) {
-      const fromGroupIndex = updatedGroups.findIndex(g => g.name === draggedNode.fromGroup)
+      const fromGroupIndex = updatedGroups.findIndex(
+        (g) => g.name === draggedNode.fromGroup
+      )
       if (fromGroupIndex !== -1) {
-        updatedGroups[fromGroupIndex].proxies = updatedGroups[fromGroupIndex].proxies.filter(
-          (_, idx) => idx !== draggedNode.fromIndex
-        )
+        updatedGroups[fromGroupIndex].proxies = updatedGroups[
+          fromGroupIndex
+        ].proxies.filter((_, idx) => idx !== draggedNode.fromIndex)
       }
     }
 
     // 添加到新位置
     if (toGroup !== 'available') {
-      const toGroupIndex = updatedGroups.findIndex(g => g.name === toGroup)
+      const toGroupIndex = updatedGroups.findIndex((g) => g.name === toGroup)
       if (toGroupIndex !== -1) {
         // 特殊处理：如果拖动的是"可用节点"标题，添加筛选后的可用节点
         if (draggedNode.name === '__AVAILABLE_NODES__') {
           const nodesToAdd = draggedNode.filteredNodes || []
-          nodesToAdd.forEach(nodeName => {
+          nodesToAdd.forEach((nodeName) => {
             // 过滤掉特殊节点
             const shouldAdd =
               !updatedGroups[toGroupIndex].proxies.includes(nodeName) &&
@@ -128,7 +133,11 @@ export function useNodeDragDrop({
           if (!updatedGroups[toGroupIndex].proxies.includes(draggedNode.name)) {
             if (targetIndex !== undefined) {
               // 插入到指定位置
-              updatedGroups[toGroupIndex].proxies.splice(targetIndex, 0, draggedNode.name)
+              updatedGroups[toGroupIndex].proxies.splice(
+                targetIndex,
+                0,
+                draggedNode.name
+              )
             } else {
               // 添加到末尾
               updatedGroups[toGroupIndex].proxies.push(draggedNode.name)
@@ -143,18 +152,24 @@ export function useNodeDragDrop({
   }
 
   const handleDropToAvailable = () => {
-    if (!draggedNode || !draggedNode.fromGroup || draggedNode.fromGroup === 'available') {
+    if (
+      !draggedNode ||
+      !draggedNode.fromGroup ||
+      draggedNode.fromGroup === 'available'
+    ) {
       handleDragEnd()
       return
     }
 
     // 从代理组中移除节点
     const updatedGroups = [...proxyGroups]
-    const fromGroupIndex = updatedGroups.findIndex(g => g.name === draggedNode.fromGroup)
+    const fromGroupIndex = updatedGroups.findIndex(
+      (g) => g.name === draggedNode.fromGroup
+    )
     if (fromGroupIndex !== -1) {
-      updatedGroups[fromGroupIndex].proxies = updatedGroups[fromGroupIndex].proxies.filter(
-        (_, idx) => idx !== draggedNode.fromIndex
-      )
+      updatedGroups[fromGroupIndex].proxies = updatedGroups[
+        fromGroupIndex
+      ].proxies.filter((_, idx) => idx !== draggedNode.fromIndex)
     }
 
     onProxyGroupsChange(updatedGroups)
@@ -171,6 +186,6 @@ export function useNodeDragDrop({
     handleDragEnterGroup,
     handleDragLeaveGroup,
     handleDrop,
-    handleDropToAvailable
+    handleDropToAvailable,
   }
 }

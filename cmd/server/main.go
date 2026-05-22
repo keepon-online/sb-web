@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"miaomiaowu/internal/acmemgr"
 	"miaomiaowu/internal/auth"
 	"miaomiaowu/internal/handler"
 	"miaomiaowu/internal/logger"
@@ -282,6 +283,66 @@ func main() {
 
 	// Monitoring endpoints (admin only)
 	mux.Handle("/api/admin/monitoring/status", auth.RequireAdmin(tokenStore, userRepo, handler.NewMonitoringStatusHandler(repo)))
+
+	// Operation audit endpoints (admin only) — Sprint 1.1
+	mux.Handle("/api/admin/audit/operations", auth.RequireAdmin(tokenStore, userRepo, handler.NewAuditHandler(repo)))
+	mux.Handle("/api/admin/audit/operations/", auth.RequireAdmin(tokenStore, userRepo, handler.NewAuditHandler(repo)))
+
+	// Domain routing endpoints (admin only) — Sprint 2.2 (sb.sh sbymfl/changefl)
+	mux.Handle("/api/admin/routing/status", auth.RequireAdmin(tokenStore, userRepo, handler.NewRoutingStatusHandler(repo)))
+	mux.Handle("/api/admin/routing/update", auth.RequireAdmin(tokenStore, userRepo, handler.NewRoutingUpdateHandler(repo)))
+	mux.Handle("/api/admin/routing/update-sse", auth.RequireAdmin(tokenStore, userRepo, handler.NewRoutingUpdateSSEHandler(repo)))
+
+	// Sing-box kernel upgrade endpoints (admin only) — Sprint 4 (sb.sh upsbcroe/restartsb)
+	mux.Handle("/api/admin/singbox/upgrade/preview", auth.RequireAdmin(tokenStore, userRepo, handler.NewSingboxUpgradePreviewHandler()))
+	mux.Handle("/api/admin/singbox/upgrade", auth.RequireAdmin(tokenStore, userRepo, handler.NewSingboxUpgradeHandler(repo)))
+	mux.Handle("/api/admin/singbox/upgrade-sse", auth.RequireAdmin(tokenStore, userRepo, handler.NewSingboxUpgradeSSEHandler(repo)))
+
+	// Cron schedule endpoints (admin only) — Sprint 6.A (sb.sh cronsb/uncronsb)
+	mux.Handle("/api/admin/cron/enable", auth.RequireAdmin(tokenStore, userRepo, handler.NewCronEnableHandler(repo)))
+	mux.Handle("/api/admin/cron/disable", auth.RequireAdmin(tokenStore, userRepo, handler.NewCronDisableHandler(repo)))
+	// SSE variants — Sprint 10.B
+	mux.Handle("/api/admin/cron/enable-sse", auth.RequireAdmin(tokenStore, userRepo, handler.NewCronEnableSSEHandler(repo)))
+	mux.Handle("/api/admin/cron/disable-sse", auth.RequireAdmin(tokenStore, userRepo, handler.NewCronDisableSSEHandler(repo)))
+
+	// Certificate manager endpoints (admin only) — Sprint 6.B (sb.sh inscertificate/zqzs/ymzs)
+	mux.Handle("/api/admin/certmgr/acme-status", auth.RequireAdmin(tokenStore, userRepo, handler.NewCertmgrStatusHandler()))
+	mux.Handle("/api/admin/certmgr/self-sign", auth.RequireAdmin(tokenStore, userRepo, handler.NewCertmgrSelfSignHandler(repo)))
+	// SSE variant — Sprint 10.B
+	mux.Handle("/api/admin/certmgr/self-sign-sse", auth.RequireAdmin(tokenStore, userRepo, handler.NewCertmgrSelfSignSSEHandler(repo)))
+
+	// WARP registration endpoint (admin only) — Sprint 7 (sb.sh warpwg/warpcode/reg)
+	mux.Handle("/api/admin/warp/register", auth.RequireAdmin(tokenStore, userRepo, handler.NewWarpRegisterHandler()))
+
+	// WARP apply endpoint (admin only) — Sprint 8 (sb.sh changewg) — writes account into sb.json
+	mux.Handle("/api/admin/warp/apply", auth.RequireAdmin(tokenStore, userRepo, handler.NewWarpApplyHandler(repo)))
+	// SSE variant — Sprint 10.B
+	mux.Handle("/api/admin/warp/apply-sse", auth.RequireAdmin(tokenStore, userRepo, handler.NewWarpApplySSEHandler(repo)))
+
+	// ACME manager (admin only) — Sprint 11.P1 status + Sprint 11.P1-stage2 request-cert
+	// Sprint 13: env-driven bootstrap. ACME_LISTEN_ADDR=":80" + ACME_ALLOWED_HOSTS="example.com" + ACME_EMAIL="ops@x".
+	// Failure here never aborts the server — the manager falls back to "not ready"
+	// and request-cert returns 503 with a hint until the operator fixes env.
+	if acmeMgr, err := acmemgr.Bootstrap(context.Background(), acmemgr.LoadConfigFromEnv(nil), nil); err != nil {
+		logger.Warn("[acmemgr] bootstrap failed (request-cert will reject)", "error", err)
+	} else {
+		handler.SetSharedAcmeManager(acmeMgr)
+		logger.Info("[acmemgr] bootstrap ok",
+			"ready", acmeMgr.Snapshot().Ready,
+			"cache_dir", acmeMgr.Snapshot().CacheDir,
+			"listen", os.Getenv(acmemgr.EnvListenAddr))
+	}
+	mux.Handle("/api/admin/acmemgr/status", auth.RequireAdmin(tokenStore, userRepo, handler.NewAcmemgrStatusHandler()))
+	mux.Handle("/api/admin/acmemgr/request-cert", auth.RequireAdmin(tokenStore, userRepo, handler.NewAcmemgrRequestCertHandler()))
+
+	// Firewall disable endpoints (admin only) — Sprint 2.1
+	mux.Handle("/api/admin/firewall/disable", auth.RequireAdmin(tokenStore, userRepo, handler.NewFirewallDisableHandler(repo)))
+	mux.Handle("/api/admin/firewall/disable-sse", auth.RequireAdmin(tokenStore, userRepo, handler.NewFirewallDisableSSEHandler(repo)))
+
+	// Telegram bot push endpoints (admin only) — Sprint 2.3
+	mux.Handle("/api/admin/telegram/config", auth.RequireAdmin(tokenStore, userRepo, handler.NewTelegramConfigHandler(repo)))
+	mux.Handle("/api/admin/telegram/push", auth.RequireAdmin(tokenStore, userRepo, handler.NewTelegramPushHandler(repo)))
+	mux.Handle("/api/admin/telegram/push-sse", auth.RequireAdmin(tokenStore, userRepo, handler.NewTelegramPushSSEHandler(repo)))
 
 	// User endpoints (all authenticated users)
 	mux.Handle("/api/proxy-groups", auth.RequireToken(tokenStore, handler.NewProxyGroupsHandler(proxyGroupsStore)))

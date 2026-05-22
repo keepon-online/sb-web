@@ -3,10 +3,12 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
-import { toast } from 'sonner'
 import { Upload, AlertTriangle } from 'lucide-react'
-import { api } from '@/lib/api'
+import { toast } from 'sonner'
 import { useAuthStore } from '@/stores/auth-store'
+import { api } from '@/lib/api'
+import { handleServerError } from '@/lib/handle-server-error'
+import { Button } from '@/components/ui/button'
 import {
   Card,
   CardContent,
@@ -14,11 +16,9 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
-import { handleServerError } from '@/lib/handle-server-error'
 
 export const Route = createFileRoute('/login')({
   beforeLoad: () => {
@@ -57,7 +57,7 @@ function LoginPage() {
 
   if (isCheckingSetup) {
     return (
-      <div className='flex min-h-svh items-center justify-center bg-background'>
+      <div className='bg-background flex min-h-svh items-center justify-center'>
         <Card className='w-full max-w-sm'>
           <CardHeader className='space-y-2 text-center'>
             <CardTitle>加载中...</CardTitle>
@@ -125,7 +125,7 @@ function LoginView() {
   })
 
   return (
-    <div className='flex min-h-svh items-center justify-center bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-background via-muted/40 to-muted/60 px-4 py-12'>
+    <div className='from-background via-muted/40 to-muted/60 flex min-h-svh items-center justify-center bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] px-4 py-12'>
       <Card className='w-full max-w-sm shadow-lg'>
         <CardHeader className='space-y-2 text-center'>
           <CardTitle className='text-2xl font-semibold'>登录妙妙屋</CardTitle>
@@ -161,9 +161,14 @@ function LoginView() {
               <Checkbox
                 id='remember_me'
                 checked={form.watch('remember_me')}
-                onCheckedChange={(checked) => form.setValue('remember_me', checked === true)}
+                onCheckedChange={(checked) =>
+                  form.setValue('remember_me', checked === true)
+                }
               />
-              <Label htmlFor='remember_me' className='text-sm font-normal cursor-pointer'>
+              <Label
+                htmlFor='remember_me'
+                className='cursor-pointer text-sm font-normal'
+              >
                 记住我
               </Label>
             </div>
@@ -238,10 +243,12 @@ function InitialSetupView() {
   })
 
   return (
-    <div className='flex min-h-svh items-center justify-center bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-background via-muted/40 to-muted/60 px-4 py-12'>
+    <div className='from-background via-muted/40 to-muted/60 flex min-h-svh items-center justify-center bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] px-4 py-12'>
       <Card className='w-full max-w-md shadow-lg'>
         <CardHeader className='space-y-2 text-center'>
-          <CardTitle className='text-2xl font-semibold'>欢迎使用妙妙屋</CardTitle>
+          <CardTitle className='text-2xl font-semibold'>
+            欢迎使用妙妙屋
+          </CardTitle>
           <CardDescription>
             这是首次启动，请创建管理员账号。首次注册的用户将自动成为管理员。
           </CardDescription>
@@ -320,7 +327,7 @@ function InitialSetupView() {
               <span className='w-full border-t' />
             </div>
             <div className='relative flex justify-center text-xs uppercase'>
-              <span className='bg-card px-2 text-muted-foreground'>或</span>
+              <span className='bg-card text-muted-foreground px-2'>或</span>
             </div>
           </div>
 
@@ -340,10 +347,10 @@ function InitialSetupView() {
               variant='outline'
               className='w-full'
             >
-              <Upload className='size-4 mr-2' />
+              <Upload className='mr-2 size-4' />
               {restoreBackup.isPending ? '恢复中...' : '从备份恢复'}
             </Button>
-            <div className='flex items-start gap-2 text-xs text-muted-foreground'>
+            <div className='text-muted-foreground flex items-start gap-2 text-xs'>
               <AlertTriangle className='size-4 shrink-0 text-amber-500' />
               <span>如果您有之前的备份文件，可以在这里恢复数据</span>
             </div>

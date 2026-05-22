@@ -15,7 +15,7 @@ export function countryCodeToFlag(countryCode: string): string {
   const codePoints = countryCode
     .toUpperCase()
     .split('')
-    .map(char => 127397 + char.charCodeAt(0))
+    .map((char) => 127397 + char.charCodeAt(0))
 
   return String.fromCodePoint(...codePoints)
 }
@@ -27,20 +27,22 @@ export function countryCodeToFlag(countryCode: string): string {
 export function flagToCountryCode(flag: string): string | null {
   if (!flag) return null
 
-  const codePoints = [...flag].map(char => char.codePointAt(0) || 0)
+  const codePoints = [...flag].map((char) => char.codePointAt(0) || 0)
   if (codePoints.length !== 2) return null
 
   // 区域指示符号范围: 0x1F1E6 (A) - 0x1F1FF (Z)
-  const isRegionalIndicator = (cp: number) => cp >= 0x1F1E6 && cp <= 0x1F1FF
+  const isRegionalIndicator = (cp: number) => cp >= 0x1f1e6 && cp <= 0x1f1ff
   if (!codePoints.every(isRegionalIndicator)) return null
 
-  return codePoints.map(cp => String.fromCharCode(cp - 127397)).join('')
+  return codePoints.map((cp) => String.fromCharCode(cp - 127397)).join('')
 }
 
 /**
  * 从节点名称提取地区 emoji 和国家代码
  */
-export function extractRegionFromNodeName(nodeName: string): { emoji: string, countryCode: string } | null {
+export function extractRegionFromNodeName(
+  nodeName: string
+): { emoji: string; countryCode: string } | null {
   if (!nodeName) return null
 
   const emojiRegex = /^([\u{1F1E6}-\u{1F1FF}]{2})/u
@@ -76,18 +78,18 @@ export const REGION_GROUP_MAP: Record<string, string[]> = {
  * 国家代码到代理组名称的反向映射
  */
 export const COUNTRY_TO_GROUP_MAP: Record<string, string> = {
-  'HK': '🇭🇰 香港节点',
-  'US': '🇺🇸 美国节点',
-  'JP': '🇯🇵 日本节点',
-  'SG': '🇸🇬 新加坡节点',
-  'TW': '🇹🇼 台湾节点',
-  'KR': '🇰🇷 韩国节点',
-  'CA': '🇨🇦 加拿大节点',
-  'GB': '🇬🇧 英国节点',
-  'FR': '🇫🇷 法国节点',
-  'DE': '🇩🇪 德国节点',
-  'NL': '🇳🇱 荷兰节点',
-  'TR': '🇹🇷 土耳其节点',
+  HK: '🇭🇰 香港节点',
+  US: '🇺🇸 美国节点',
+  JP: '🇯🇵 日本节点',
+  SG: '🇸🇬 新加坡节点',
+  TW: '🇹🇼 台湾节点',
+  KR: '🇰🇷 韩国节点',
+  CA: '🇨🇦 加拿大节点',
+  GB: '🇬🇧 英国节点',
+  FR: '🇫🇷 法国节点',
+  DE: '🇩🇪 德国节点',
+  NL: '🇳🇱 荷兰节点',
+  TR: '🇹🇷 土耳其节点',
 }
 
 /**
@@ -188,7 +190,8 @@ export function hasEmojiPrefix(text: string): boolean {
   // - Emoji_Presentation: 默认以 emoji 形式显示的字符
   // - Extended_Pictographic: 扩展象形文字（包括旗帜）
   // - 区域指示符号对（旗帜 emoji）
-  const emojiRegex = /^(?:[\u{1F1E6}-\u{1F1FF}]{2}|[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F600}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]|[\u{1F900}-\u{1F9FF}])/u
+  const emojiRegex =
+    /^(?:[\u{1F1E6}-\u{1F1FF}]{2}|[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F600}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]|[\u{1F900}-\u{1F9FF}])/u
 
   return emojiRegex.test(text)
 }
@@ -226,7 +229,9 @@ export async function getGeoIPInfo(ip: string): Promise<GeoIPInfo> {
   // 去除 IPv6 地址的方括号（如 [2a03:4000:6:d221::1] -> 2a03:4000:6:d221::1）
   const cleanIp = ip.replace(/^\[|\]$/g, '')
 
-  const response = await fetch(`https://api.ipinfo.io/lite/${cleanIp}?token=${IPINFO_TOKEN}`)
+  const response = await fetch(
+    `https://api.ipinfo.io/lite/${cleanIp}?token=${IPINFO_TOKEN}`
+  )
 
   if (!response.ok) {
     throw new Error(`Failed to get GeoIP info: ${response.status}`)

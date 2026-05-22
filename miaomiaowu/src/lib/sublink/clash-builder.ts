@@ -1,8 +1,13 @@
-import type { ProxyConfig, CustomRule, ProxyGroupCategory } from './types'
-import { deepCopy } from './utils'
-import { DEFAULT_CLASH_CONFIG, CLASH_SITE_RULE_SET_BASE_URL, CLASH_IP_RULE_SET_BASE_URL } from './clash-config'
+import {
+  DEFAULT_CLASH_CONFIG,
+  CLASH_SITE_RULE_SET_BASE_URL,
+  CLASH_IP_RULE_SET_BASE_URL,
+} from './clash-config'
 import { RULE_CATEGORIES } from './predefined-rules'
 import { translateOutbound, CATEGORY_TO_RULE_NAME } from './translations'
+import type { ProxyConfig, CustomRule, ProxyGroupCategory } from './types'
+import { deepCopy } from './utils'
+
 // import { ProxyNode } from '../proxy-parser'
 
 export class ClashConfigBuilder {
@@ -34,7 +39,9 @@ export class ClashConfigBuilder {
       emoji: category.icon,
       icon: category.icon,
       rule_name: CATEGORY_TO_RULE_NAME[category.name] || category.name,
-      group_label: translateOutbound(CATEGORY_TO_RULE_NAME[category.name] || category.name),
+      group_label: translateOutbound(
+        CATEGORY_TO_RULE_NAME[category.name] || category.name
+      ),
       presets: [], // Legacy doesn't have preset info
       site_rules: category.site_rules.map((rule) => ({
         key: rule,
@@ -85,7 +92,9 @@ export class ClashConfigBuilder {
 
   private convertProxies(): void {
     // 重新排序代理节点的字段：name, type, server, port 在最前面
-    this.config.proxies = this.proxyConfigs.map(proxy => this.reorderProxyFields(proxy))
+    this.config.proxies = this.proxyConfigs.map((proxy) =>
+      this.reorderProxyFields(proxy)
+    )
     this.proxies = this.proxyConfigs
   }
 
@@ -153,7 +162,7 @@ export class ClashConfigBuilder {
 
     this.config['rule-providers'] = ruleProviders
   }
-  
+
   public buildProxyGroups(): void {
     const proxyNames = this.proxies.map((p) => p.name)
     const groups: Record<string, unknown>[] = []
@@ -162,7 +171,12 @@ export class ClashConfigBuilder {
     groups.push({
       name: translateOutbound('Node Select'),
       type: 'select',
-      proxies: ['DIRECT', 'REJECT', translateOutbound('Auto Select'), ...proxyNames],
+      proxies: [
+        'DIRECT',
+        'REJECT',
+        translateOutbound('Auto Select'),
+        ...proxyNames,
+      ],
     })
 
     // 2. Auto Select group
@@ -184,17 +198,15 @@ export class ClashConfigBuilder {
       if (!category.rule_name) continue
 
       // Use group_label from category, fallback to translated rule_name
-      const groupName = category.group_label || translateOutbound(category.rule_name)
+      const groupName =
+        category.group_label || translateOutbound(category.rule_name)
 
       // 国内服务 DIRECT放在顶部
-      if (groupName === "🔒 国内服务") {
+      if (groupName === '🔒 国内服务') {
         groups.push({
           name: groupName,
           type: 'select',
-          proxies: [
-            'DIRECT',
-            translateOutbound('Node Select')
-          ],
+          proxies: ['DIRECT', translateOutbound('Node Select')],
         })
       } else {
         groups.push({
@@ -277,7 +289,8 @@ export class ClashConfigBuilder {
       if (!category.rule_name) continue
 
       // Use group_label for outbound, fallback to translated rule_name
-      const outbound = category.group_label || translateOutbound(category.rule_name)
+      const outbound =
+        category.group_label || translateOutbound(category.rule_name)
 
       // Site rules - use provider key from configuration
       for (const provider of category.site_rules) {
@@ -308,7 +321,8 @@ export class ClashConfigBuilder {
       if (!category.rule_name) continue
 
       // Use group_label for outbound, fallback to translated rule_name
-      const outbound = category.group_label || translateOutbound(category.rule_name)
+      const outbound =
+        category.group_label || translateOutbound(category.rule_name)
 
       // IP rules - use provider key from configuration
       for (const provider of category.ip_rules) {
@@ -329,7 +343,9 @@ export class ClashConfigBuilder {
     if (Array.isArray(obj)) {
       for (const item of obj) {
         if (typeof item === 'object' && item !== null) {
-          const entries = Object.entries(item).filter(([_, v]) => v !== undefined)
+          const entries = Object.entries(item).filter(
+            ([_, v]) => v !== undefined
+          )
           if (entries.length > 0) {
             const [firstKey, firstValue] = entries[0]
             const restEntries = entries.slice(1)

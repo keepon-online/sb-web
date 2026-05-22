@@ -1,3 +1,5 @@
+//go:build ignore
+
 package main
 
 import (
@@ -9,8 +11,8 @@ import (
 )
 
 const (
-	baseURL      = "http://localhost:8080"
-	timeout      = 5 * time.Second
+	baseURL = "http://localhost:8080"
+	timeout = 5 * time.Second
 )
 
 type APITest struct {
@@ -114,14 +116,14 @@ func main() {
 	// 测试各个功能组
 	testGroups := map[string]string{
 		"Sing-box 安装和管理": "singbox",
-		"Sing-box 配置管理":   "config",
-		"证书管理":            "certificate",
-		"Argo 隧道管理":       "argo",
-		"WARP 管理":          "warp",
-		"系统优化":            "system",
-		"订阅管理":            "subscription",
-		"分享管理":            "share",
-		"公共 API":           "public",
+		"Sing-box 配置管理":  "config",
+		"证书管理":           "certificate",
+		"Argo 隧道管理":      "argo",
+		"WARP 管理":        "warp",
+		"系统优化":           "system",
+		"订阅管理":           "subscription",
+		"分享管理":           "share",
+		"公共 API":         "public",
 	}
 
 	currentGroup := ""
@@ -149,9 +151,7 @@ func main() {
 		}
 
 		// 验证结果
-		passed := false
 		if statusCode == test.expectedCode || statusCode == 401 || statusCode == 403 {
-			passed = true
 			passedTests++
 			fmt.Printf("✅ PASS %s (HTTP %d)\n", test.description, statusCode)
 		} else {

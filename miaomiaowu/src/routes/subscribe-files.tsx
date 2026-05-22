@@ -14,7 +14,7 @@ export const Route = createFileRoute('/subscribe-files')({
 
 function SubscribeFilesLayout() {
   return (
-    <div className='min-h-svh bg-background'>
+    <div className='bg-background min-h-svh'>
       <Topbar />
       <Outlet />
     </div>

@@ -2,37 +2,102 @@ import { load as parseYAML, dump as dumpYAML } from 'js-yaml'
 
 // Predefined region proxy groups with their comprehensive filter patterns
 export const REGION_PROXY_GROUPS = [
-  { name: '🇭🇰 香港节点', filter: '🇭🇰|港|\\bHK(?:[-_ ]?\\d+(?:[-_ ]?[A-Za-z]{2,})?)?\\b|hk|Hong Kong|HongKong|hongkong|HONG KONG|HONGKONG|深港|HKG|九龙|Kowloon|新界|沙田|荃湾|葵涌' },
-  { name: '🇺🇸 美国节点', filter: '🇺🇸|美|波特兰|达拉斯|俄勒冈|凤凰城|费利蒙|硅谷|拉斯维加斯|洛杉矶|圣何塞|圣克拉拉|西雅图|芝加哥|纽约|纽纽|亚特兰大|迈阿密|华盛顿|\\bUS(?:[-_ ]?\\d+(?:[-_ ]?[A-Za-z]{2,})?)?\\b|United States|UnitedStates|UNITED STATES|USA|America|AMERICA|JFK|EWR|IAD|ATL|ORD|MIA|NYC|LAX|SFO|SEA|DFW|SJC' },
-  { name: '🇯🇵 日本节点', filter: '🇯🇵|日本|川日|东京|大阪|泉日|埼玉|沪日|深日|(?<!尼|-)日|\\bJP(?:[-_ ]?\\d+(?:[-_ ]?[A-Za-z]{2,})?)?\\b|Japan|JAPAN|JPN|NRT|HND|KIX|TYO|OSA|关西|Kansai|KANSAI' },
-  { name: '🇸🇬 新加坡节点', filter: '🇸🇬|新加坡|坡|狮城|\\bSG(?:[-_ ]?\\d+(?:[-_ ]?[A-Za-z]{2,})?)?\\b|Singapore|SINGAPORE|SIN' },
-  { name: '🇼🇸 台湾节点', filter: '🇹🇼|🇼🇸|台|新北|彰化|\\bTW(?:[-_ ]?\\d+(?:[-_ ]?[A-Za-z]{2,})?)?\\b|Taiwan|TAIWAN|TWN|TPE|ROC' },
-  { name: '🇰🇷 韩国节点', filter: '🇰🇷|\\bKR(?:[-_ ]?\\d+(?:[-_ ]?[A-Za-z]{2,})?)?\\b|Korea|KOREA|KOR|首尔|韩|韓|春川|Chuncheon|ICN' },
-  { name: '🇨🇦 加拿大节点', filter: '🇨🇦|加拿大|\\bCA(?:[-_ ]?\\d+(?:[-_ ]?[A-Za-z]{2,})?)?\\b|Canada|CANADA|CAN|渥太华|温哥华|卡尔加里|蒙特利尔|Montreal|YVR|YYZ|YUL' },
-  { name: '🇬🇧 英国节点', filter: '🇬🇧|英国|Britain|United Kingdom|UNITED KINGDOM|England|伦敦|曼彻斯特|Manchester|\\bUK(?:[-_ ]?\\d+(?:[-_ ]?[A-Za-z]{2,})?)?\\b|GBR|LHR|MAN' },
-  { name: '🇫🇷 法国节点', filter: '🇫🇷|法国|\\bFR(?:[-_ ]?\\d+(?:[-_ ]?[A-Za-z]{2,})?)?\\b|France|FRANCE|FRA|巴黎|马赛|Marseille|CDG|MRS' },
-  { name: '🇩🇪 德国节点', filter: '🇩🇪|德国|Germany|GERMANY|\\bDE(?:[-_ ]?\\d+(?:[-_ ]?[A-Za-z]{2,})?)?\\b|DEU|柏林|法兰克福|慕尼黑|Munich|MUC' },
-  { name: '🇳🇱 荷兰节点', filter: '🇳🇱|荷兰|Netherlands|NETHERLANDS|\\bNL(?:[-_ ]?\\d+(?:[-_ ]?[A-Za-z]{2,})?)?\\b|NLD|阿姆斯特丹|AMS' },
-  { name: '🇹🇷 土耳其节点', filter: '🇹🇷|土耳其|Turkey|TURKEY|Türkiye|\\bTR(?:[-_ ]?\\d+(?:[-_ ]?[A-Za-z]{2,})?)?\\b|TUR|IST|ANK' },
+  {
+    name: '🇭🇰 香港节点',
+    filter:
+      '🇭🇰|港|\\bHK(?:[-_ ]?\\d+(?:[-_ ]?[A-Za-z]{2,})?)?\\b|hk|Hong Kong|HongKong|hongkong|HONG KONG|HONGKONG|深港|HKG|九龙|Kowloon|新界|沙田|荃湾|葵涌',
+  },
+  {
+    name: '🇺🇸 美国节点',
+    filter:
+      '🇺🇸|美|波特兰|达拉斯|俄勒冈|凤凰城|费利蒙|硅谷|拉斯维加斯|洛杉矶|圣何塞|圣克拉拉|西雅图|芝加哥|纽约|纽纽|亚特兰大|迈阿密|华盛顿|\\bUS(?:[-_ ]?\\d+(?:[-_ ]?[A-Za-z]{2,})?)?\\b|United States|UnitedStates|UNITED STATES|USA|America|AMERICA|JFK|EWR|IAD|ATL|ORD|MIA|NYC|LAX|SFO|SEA|DFW|SJC',
+  },
+  {
+    name: '🇯🇵 日本节点',
+    filter:
+      '🇯🇵|日本|川日|东京|大阪|泉日|埼玉|沪日|深日|(?<!尼|-)日|\\bJP(?:[-_ ]?\\d+(?:[-_ ]?[A-Za-z]{2,})?)?\\b|Japan|JAPAN|JPN|NRT|HND|KIX|TYO|OSA|关西|Kansai|KANSAI',
+  },
+  {
+    name: '🇸🇬 新加坡节点',
+    filter:
+      '🇸🇬|新加坡|坡|狮城|\\bSG(?:[-_ ]?\\d+(?:[-_ ]?[A-Za-z]{2,})?)?\\b|Singapore|SINGAPORE|SIN',
+  },
+  {
+    name: '🇼🇸 台湾节点',
+    filter:
+      '🇹🇼|🇼🇸|台|新北|彰化|\\bTW(?:[-_ ]?\\d+(?:[-_ ]?[A-Za-z]{2,})?)?\\b|Taiwan|TAIWAN|TWN|TPE|ROC',
+  },
+  {
+    name: '🇰🇷 韩国节点',
+    filter:
+      '🇰🇷|\\bKR(?:[-_ ]?\\d+(?:[-_ ]?[A-Za-z]{2,})?)?\\b|Korea|KOREA|KOR|首尔|韩|韓|春川|Chuncheon|ICN',
+  },
+  {
+    name: '🇨🇦 加拿大节点',
+    filter:
+      '🇨🇦|加拿大|\\bCA(?:[-_ ]?\\d+(?:[-_ ]?[A-Za-z]{2,})?)?\\b|Canada|CANADA|CAN|渥太华|温哥华|卡尔加里|蒙特利尔|Montreal|YVR|YYZ|YUL',
+  },
+  {
+    name: '🇬🇧 英国节点',
+    filter:
+      '🇬🇧|英国|Britain|United Kingdom|UNITED KINGDOM|England|伦敦|曼彻斯特|Manchester|\\bUK(?:[-_ ]?\\d+(?:[-_ ]?[A-Za-z]{2,})?)?\\b|GBR|LHR|MAN',
+  },
+  {
+    name: '🇫🇷 法国节点',
+    filter:
+      '🇫🇷|法国|\\bFR(?:[-_ ]?\\d+(?:[-_ ]?[A-Za-z]{2,})?)?\\b|France|FRANCE|FRA|巴黎|马赛|Marseille|CDG|MRS',
+  },
+  {
+    name: '🇩🇪 德国节点',
+    filter:
+      '🇩🇪|德国|Germany|GERMANY|\\bDE(?:[-_ ]?\\d+(?:[-_ ]?[A-Za-z]{2,})?)?\\b|DEU|柏林|法兰克福|慕尼黑|Munich|MUC',
+  },
+  {
+    name: '🇳🇱 荷兰节点',
+    filter:
+      '🇳🇱|荷兰|Netherlands|NETHERLANDS|\\bNL(?:[-_ ]?\\d+(?:[-_ ]?[A-Za-z]{2,})?)?\\b|NLD|阿姆斯特丹|AMS',
+  },
+  {
+    name: '🇹🇷 土耳其节点',
+    filter:
+      '🇹🇷|土耳其|Turkey|TURKEY|Türkiye|\\bTR(?:[-_ ]?\\d+(?:[-_ ]?[A-Za-z]{2,})?)?\\b|TUR|IST|ANK',
+  },
 ] as const
 
 // Comprehensive exclude filter for "Other regions" group
-export const OTHER_REGIONS_EXCLUDE_FILTER = '(^(?!.*(港|\\bHK(?:[-_ ]?\\d+(?:[-_ ]?[A-Za-z]{2,})?)?\\b|hk|Hong Kong|HongKong|hongkong|HONG KONG|HONGKONG|深港|HKG|🇭🇰|九龙|Kowloon|新界|沙田|荃湾|葵涌|美|波特兰|达拉斯|俄勒冈|凤凰城|费利蒙|硅谷|拉斯维加斯|洛杉矶|圣何塞|圣克拉拉|西雅图|芝加哥|纽约|纽纽|亚特兰大|迈阿密|华盛顿|\\bUS(?:[-_ ]?\\d+(?:[-_ ]?[A-Za-z]{2,})?)?\\b|United States|UnitedStates|UNITED STATES|USA|America|AMERICA|JFK|EWR|IAD|ATL|ORD|MIA|NYC|LAX|SFO|SEA|DFW|SJC|🇺🇸|日本|川日|东京|大阪|泉日|埼玉|沪日|深日|(?<!尼|-)日|\\bJP(?:[-_ ]?\\d+(?:[-_ ]?[A-Za-z]{2,})?)?\\b|Japan|JAPAN|JPN|NRT|HND|KIX|TYO|OSA|🇯🇵|关西|Kansai|KANSAI|新加坡|坡|狮城|\\bSG(?:[-_ ]?\\d+(?:[-_ ]?[A-Za-z]{2,})?)?\\b|Singapore|SINGAPORE|SIN|🇸🇬|台|新北|彰化|\\bTW(?:[-_ ]?\\d+(?:[-_ ]?[A-Za-z]{2,})?)?\\b|Taiwan|TAIWAN|TWN|TPE|ROC|🇹🇼|\\bKR(?:[-_ ]?\\d+(?:[-_ ]?[A-Za-z]{2,})?)?\\b|Korea|KOREA|KOR|首尔|韩|韓|春川|Chuncheon|ICN|🇰🇷|加拿大|\\bCA(?:[-_ ]?\\d+(?:[-_ ]?[A-Za-z]{2,})?)?\\b|Canada|CANADA|CAN|渥太华|温哥华|卡尔加里|蒙特利尔|Montreal|YVR|YYZ|YUL|🇨🇦|英国|Britain|United Kingdom|UNITED KINGDOM|England|伦敦|曼彻斯特|Manchester|\\bUK(?:[-_ ]?\\d+(?:[-_ ]?[A-Za-z]{2,})?)?\\b|GBR|LHR|MAN|🇬🇧|法国|\\bFR(?:[-_ ]?\\d+(?:[-_ ]?[A-Za-z]{2,})?)?\\b|France|FRANCE|FRA|巴黎|马赛|Marseille|CDG|MRS|🇫🇷|德国|Germany|GERMANY|\\bDE(?:[-_ ]?\\d+(?:[-_ ]?[A-Za-z]{2,})?)?\\b|DEU|柏林|法兰克福|慕尼黑|Munich|MUC|🇩🇪|荷兰|Netherlands|NETHERLANDS|\\bNL(?:[-_ ]?\\d+(?:[-_ ]?[A-Za-z]{2,})?)?\\b|NLD|阿姆斯特丹|AMS|🇳🇱|土耳其|Turkey|TURKEY|Türkiye|\\bTR(?:[-_ ]?\\d+(?:[-_ ]?[A-Za-z]{2,})?)?\\b|TUR|IST|ANK|🇹🇷)).*)'
+export const OTHER_REGIONS_EXCLUDE_FILTER =
+  '(^(?!.*(港|\\bHK(?:[-_ ]?\\d+(?:[-_ ]?[A-Za-z]{2,})?)?\\b|hk|Hong Kong|HongKong|hongkong|HONG KONG|HONGKONG|深港|HKG|🇭🇰|九龙|Kowloon|新界|沙田|荃湾|葵涌|美|波特兰|达拉斯|俄勒冈|凤凰城|费利蒙|硅谷|拉斯维加斯|洛杉矶|圣何塞|圣克拉拉|西雅图|芝加哥|纽约|纽纽|亚特兰大|迈阿密|华盛顿|\\bUS(?:[-_ ]?\\d+(?:[-_ ]?[A-Za-z]{2,})?)?\\b|United States|UnitedStates|UNITED STATES|USA|America|AMERICA|JFK|EWR|IAD|ATL|ORD|MIA|NYC|LAX|SFO|SEA|DFW|SJC|🇺🇸|日本|川日|东京|大阪|泉日|埼玉|沪日|深日|(?<!尼|-)日|\\bJP(?:[-_ ]?\\d+(?:[-_ ]?[A-Za-z]{2,})?)?\\b|Japan|JAPAN|JPN|NRT|HND|KIX|TYO|OSA|🇯🇵|关西|Kansai|KANSAI|新加坡|坡|狮城|\\bSG(?:[-_ ]?\\d+(?:[-_ ]?[A-Za-z]{2,})?)?\\b|Singapore|SINGAPORE|SIN|🇸🇬|台|新北|彰化|\\bTW(?:[-_ ]?\\d+(?:[-_ ]?[A-Za-z]{2,})?)?\\b|Taiwan|TAIWAN|TWN|TPE|ROC|🇹🇼|\\bKR(?:[-_ ]?\\d+(?:[-_ ]?[A-Za-z]{2,})?)?\\b|Korea|KOREA|KOR|首尔|韩|韓|春川|Chuncheon|ICN|🇰🇷|加拿大|\\bCA(?:[-_ ]?\\d+(?:[-_ ]?[A-Za-z]{2,})?)?\\b|Canada|CANADA|CAN|渥太华|温哥华|卡尔加里|蒙特利尔|Montreal|YVR|YYZ|YUL|🇨🇦|英国|Britain|United Kingdom|UNITED KINGDOM|England|伦敦|曼彻斯特|Manchester|\\bUK(?:[-_ ]?\\d+(?:[-_ ]?[A-Za-z]{2,})?)?\\b|GBR|LHR|MAN|🇬🇧|法国|\\bFR(?:[-_ ]?\\d+(?:[-_ ]?[A-Za-z]{2,})?)?\\b|France|FRANCE|FRA|巴黎|马赛|Marseille|CDG|MRS|🇫🇷|德国|Germany|GERMANY|\\bDE(?:[-_ ]?\\d+(?:[-_ ]?[A-Za-z]{2,})?)?\\b|DEU|柏林|法兰克福|慕尼黑|Munich|MUC|🇩🇪|荷兰|Netherlands|NETHERLANDS|\\bNL(?:[-_ ]?\\d+(?:[-_ ]?[A-Za-z]{2,})?)?\\b|NLD|阿姆斯特丹|AMS|🇳🇱|土耳其|Turkey|TURKEY|Türkiye|\\bTR(?:[-_ ]?\\d+(?:[-_ ]?[A-Za-z]{2,})?)?\\b|TUR|IST|ANK|🇹🇷)).*)'
 
 // Proxy types supported by mihomo/clash
 export const PROXY_TYPES = [
-  'ss', 'ssr', 'vmess', 'vless', 'trojan', 'hysteria', 'hysteria2',
-  'tuic', 'wireguard', 'socks5', 'http', 'snell', 'anytls', 'ssh'
+  'ss',
+  'ssr',
+  'vmess',
+  'vless',
+  'trojan',
+  'hysteria',
+  'hysteria2',
+  'tuic',
+  'wireguard',
+  'socks5',
+  'http',
+  'snell',
+  'anytls',
+  'ssh',
 ] as const
 
-export type ProxyType = typeof PROXY_TYPES[number]
+export type ProxyType = (typeof PROXY_TYPES)[number]
 
 // Proxy group types
 export const PROXY_GROUP_TYPES = [
-  'select', 'url-test', 'fallback', 'load-balance', 'relay'
+  'select',
+  'url-test',
+  'fallback',
+  'load-balance',
+  'relay',
 ] as const
 
-export type ProxyGroupType = typeof PROXY_GROUP_TYPES[number]
+export type ProxyGroupType = (typeof PROXY_GROUP_TYPES)[number]
 
 // 代理节点、代理集合、区域代理组占位符
 export const PROXY_NODES_MARKER = '__PROXY_NODES__'
@@ -90,7 +155,7 @@ export interface ProxyGroupFormState {
   type: ProxyGroupType
   filterKeywords: string
   excludeFilterKeywords: string
-  filterFromVariable?: string       // 原始变量名（如 'FliterUS'），标识 filter 来自模板变量
+  filterFromVariable?: string // 原始变量名（如 'FliterUS'），标识 filter 来自模板变量
   excludeFilterFromVariable?: string
   includeTypes: ProxyType[]
   excludeTypes: ProxyType[]
@@ -114,28 +179,52 @@ export function keywordsToRegex(keywords: string): string {
   if (!keywords.trim()) return ''
   return keywords
     .split(/[,，]/)
-    .map(k => k.trim())
-    .filter(k => k.length > 0)
+    .map((k) => k.trim())
+    .filter((k) => k.length > 0)
     .join('|')
 }
 
 // Clash/mihomo 标准顶级键（不视为自定义变量）
 const STANDARD_TOP_LEVEL_KEYS = new Set([
-  'port', 'socks-port', 'redir-port', 'tproxy-port',
-  'mixed-port', 'allow-lan', 'bind-address', 'mode',
-  'log-level', 'external-controller', 'external-ui',
-  'ipv6', 'dns', 'proxies', 'proxy-groups',
-  'proxy-providers', 'rules', 'rule-providers',
-  'hosts', 'profile', 'tun', 'sniffer',
-  'authentication', 'unified-delay', 'tcp-concurrent',
-  'find-process-mode', 'global-client-fingerprint',
-  'keep-alive-interval', 'geodata-mode', 'geo-auto-update',
-  'geo-update-interval', 'geox-url',
+  'port',
+  'socks-port',
+  'redir-port',
+  'tproxy-port',
+  'mixed-port',
+  'allow-lan',
+  'bind-address',
+  'mode',
+  'log-level',
+  'external-controller',
+  'external-ui',
+  'ipv6',
+  'dns',
+  'proxies',
+  'proxy-groups',
+  'proxy-providers',
+  'rules',
+  'rule-providers',
+  'hosts',
+  'profile',
+  'tun',
+  'sniffer',
+  'authentication',
+  'unified-delay',
+  'tcp-concurrent',
+  'find-process-mode',
+  'global-client-fingerprint',
+  'keep-alive-interval',
+  'geodata-mode',
+  'geo-auto-update',
+  'geo-update-interval',
+  'geox-url',
   'add-region-proxy-groups',
 ])
 
 // 从模板内容中提取自定义变量（非标准顶级键的标量字符串值）
-export function extractTemplateVariables(content: string): Record<string, string> {
+export function extractTemplateVariables(
+  content: string
+): Record<string, string> {
   try {
     const parsed = parseYAML(content) as Record<string, unknown>
     if (!parsed || typeof parsed !== 'object') return {}
@@ -184,8 +273,12 @@ export function createDefaultFormState(name = '新代理组'): ProxyGroupFormSta
 
 // Check if proxy nodes should be shown (has filter/include-all-proxies/include-type)
 export function hasProxyNodes(state: ProxyGroupFormState): boolean {
-  return state.includeAll || state.includeAllProxies ||
-         state.filterKeywords.trim() !== '' || state.includeTypes.length > 0
+  return (
+    state.includeAll ||
+    state.includeAllProxies ||
+    state.filterKeywords.trim() !== '' ||
+    state.includeTypes.length > 0
+  )
 }
 
 // Check if proxy providers should be shown (has use/include-all-providers)
@@ -194,7 +287,9 @@ export function hasProxyProviders(state: ProxyGroupFormState): boolean {
 }
 
 // Get default proxy order based on include options
-export function getDefaultProxyOrder(state: ProxyGroupFormState): ProxyOrderItem[] {
+export function getDefaultProxyOrder(
+  state: ProxyGroupFormState
+): ProxyOrderItem[] {
   const order: ProxyOrderItem[] = []
 
   // Add region proxy groups marker if enabled
@@ -219,7 +314,9 @@ export function getDefaultProxyOrder(state: ProxyGroupFormState): ProxyOrderItem
 }
 
 // Convert ProxyGroupFormState to ProxyGroupV3Config
-export function formStateToConfig(state: ProxyGroupFormState): ProxyGroupV3Config {
+export function formStateToConfig(
+  state: ProxyGroupFormState
+): ProxyGroupV3Config {
   const config: ProxyGroupV3Config = {
     name: state.name,
     type: state.type,
@@ -229,7 +326,8 @@ export function formStateToConfig(state: ProxyGroupFormState): ProxyGroupV3Confi
   if (state.includeAll) config['include-all'] = true
   if (state.includeAllProxies) config['include-all-proxies'] = true
   if (state.includeAllProviders) config['include-all-providers'] = true
-  if (state.includeRegionProxyGroups) config['include-region-proxy-groups'] = true
+  if (state.includeRegionProxyGroups)
+    config['include-region-proxy-groups'] = true
 
   // Filter patterns
   const filter = keywordsToRegex(state.filterKeywords)
@@ -249,10 +347,11 @@ export function formStateToConfig(state: ProxyGroupFormState): ProxyGroupV3Confi
 
   // Build proxies list from proxyOrder (including markers for backend) and staticProxies
   // Only include markers if the corresponding include option is set
-  const proxiesFromOrder = state.proxyOrder.filter(item => {
+  const proxiesFromOrder = state.proxyOrder.filter((item) => {
     if (item === PROXY_NODES_MARKER) return hasProxyNodes(state)
     if (item === PROXY_PROVIDERS_MARKER) return hasProxyProviders(state)
-    if (item === REGION_PROXY_GROUPS_MARKER) return state.includeRegionProxyGroups
+    if (item === REGION_PROXY_GROUPS_MARKER)
+      return state.includeRegionProxyGroups
     return true
   })
   const allProxies = [...proxiesFromOrder, ...state.staticProxies]
@@ -261,10 +360,15 @@ export function formStateToConfig(state: ProxyGroupFormState): ProxyGroupV3Confi
   }
 
   // URL test options
-  if (state.type === 'url-test' || state.type === 'fallback' || state.type === 'load-balance') {
+  if (
+    state.type === 'url-test' ||
+    state.type === 'fallback' ||
+    state.type === 'load-balance'
+  ) {
     if (state.url) config.url = state.url
     if (state.interval) config.interval = state.interval
-    if (state.tolerance && state.type !== 'load-balance') config.tolerance = state.tolerance
+    if (state.tolerance && state.type !== 'load-balance')
+      config.tolerance = state.tolerance
   }
 
   if (state.dialerProxyGroup) {
@@ -278,14 +382,22 @@ export function formStateToConfig(state: ProxyGroupFormState): ProxyGroupV3Confi
 }
 
 // Convert ProxyGroupV3Config to ProxyGroupFormState
-export function configToFormState(config: ProxyGroupV3Config, allGroupNames: string[] = [], variables?: Record<string, string>): ProxyGroupFormState {
+export function configToFormState(
+  config: ProxyGroupV3Config,
+  allGroupNames: string[] = [],
+  variables?: Record<string, string>
+): ProxyGroupFormState {
   // Separate proxy groups, markers, and static proxies
   const proxies = config.proxies || []
   const proxyOrder: string[] = []
   const staticProxies: string[] = []
 
   for (const p of proxies) {
-    if (p === PROXY_NODES_MARKER || p === PROXY_PROVIDERS_MARKER || p === REGION_PROXY_GROUPS_MARKER) {
+    if (
+      p === PROXY_NODES_MARKER ||
+      p === PROXY_PROVIDERS_MARKER ||
+      p === REGION_PROXY_GROUPS_MARKER
+    ) {
       proxyOrder.push(p)
     } else if (allGroupNames.includes(p)) {
       proxyOrder.push(p)
@@ -299,8 +411,10 @@ export function configToFormState(config: ProxyGroupV3Config, allGroupNames: str
   const hasNodesMarker = proxyOrder.includes(PROXY_NODES_MARKER)
   const hasProvidersMarker = proxyOrder.includes(PROXY_PROVIDERS_MARKER)
   const includeAll = config['include-all'] || false
-  const includeAllProxies = config['include-all-proxies'] || includeAll || hasNodesMarker
-  const includeAllProviders = config['include-all-providers'] || includeAll || hasProvidersMarker
+  const includeAllProxies =
+    config['include-all-proxies'] || includeAll || hasNodesMarker
+  const includeAllProviders =
+    config['include-all-providers'] || includeAll || hasProvidersMarker
 
   // 解析 filter 变量引用：如果 filter 值是自定义变量名，替换为变量值
   let filterValue = config.filter || ''
@@ -324,13 +438,24 @@ export function configToFormState(config: ProxyGroupV3Config, allGroupNames: str
     excludeFilterKeywords: regexToKeywords(excludeFilterValue),
     filterFromVariable,
     excludeFilterFromVariable,
-    includeTypes: (config['include-type']?.split('|').filter(t => PROXY_TYPES.includes(t as ProxyType)) || []) as ProxyType[],
-    excludeTypes: (config['exclude-type']?.split('|').filter(t => PROXY_TYPES.includes(t as ProxyType)) || []) as ProxyType[],
+    includeTypes: (config['include-type']
+      ?.split('|')
+      .filter((t) => PROXY_TYPES.includes(t as ProxyType)) ||
+      []) as ProxyType[],
+    excludeTypes: (config['exclude-type']
+      ?.split('|')
+      .filter((t) => PROXY_TYPES.includes(t as ProxyType)) ||
+      []) as ProxyType[],
     includeAll,
     includeAllProxies,
     includeAllProviders,
     includeRegionProxyGroups: config['include-region-proxy-groups'] || false,
-    includedProxyGroups: proxyOrder.filter(p => p !== PROXY_NODES_MARKER && p !== PROXY_PROVIDERS_MARKER && p !== REGION_PROXY_GROUPS_MARKER),
+    includedProxyGroups: proxyOrder.filter(
+      (p) =>
+        p !== PROXY_NODES_MARKER &&
+        p !== PROXY_PROVIDERS_MARKER &&
+        p !== REGION_PROXY_GROUPS_MARKER
+    ),
     proxyOrder,
     staticProxies,
     url: config.url || 'https://www.gstatic.com/generate_204',
@@ -367,17 +492,29 @@ export function serializeTemplate(template: ParsedTemplate): string {
 }
 
 // Extract proxy groups from template content
-export function extractProxyGroups(content: string, variables?: Record<string, string>): ProxyGroupFormState[] {
+export function extractProxyGroups(
+  content: string,
+  variables?: Record<string, string>
+): ProxyGroupFormState[] {
   const template = parseTemplate(content)
   if (!template || !template['proxy-groups']) return []
   // 如果未传入 variables，自动从内容中提取
   const vars = variables ?? extractTemplateVariables(content)
-  const allGroupNames = template['proxy-groups'].map(g => g.name)
-  return template['proxy-groups'].map(config => configToFormState(config, allGroupNames, Object.keys(vars).length > 0 ? vars : undefined))
+  const allGroupNames = template['proxy-groups'].map((g) => g.name)
+  return template['proxy-groups'].map((config) =>
+    configToFormState(
+      config,
+      allGroupNames,
+      Object.keys(vars).length > 0 ? vars : undefined
+    )
+  )
 }
 
 // Update proxy-groups in template content
-export function updateProxyGroups(content: string, groups: ProxyGroupFormState[]): string {
+export function updateProxyGroups(
+  content: string,
+  groups: ProxyGroupFormState[]
+): string {
   const template = parseTemplate(content)
   if (!template) return content
 
@@ -391,11 +528,13 @@ export const PROXY_PROVIDERS_DISPLAY = '📦 代理集合'
 export const REGION_PROXY_GROUPS_DISPLAY = '🌏 区域代理组'
 
 // Generate proxy-groups YAML preview from form states
-export function generateProxyGroupsPreview(groups: ProxyGroupFormState[]): string {
-  const configs = groups.map(formStateToConfig).map(config => {
+export function generateProxyGroupsPreview(
+  groups: ProxyGroupFormState[]
+): string {
+  const configs = groups.map(formStateToConfig).map((config) => {
     // Replace markers with Chinese display names for preview
     if (config.proxies) {
-      config.proxies = config.proxies.map(p => {
+      config.proxies = config.proxies.map((p) => {
         if (p === PROXY_NODES_MARKER) return PROXY_NODES_DISPLAY
         if (p === PROXY_PROVIDERS_MARKER) return PROXY_PROVIDERS_DISPLAY
         if (p === REGION_PROXY_GROUPS_MARKER) return REGION_PROXY_GROUPS_DISPLAY
@@ -404,12 +543,17 @@ export function generateProxyGroupsPreview(groups: ProxyGroupFormState[]): strin
     }
     return config
   })
-  return dumpYAML({ 'proxy-groups': configs }, { indent: 2, lineWidth: -1, noRefs: true })
+  return dumpYAML(
+    { 'proxy-groups': configs },
+    { indent: 2, lineWidth: -1, noRefs: true }
+  )
 }
 
 // Generate region proxy groups as ProxyGroupFormState array
-export function generateRegionProxyGroups(type: ProxyGroupType = 'url-test'): ProxyGroupFormState[] {
-  const groups: ProxyGroupFormState[] = REGION_PROXY_GROUPS.map(region => {
+export function generateRegionProxyGroups(
+  type: ProxyGroupType = 'url-test'
+): ProxyGroupFormState[] {
+  const groups: ProxyGroupFormState[] = REGION_PROXY_GROUPS.map((region) => {
     const state = {
       ...createDefaultFormState(region.name),
       type,
@@ -435,7 +579,7 @@ export function generateRegionProxyGroups(type: ProxyGroupType = 'url-test'): Pr
 
 // Get region proxy group names
 export function getRegionProxyGroupNames(): string[] {
-  return [...REGION_PROXY_GROUPS.map(r => r.name), '🌐 其他地区']
+  return [...REGION_PROXY_GROUPS.map((r) => r.name), '🌐 其他地区']
 }
 
 // Create a blank v3 template

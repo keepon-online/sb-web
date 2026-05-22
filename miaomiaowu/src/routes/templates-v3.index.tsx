@@ -1,36 +1,11 @@
 // @ts-nocheck
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { createFileRoute, redirect } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { toast } from 'sonner'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 import { Plus, Pencil, Trash2, Eye, Upload, Save, X } from 'lucide-react'
-
-import { Topbar } from '@/components/layout/topbar'
+import { toast } from 'sonner'
 import { useAuthStore } from '@/stores/auth-store'
 import { api } from '@/lib/api'
-import { useMediaQuery } from '@/hooks/use-media-query'
-import { cn } from '@/lib/utils'
-
-const TEMPLATE_DRAFT_KEY_PREFIX = 'mmw_template_v3_draft_'
-
-import { DataTable } from '@/components/data-table'
-import type { DataTableColumn } from '@/components/data-table'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
-import { Badge } from '@/components/ui/badge'
-
-import { ProxyGroupEditor } from '@/components/template-v3/proxy-group-editor'
-import { TemplatePreview } from '@/components/template-v3/template-preview'
-import { TemplateUploadDialog } from '@/components/template-v3/template-upload-dialog'
-import { Switch } from '@/components/ui/switch'
-import { Label } from '@/components/ui/label'
 import {
   extractProxyGroups,
   extractTemplateVariables,
@@ -48,6 +23,54 @@ import {
   REGION_PROXY_GROUPS_DISPLAY,
   type ProxyGroupFormState,
 } from '@/lib/template-v3-utils'
+import { cn } from '@/lib/utils'
+import { useMediaQuery } from '@/hooks/use-media-query'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { Switch } from '@/components/ui/switch'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Textarea } from '@/components/ui/textarea'
+import { DataTable } from '@/components/data-table'
+import type { DataTableColumn } from '@/components/data-table'
+import { Topbar } from '@/components/layout/topbar'
+import { ProxyGroupEditor } from '@/components/template-v3/proxy-group-editor'
+import { TemplatePreview } from '@/components/template-v3/template-preview'
+import { TemplateUploadDialog } from '@/components/template-v3/template-upload-dialog'
+
+const TEMPLATE_DRAFT_KEY_PREFIX = 'mmw_template_v3_draft_'
 
 export const Route = createFileRoute('/templates-v3/')({
   beforeLoad: () => {
@@ -74,7 +97,9 @@ function TemplatesV3Page() {
   const [isDraftRecoveryOpen, setIsDraftRecoveryOpen] = useState(false)
 
   // Editing state
-  const [editingTemplateName, setEditingTemplateName] = useState<string | null>(null)
+  const [editingTemplateName, setEditingTemplateName] = useState<string | null>(
+    null
+  )
   const [templateContent, setTemplateContent] = useState('')
   const [proxyGroups, setProxyGroups] = useState<ProxyGroupFormState[]>([])
   const [editorTab, setEditorTab] = useState<'visual' | 'yaml'>('visual')
@@ -82,10 +107,14 @@ function TemplatesV3Page() {
   const isInitLoadRef = useRef(false)
   const pendingDraftRef = useRef<any>(null)
   const [enableRegionProxyGroups, setEnableRegionProxyGroups] = useState(false)
-  const [templateVariables, setTemplateVariables] = useState<Record<string, string>>({})
+  const [templateVariables, setTemplateVariables] = useState<
+    Record<string, string>
+  >({})
 
   // Delete/Rename state
-  const [deletingTemplateName, setDeletingTemplateName] = useState<string | null>(null)
+  const [deletingTemplateName, setDeletingTemplateName] = useState<
+    string | null
+  >(null)
   const [renamingTemplate, setRenamingTemplate] = useState<string | null>(null)
   const [newTemplateName, setNewTemplateName] = useState('')
 
@@ -98,8 +127,11 @@ function TemplatesV3Page() {
   const [listPreviewOpen, setListPreviewOpen] = useState(false)
   const [listPreviewContent, setListPreviewContent] = useState('')
   const [listPreviewLoading, setListPreviewLoading] = useState(false)
-  const [listPreviewTemplateName, setListPreviewTemplateName] = useState<string | null>(null)
-  const [listPreviewTemplateContent, setListPreviewTemplateContent] = useState('')
+  const [listPreviewTemplateName, setListPreviewTemplateName] = useState<
+    string | null
+  >(null)
+  const [listPreviewTemplateContent, setListPreviewTemplateContent] =
+    useState('')
 
   // Fetch templates list
   const { data: templates = [], isLoading } = useQuery<string[]>({
@@ -114,7 +146,9 @@ function TemplatesV3Page() {
   const { data: templateData } = useQuery({
     queryKey: ['rule-template', editingTemplateName],
     queryFn: async () => {
-      const response = await api.get(`/api/admin/rule-templates/${encodeURIComponent(editingTemplateName!)}`)
+      const response = await api.get(
+        `/api/admin/rule-templates/${encodeURIComponent(editingTemplateName!)}`
+      )
       return response.data.content as string
     },
     enabled: !!editingTemplateName && isEditorOpen,
@@ -127,28 +161,40 @@ function TemplatesV3Page() {
       const response = await api.get('/api/admin/nodes')
       const nodes = response.data.nodes || []
       // Convert nodes to Clash format by parsing clash_config
-      return nodes.map((node: any) => {
-        if (node.clash_config) {
-          try {
-            return JSON.parse(node.clash_config)
-          } catch {
-            return { name: node.node_name, type: node.protocol }
+      return nodes
+        .map((node: any) => {
+          if (node.clash_config) {
+            try {
+              return JSON.parse(node.clash_config)
+            } catch {
+              return { name: node.node_name, type: node.protocol }
+            }
           }
-        }
-        return { name: node.node_name, type: node.protocol }
-      }).filter((n: any) => n.name && n.type)
+          return { name: node.node_name, type: node.protocol }
+        })
+        .filter((n: any) => n.name && n.type)
     },
     enabled: isEditorOpen,
   })
 
   // Update template mutation
   const updateMutation = useMutation({
-    mutationFn: async ({ name, content }: { name: string; content: string }) => {
-      await api.put(`/api/admin/rule-templates/${encodeURIComponent(name)}`, { content })
+    mutationFn: async ({
+      name,
+      content,
+    }: {
+      name: string
+      content: string
+    }) => {
+      await api.put(`/api/admin/rule-templates/${encodeURIComponent(name)}`, {
+        content,
+      })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['rule-templates'] })
-      queryClient.invalidateQueries({ queryKey: ['rule-template', editingTemplateName] })
+      queryClient.invalidateQueries({
+        queryKey: ['rule-template', editingTemplateName],
+      })
       if (editingTemplateName) {
         localStorage.removeItem(TEMPLATE_DRAFT_KEY_PREFIX + editingTemplateName)
       }
@@ -202,7 +248,13 @@ function TemplatesV3Page() {
 
   // Create template mutation (for paste/blank)
   const createMutation = useMutation({
-    mutationFn: async ({ name, content }: { name: string; content: string }) => {
+    mutationFn: async ({
+      name,
+      content,
+    }: {
+      name: string
+      content: string
+    }) => {
       const formData = new FormData()
       const blob = new Blob([content], { type: 'text/yaml' })
       formData.append('template', blob, name)
@@ -222,8 +274,17 @@ function TemplatesV3Page() {
 
   // Rename template mutation
   const renameMutation = useMutation({
-    mutationFn: async ({ oldName, newName }: { oldName: string; newName: string }) => {
-      await api.post('/api/admin/rule-templates/rename', { old_name: oldName, new_name: newName })
+    mutationFn: async ({
+      oldName,
+      newName,
+    }: {
+      oldName: string
+      newName: string
+    }) => {
+      await api.post('/api/admin/rule-templates/rename', {
+        old_name: oldName,
+        new_name: newName,
+      })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['rule-templates'] })
@@ -247,7 +308,9 @@ function TemplatesV3Page() {
       const groups = extractProxyGroups(templateData, vars)
       setProxyGroups(groups)
       // Auto-enable region proxy groups toggle if any group has includeRegionProxyGroups
-      const hasRegionProxyGroups = groups.some(g => g.includeRegionProxyGroups)
+      const hasRegionProxyGroups = groups.some(
+        (g) => g.includeRegionProxyGroups
+      )
       setEnableRegionProxyGroups(hasRegionProxyGroups)
       setIsDirty(false)
       // Allow ProxyGroupSelect's ensureMarkers setTimeout to finish before enabling dirty tracking
@@ -255,22 +318,31 @@ function TemplatesV3Page() {
         isInitLoadRef.current = false
         // Check for local draft
         if (editingTemplateName) {
-          const draftJson = localStorage.getItem(TEMPLATE_DRAFT_KEY_PREFIX + editingTemplateName)
+          const draftJson = localStorage.getItem(
+            TEMPLATE_DRAFT_KEY_PREFIX + editingTemplateName
+          )
           if (draftJson) {
             try {
               const draft = JSON.parse(draftJson)
               // Normalize templateData the same way draft was saved
               const vars = extractTemplateVariables(templateData)
               const groups = extractProxyGroups(templateData, vars)
-              const normalizedData = groups.length > 0 ? updateProxyGroups(templateData, groups) : templateData
+              const normalizedData =
+                groups.length > 0
+                  ? updateProxyGroups(templateData, groups)
+                  : templateData
               if (draft.templateContent !== normalizedData) {
                 pendingDraftRef.current = draft
                 setIsDraftRecoveryOpen(true)
               } else {
-                localStorage.removeItem(TEMPLATE_DRAFT_KEY_PREFIX + editingTemplateName)
+                localStorage.removeItem(
+                  TEMPLATE_DRAFT_KEY_PREFIX + editingTemplateName
+                )
               }
             } catch {
-              localStorage.removeItem(TEMPLATE_DRAFT_KEY_PREFIX + editingTemplateName)
+              localStorage.removeItem(
+                TEMPLATE_DRAFT_KEY_PREFIX + editingTemplateName
+              )
             }
           }
         }
@@ -306,8 +378,19 @@ function TemplatesV3Page() {
       editorTab,
       savedAt: Date.now(),
     }
-    localStorage.setItem(TEMPLATE_DRAFT_KEY_PREFIX + editingTemplateName, JSON.stringify(draft))
-  }, [isDirty, templateContent, proxyGroups, enableRegionProxyGroups, templateVariables, editorTab, editingTemplateName])
+    localStorage.setItem(
+      TEMPLATE_DRAFT_KEY_PREFIX + editingTemplateName,
+      JSON.stringify(draft)
+    )
+  }, [
+    isDirty,
+    templateContent,
+    proxyGroups,
+    enableRegionProxyGroups,
+    templateVariables,
+    editorTab,
+    editingTemplateName,
+  ])
 
   // Sync proxy groups to YAML when switching tabs
   const syncProxyGroupsToYaml = useCallback(() => {
@@ -360,22 +443,26 @@ function TemplatesV3Page() {
 
     try {
       // Fetch template content
-      const templateResponse = await api.get(`/api/admin/rule-templates/${encodeURIComponent(name)}`)
+      const templateResponse = await api.get(
+        `/api/admin/rule-templates/${encodeURIComponent(name)}`
+      )
       const content = templateResponse.data.content
       setListPreviewTemplateContent(content)
 
       // Fetch nodes for preview
       const nodesResponse = await api.get('/api/admin/nodes')
-      const nodes = (nodesResponse.data.nodes || []).map((node: any) => {
-        if (node.clash_config) {
-          try {
-            return JSON.parse(node.clash_config)
-          } catch {
-            return { name: node.node_name, type: node.protocol }
+      const nodes = (nodesResponse.data.nodes || [])
+        .map((node: any) => {
+          if (node.clash_config) {
+            try {
+              return JSON.parse(node.clash_config)
+            } catch {
+              return { name: node.node_name, type: node.protocol }
+            }
           }
-        }
-        return { name: node.node_name, type: node.protocol }
-      }).filter((n: any) => n.name && n.type)
+          return { name: node.node_name, type: node.protocol }
+        })
+        .filter((n: any) => n.name && n.type)
 
       // Generate preview
       const previewResponse = await api.post('/api/admin/template-v3/preview', {
@@ -431,7 +518,9 @@ function TemplatesV3Page() {
     setTemplateVariables(draft.templateVariables)
     setEditorTab(draft.editorTab)
     setIsDirty(true)
-    setTimeout(() => { isInitLoadRef.current = false }, 50)
+    setTimeout(() => {
+      isInitLoadRef.current = false
+    }, 50)
     setIsDraftRecoveryOpen(false)
     pendingDraftRef.current = null
   }
@@ -456,24 +545,31 @@ function TemplatesV3Page() {
       // Add region proxy groups at the end
       const regionGroups = generateRegionProxyGroups('url-test')
       // Filter out any existing region groups to avoid duplicates
-      const nonRegionGroups = proxyGroups.filter(g => !regionGroupNames.includes(g.name))
+      const nonRegionGroups = proxyGroups.filter(
+        (g) => !regionGroupNames.includes(g.name)
+      )
       setProxyGroups([...nonRegionGroups, ...regionGroups])
     } else {
       // Remove region proxy groups and clear includeRegionProxyGroups from all groups
       const updatedGroups = proxyGroups
-        .filter(g => !regionGroupNames.includes(g.name))
-        .map(g => ({
+        .filter((g) => !regionGroupNames.includes(g.name))
+        .map((g) => ({
           ...g,
           includeRegionProxyGroups: false,
           // Remove REGION_PROXY_GROUPS_MARKER from proxyOrder
-          proxyOrder: g.proxyOrder.filter(item => item !== REGION_PROXY_GROUPS_MARKER),
+          proxyOrder: g.proxyOrder.filter(
+            (item) => item !== REGION_PROXY_GROUPS_MARKER
+          ),
         }))
       setProxyGroups(updatedGroups)
     }
   }
 
   // Handle proxy group change
-  const handleProxyGroupChange = (index: number, group: ProxyGroupFormState) => {
+  const handleProxyGroupChange = (
+    index: number,
+    group: ProxyGroupFormState
+  ) => {
     const newGroups = [...proxyGroups]
     newGroups[index] = group
     setProxyGroups(newGroups)
@@ -492,7 +588,10 @@ function TemplatesV3Page() {
   const handleProxyGroupMoveUp = (index: number) => {
     if (index === 0) return
     const newGroups = [...proxyGroups]
-    ;[newGroups[index - 1], newGroups[index]] = [newGroups[index], newGroups[index - 1]]
+    ;[newGroups[index - 1], newGroups[index]] = [
+      newGroups[index],
+      newGroups[index - 1],
+    ]
     setProxyGroups(newGroups)
     setIsDirty(true)
   }
@@ -500,14 +599,20 @@ function TemplatesV3Page() {
   const handleProxyGroupMoveDown = (index: number) => {
     if (index === proxyGroups.length - 1) return
     const newGroups = [...proxyGroups]
-    ;[newGroups[index], newGroups[index + 1]] = [newGroups[index + 1], newGroups[index]]
+    ;[newGroups[index], newGroups[index + 1]] = [
+      newGroups[index + 1],
+      newGroups[index],
+    ]
     setProxyGroups(newGroups)
     setIsDirty(true)
   }
 
   // Handle add proxy group
   const handleAddProxyGroup = () => {
-    setProxyGroups([...proxyGroups, createDefaultFormState(`新代理组 ${proxyGroups.length + 1}`)])
+    setProxyGroups([
+      ...proxyGroups,
+      createDefaultFormState(`新代理组 ${proxyGroups.length + 1}`),
+    ])
     setIsDirty(true)
   }
 
@@ -542,27 +647,45 @@ function TemplatesV3Page() {
     return content
       .replace(new RegExp(PROXY_NODES_MARKER, 'g'), PROXY_NODES_DISPLAY)
       .replace(new RegExp(PROXY_PROVIDERS_MARKER, 'g'), PROXY_PROVIDERS_DISPLAY)
-      .replace(new RegExp(REGION_PROXY_GROUPS_MARKER, 'g'), REGION_PROXY_GROUPS_DISPLAY)
+      .replace(
+        new RegExp(REGION_PROXY_GROUPS_MARKER, 'g'),
+        REGION_PROXY_GROUPS_DISPLAY
+      )
   }
 
   // Table columns
   const columns: DataTableColumn<string>[] = [
     {
       header: '模板名称',
-      cell: (name) => <span className="font-medium">{name}</span>,
+      cell: (name) => <span className='font-medium'>{name}</span>,
     },
     {
       header: '操作',
       cell: (name) => (
-        <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" onClick={() => handleEdit(name)} title="编辑">
-            <Pencil className="h-4 w-4" />
+        <div className='flex items-center gap-1'>
+          <Button
+            variant='ghost'
+            size='icon'
+            onClick={() => handleEdit(name)}
+            title='编辑'
+          >
+            <Pencil className='h-4 w-4' />
           </Button>
-          <Button variant="ghost" size="icon" onClick={() => handleListPreview(name)} title="预览">
-            <Eye className="h-4 w-4" />
+          <Button
+            variant='ghost'
+            size='icon'
+            onClick={() => handleListPreview(name)}
+            title='预览'
+          >
+            <Eye className='h-4 w-4' />
           </Button>
-          <Button variant="ghost" size="icon" onClick={() => handleDelete(name)} title="删除">
-            <Trash2 className="h-4 w-4 text-destructive" />
+          <Button
+            variant='ghost'
+            size='icon'
+            onClick={() => handleDelete(name)}
+            title='删除'
+          >
+            <Trash2 className='text-destructive h-4 w-4' />
           </Button>
         </div>
       ),
@@ -570,332 +693,463 @@ function TemplatesV3Page() {
   ]
 
   return (
-    <div className="min-h-svh bg-background">
+    <div className='bg-background min-h-svh'>
       <Topbar />
-      <main className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 pt-24">
-      <Card>
-        <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <CardTitle>V3 模板管理</CardTitle>
-            <CardDescription>
-              管理 mihomo 风格的规则模板，支持 include-all、filter 等高级特性
-            </CardDescription>
-          </div>
-          <Button onClick={() => setIsUploadDialogOpen(true)} className="w-full sm:w-auto">
-            <Plus className="h-4 w-4 mr-2" />
-            新建模板
-          </Button>
-        </CardHeader>
-        <CardContent>
-          <DataTable
-            columns={columns}
-            data={templates}
-            getRowKey={(name) => name}
-            emptyText="暂无模板，点击上方按钮创建"
-            mobileCard={{
-              header: (name) => <span className="font-medium text-base">{name}</span>,
-              actions: (name) => (
-                <div className="flex items-center gap-4 w-full justify-between px-2">
-                  <Button variant="ghost" size="sm" onClick={() => handleEdit(name)} className="flex-1">
-                    <Pencil className="h-4 w-4 mr-1.5" /> 编辑
-                  </Button>
-                  <Button variant="ghost" size="sm" onClick={() => handleListPreview(name)} className="flex-1">
-                    <Eye className="h-4 w-4 mr-1.5" /> 预览
-                  </Button>
-                  <Button variant="ghost" size="sm" onClick={() => handleDelete(name)} className="flex-1 text-destructive hover:text-destructive hover:bg-destructive/10">
-                    <Trash2 className="h-4 w-4 mr-1.5" /> 删除
-                  </Button>
-                </div>
-              )
-            }}
-          />
-        </CardContent>
-      </Card>
-
-      {/* Editor Dialog */}
-      <Dialog open={isEditorOpen} onOpenChange={(open) => !open && handleCloseEditor()}>
-        <DialogContent className={cn(
-          "h-[90vh] flex flex-col",
-          isMobile ? "!w-[95vw] !max-w-[95vw] p-4" : "!w-[85vw] !max-w-[85vw]"
-        )} showCloseButton={false}>
-          <DialogHeader className="flex-shrink-0">
-            <div className={cn(
-              "flex justify-between gap-4",
-              isMobile ? "flex-col items-start" : "items-center"
-            )}>
-              <div>
-                <DialogTitle className="break-all">{editingTemplateName}</DialogTitle>
-                <DialogDescription>编辑模板配置</DialogDescription>
-              </div>
-              <div className={cn(
-                "flex items-center gap-2",
-                isMobile ? "w-full justify-between" : ""
-              )}>
-                {isDirty && <Badge variant="secondary">未保存</Badge>}
-                <div className="flex gap-2">
-                  <Button onClick={handleSave} disabled={updateMutation.isPending} size={isMobile ? "sm" : "default"}>
-                    <Save className="h-4 w-4 mr-1 sm:mr-2" />
-                    保存
-                  </Button>
-                  <Button variant="outline" onClick={handleCloseEditor} size={isMobile ? "sm" : "default"}>
-                    关闭
-                  </Button>
-                </div>
-              </div>
+      <main className='mx-auto w-full max-w-7xl px-4 py-8 pt-24 sm:px-6'>
+        <Card>
+          <CardHeader className='flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between'>
+            <div>
+              <CardTitle>V3 模板管理</CardTitle>
+              <CardDescription>
+                管理 mihomo 风格的规则模板，支持 include-all、filter 等高级特性
+              </CardDescription>
             </div>
-          </DialogHeader>
+            <Button
+              onClick={() => setIsUploadDialogOpen(true)}
+              className='w-full sm:w-auto'
+            >
+              <Plus className='mr-2 h-4 w-4' />
+              新建模板
+            </Button>
+          </CardHeader>
+          <CardContent>
+            <DataTable
+              columns={columns}
+              data={templates}
+              getRowKey={(name) => name}
+              emptyText='暂无模板，点击上方按钮创建'
+              mobileCard={{
+                header: (name) => (
+                  <span className='text-base font-medium'>{name}</span>
+                ),
+                actions: (name) => (
+                  <div className='flex w-full items-center justify-between gap-4 px-2'>
+                    <Button
+                      variant='ghost'
+                      size='sm'
+                      onClick={() => handleEdit(name)}
+                      className='flex-1'
+                    >
+                      <Pencil className='mr-1.5 h-4 w-4' /> 编辑
+                    </Button>
+                    <Button
+                      variant='ghost'
+                      size='sm'
+                      onClick={() => handleListPreview(name)}
+                      className='flex-1'
+                    >
+                      <Eye className='mr-1.5 h-4 w-4' /> 预览
+                    </Button>
+                    <Button
+                      variant='ghost'
+                      size='sm'
+                      onClick={() => handleDelete(name)}
+                      className='text-destructive hover:text-destructive hover:bg-destructive/10 flex-1'
+                    >
+                      <Trash2 className='mr-1.5 h-4 w-4' /> 删除
+                    </Button>
+                  </div>
+                ),
+              }}
+            />
+          </CardContent>
+        </Card>
 
-          {/* Mobile: Preview below save button */}
-          {isMobile && (
-            <div className="flex-shrink-0 border-b pb-4 mt-2">
-              <Collapsible open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
-                <CollapsibleTrigger asChild>
-                  <Button variant="outline" className="w-full h-8 text-sm">
-                    {isPreviewOpen ? '收起配置预览' : '展开配置预览'}
-                  </Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="mt-4 h-[250px]">
+        {/* Editor Dialog */}
+        <Dialog
+          open={isEditorOpen}
+          onOpenChange={(open) => !open && handleCloseEditor()}
+        >
+          <DialogContent
+            className={cn(
+              'flex h-[90vh] flex-col',
+              isMobile
+                ? '!w-[95vw] !max-w-[95vw] p-4'
+                : '!w-[85vw] !max-w-[85vw]'
+            )}
+            showCloseButton={false}
+          >
+            <DialogHeader className='flex-shrink-0'>
+              <div
+                className={cn(
+                  'flex justify-between gap-4',
+                  isMobile ? 'flex-col items-start' : 'items-center'
+                )}
+              >
+                <div>
+                  <DialogTitle className='break-all'>
+                    {editingTemplateName}
+                  </DialogTitle>
+                  <DialogDescription>编辑模板配置</DialogDescription>
+                </div>
+                <div
+                  className={cn(
+                    'flex items-center gap-2',
+                    isMobile ? 'w-full justify-between' : ''
+                  )}
+                >
+                  {isDirty && <Badge variant='secondary'>未保存</Badge>}
+                  <div className='flex gap-2'>
+                    <Button
+                      onClick={handleSave}
+                      disabled={updateMutation.isPending}
+                      size={isMobile ? 'sm' : 'default'}
+                    >
+                      <Save className='mr-1 h-4 w-4 sm:mr-2' />
+                      保存
+                    </Button>
+                    <Button
+                      variant='outline'
+                      onClick={handleCloseEditor}
+                      size={isMobile ? 'sm' : 'default'}
+                    >
+                      关闭
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </DialogHeader>
+
+            {/* Mobile: Preview below save button */}
+            {isMobile && (
+              <div className='mt-2 flex-shrink-0 border-b pb-4'>
+                <Collapsible
+                  open={isPreviewOpen}
+                  onOpenChange={setIsPreviewOpen}
+                >
+                  <CollapsibleTrigger asChild>
+                    <Button variant='outline' className='h-8 w-full text-sm'>
+                      {isPreviewOpen ? '收起配置预览' : '展开配置预览'}
+                    </Button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className='mt-4 h-[250px]'>
+                    <TemplatePreview
+                      content={previewContent}
+                      isLoading={isPreviewLoading}
+                      onRefresh={handlePreview}
+                      title='代理组配置'
+                      className='h-full'
+                    />
+                  </CollapsibleContent>
+                </Collapsible>
+              </div>
+            )}
+
+            <div
+              className={cn(
+                'mt-4 flex flex-1 gap-4 overflow-hidden',
+                isMobile ? 'flex-col' : 'flex-row'
+              )}
+            >
+              {/* Editor Panel - Left column on tablet/desktop */}
+              <div
+                className={cn(
+                  'flex flex-col overflow-hidden',
+                  isMobile ? 'w-full flex-1' : isTablet ? 'w-[55%]' : 'w-[40%]'
+                )}
+              >
+                <Tabs
+                  value={editorTab}
+                  onValueChange={handleTabChange}
+                  className='flex h-full flex-col overflow-hidden'
+                >
+                  <TabsList className='grid w-full flex-shrink-0 grid-cols-2'>
+                    <TabsTrigger value='visual'>可视化编辑</TabsTrigger>
+                    <TabsTrigger value='yaml'>YAML 代码</TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent
+                    value='visual'
+                    className='mt-4 flex min-h-0 flex-1 flex-col overflow-hidden data-[state=inactive]:hidden'
+                  >
+                    <ScrollArea className='h-full flex-1'>
+                      <div className='space-y-3 pr-3 pb-4'>
+                        {/* Region Proxy Groups Toggle */}
+                        <div className='bg-muted/30 flex items-center justify-between rounded-lg border p-3'>
+                          <div className='flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2'>
+                            <Label
+                              htmlFor='region-toggle'
+                              className='font-medium'
+                            >
+                              开启区域代理组
+                            </Label>
+                            <span className='text-muted-foreground text-xs'>
+                              自动添加按地区分类的代理组
+                            </span>
+                          </div>
+                          <Switch
+                            id='region-toggle'
+                            checked={enableRegionProxyGroups}
+                            onCheckedChange={handleRegionProxyGroupsToggle}
+                          />
+                        </div>
+
+                        {proxyGroups.map((group, index) => (
+                          <ProxyGroupEditor
+                            key={index}
+                            group={group}
+                            index={index}
+                            allGroupNames={proxyGroups.map((g) => g.name)}
+                            onChange={handleProxyGroupChange}
+                            onDelete={handleProxyGroupDelete}
+                            onMoveUp={handleProxyGroupMoveUp}
+                            onMoveDown={handleProxyGroupMoveDown}
+                            isFirst={index === 0}
+                            isLast={index === proxyGroups.length - 1}
+                            showRegionToggle={enableRegionProxyGroups}
+                            isRegionGroup={regionGroupNames.includes(
+                              group.name
+                            )}
+                            variables={templateVariables}
+                          />
+                        ))}
+                        <Button
+                          variant='outline'
+                          className='mt-2 w-full'
+                          onClick={handleAddProxyGroup}
+                        >
+                          <Plus className='mr-2 h-4 w-4' />
+                          添加代理组
+                        </Button>
+                      </div>
+                    </ScrollArea>
+                  </TabsContent>
+
+                  <TabsContent
+                    value='yaml'
+                    className='mt-4 flex min-h-0 flex-1 flex-col overflow-hidden data-[state=inactive]:hidden'
+                  >
+                    <Textarea
+                      value={templateContent}
+                      onChange={(e) => handleYamlChange(e.target.value)}
+                      className='flex-1 resize-none p-4 font-mono text-xs sm:text-sm'
+                      placeholder='YAML 内容...'
+                    />
+                  </TabsContent>
+                </Tabs>
+              </div>
+
+              {/* Preview Panel - Right column(s) on tablet/desktop */}
+              {!isMobile && (
+                <div
+                  className={cn(
+                    'flex overflow-hidden border-l pl-4',
+                    isTablet ? 'w-[45%]' : 'w-[60%]'
+                  )}
+                >
                   <TemplatePreview
                     content={previewContent}
                     isLoading={isPreviewLoading}
                     onRefresh={handlePreview}
-                    title="代理组配置"
-                    className="h-full"
+                    className='h-full flex-1'
+                    title='代理组配置'
                   />
-                </CollapsibleContent>
-              </Collapsible>
+                </div>
+              )}
             </div>
-          )}
+          </DialogContent>
+        </Dialog>
 
-          <div className={cn(
-            "flex-1 flex gap-4 overflow-hidden mt-4",
-            isMobile ? "flex-col" : "flex-row"
-          )}>
-            {/* Editor Panel - Left column on tablet/desktop */}
-            <div className={cn(
-              "flex flex-col overflow-hidden",
-              isMobile ? "w-full flex-1" : isTablet ? "w-[55%]" : "w-[40%]"
-            )}>
-              <Tabs value={editorTab} onValueChange={handleTabChange} className="flex flex-col h-full overflow-hidden">
-                <TabsList className="flex-shrink-0 w-full grid grid-cols-2">
-                  <TabsTrigger value="visual">可视化编辑</TabsTrigger>
-                  <TabsTrigger value="yaml">YAML 代码</TabsTrigger>
-                </TabsList>
+        {/* Upload Dialog */}
+        <TemplateUploadDialog
+          open={isUploadDialogOpen}
+          onOpenChange={setIsUploadDialogOpen}
+          onUpload={(file) => uploadMutation.mutate(file)}
+          onCreate={(name, content) => createMutation.mutate({ name, content })}
+          isLoading={uploadMutation.isPending || createMutation.isPending}
+        />
 
-                <TabsContent value="visual" className="flex-1 min-h-0 overflow-hidden mt-4 flex flex-col data-[state=inactive]:hidden">
-                  <ScrollArea className="flex-1 h-full">
-                    <div className="space-y-3 pb-4 pr-3">
-                      {/* Region Proxy Groups Toggle */}
-                      <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/30">
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-                          <Label htmlFor="region-toggle" className="font-medium">开启区域代理组</Label>
-                          <span className="text-xs text-muted-foreground">自动添加按地区分类的代理组</span>
-                        </div>
-                        <Switch
-                          id="region-toggle"
-                          checked={enableRegionProxyGroups}
-                          onCheckedChange={handleRegionProxyGroupsToggle}
-                        />
-                      </div>
-
-                      {proxyGroups.map((group, index) => (
-                        <ProxyGroupEditor
-                          key={index}
-                          group={group}
-                          index={index}
-                          allGroupNames={proxyGroups.map(g => g.name)}
-                          onChange={handleProxyGroupChange}
-                          onDelete={handleProxyGroupDelete}
-                          onMoveUp={handleProxyGroupMoveUp}
-                          onMoveDown={handleProxyGroupMoveDown}
-                          isFirst={index === 0}
-                          isLast={index === proxyGroups.length - 1}
-                          showRegionToggle={enableRegionProxyGroups}
-                          isRegionGroup={regionGroupNames.includes(group.name)}
-                          variables={templateVariables}
-                        />
-                      ))}
-                      <Button variant="outline" className="w-full mt-2" onClick={handleAddProxyGroup}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        添加代理组
-                      </Button>
+        {/* List Preview Dialog */}
+        <Dialog open={listPreviewOpen} onOpenChange={setListPreviewOpen}>
+          <DialogContent
+            className={cn(
+              'flex h-[85vh] flex-col',
+              isMobile
+                ? '!w-[95vw] !max-w-[95vw] p-4'
+                : '!w-[90vw] !max-w-[90vw]'
+            )}
+            showCloseButton={false}
+          >
+            <DialogHeader className='flex-shrink-0'>
+              <div className='flex items-center justify-between'>
+                <div>
+                  <DialogTitle className='w-[200px] truncate break-all sm:w-auto'>
+                    预览: {listPreviewTemplateName}
+                  </DialogTitle>
+                  <DialogDescription className='hidden sm:block'>
+                    左侧为模板配置，右侧为最终订阅配置
+                  </DialogDescription>
+                </div>
+                <Button
+                  variant='outline'
+                  onClick={() => setListPreviewOpen(false)}
+                  size={isMobile ? 'sm' : 'default'}
+                >
+                  关闭
+                </Button>
+              </div>
+            </DialogHeader>
+            <div
+              className={cn(
+                'flex flex-1 gap-4 overflow-hidden',
+                isMobile ? 'flex-col' : 'flex-row'
+              )}
+            >
+              {listPreviewLoading ? (
+                <div className='flex h-full w-full items-center justify-center'>
+                  <span className='text-muted-foreground'>正在生成预览...</span>
+                </div>
+              ) : (
+                <>
+                  {/* Left: Template Config */}
+                  <div
+                    className={cn(
+                      'flex flex-col overflow-hidden',
+                      isMobile ? 'h-1/2 w-full' : 'w-1/2'
+                    )}
+                  >
+                    <div className='text-muted-foreground mb-2 text-sm font-medium'>
+                      模板配置
                     </div>
-                  </ScrollArea>
-                </TabsContent>
-
-                <TabsContent value="yaml" className="flex-1 min-h-0 overflow-hidden mt-4 flex flex-col data-[state=inactive]:hidden">
-                  <Textarea
-                    value={templateContent}
-                    onChange={(e) => handleYamlChange(e.target.value)}
-                    className="flex-1 font-mono text-xs sm:text-sm resize-none p-4"
-                    placeholder="YAML 内容..."
-                  />
-                </TabsContent>
-              </Tabs>
+                    <Card className='flex-1 overflow-hidden'>
+                      <ScrollArea className='h-full'>
+                        <pre className='p-2 font-mono text-xs break-all whitespace-pre-wrap sm:p-4'>
+                          {formatTemplateForDisplay(listPreviewTemplateContent)}
+                        </pre>
+                      </ScrollArea>
+                    </Card>
+                  </div>
+                  {/* Right: Final Subscription Config */}
+                  <div
+                    className={cn(
+                      'flex flex-col overflow-hidden',
+                      isMobile ? 'h-1/2 w-full' : 'w-1/2'
+                    )}
+                  >
+                    <div className='text-muted-foreground mb-2 text-sm font-medium'>
+                      最终订阅配置
+                    </div>
+                    <Card className='flex-1 overflow-hidden'>
+                      <ScrollArea className='h-full'>
+                        <pre className='p-2 font-mono text-xs break-all whitespace-pre-wrap sm:p-4'>
+                          {listPreviewContent}
+                        </pre>
+                      </ScrollArea>
+                    </Card>
+                  </div>
+                </>
+              )}
             </div>
+          </DialogContent>
+        </Dialog>
 
-            {/* Preview Panel - Right column(s) on tablet/desktop */}
-            {!isMobile && (
-              <div className={cn(
-                "border-l pl-4 flex overflow-hidden",
-                isTablet ? "w-[45%]" : "w-[60%]"
-              )}>
-                <TemplatePreview
-                  content={previewContent}
-                  isLoading={isPreviewLoading}
-                  onRefresh={handlePreview}
-                  className="flex-1 h-full"
-                  title="代理组配置"
-                />
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog
+          open={isDeleteDialogOpen}
+          onOpenChange={setIsDeleteDialogOpen}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>确认删除</AlertDialogTitle>
+              <AlertDialogDescription>
+                确定要删除模板 "{deletingTemplateName}" 吗？此操作无法撤销。
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>取消</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() =>
+                  deletingTemplateName &&
+                  deleteMutation.mutate(deletingTemplateName)
+                }
+                className='bg-destructive text-destructive-foreground hover:bg-destructive/90'
+              >
+                删除
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
-      {/* Upload Dialog */}
-      <TemplateUploadDialog
-        open={isUploadDialogOpen}
-        onOpenChange={setIsUploadDialogOpen}
-        onUpload={(file) => uploadMutation.mutate(file)}
-        onCreate={(name, content) => createMutation.mutate({ name, content })}
-        isLoading={uploadMutation.isPending || createMutation.isPending}
-      />
-
-      {/* List Preview Dialog */}
-      <Dialog open={listPreviewOpen} onOpenChange={setListPreviewOpen}>
-        <DialogContent className={cn(
-          "h-[85vh] flex flex-col",
-          isMobile ? "!w-[95vw] !max-w-[95vw] p-4" : "!w-[90vw] !max-w-[90vw]"
-        )} showCloseButton={false}>
-          <DialogHeader className="flex-shrink-0">
-            <div className="flex items-center justify-between">
-              <div>
-                <DialogTitle className="break-all truncate w-[200px] sm:w-auto">预览: {listPreviewTemplateName}</DialogTitle>
-                <DialogDescription className="hidden sm:block">左侧为模板配置，右侧为最终订阅配置</DialogDescription>
-              </div>
-              <Button variant="outline" onClick={() => setListPreviewOpen(false)} size={isMobile ? "sm" : "default"}>
-                关闭
+        {/* Rename Dialog */}
+        <Dialog open={isRenameDialogOpen} onOpenChange={setIsRenameDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>重命名模板</DialogTitle>
+              <DialogDescription>输入新的模板名称</DialogDescription>
+            </DialogHeader>
+            <div className='py-4'>
+              <Input
+                value={newTemplateName}
+                onChange={(e) => setNewTemplateName(e.target.value)}
+                placeholder='新模板名称'
+              />
+            </div>
+            <DialogFooter>
+              <Button
+                variant='outline'
+                onClick={() => setIsRenameDialogOpen(false)}
+              >
+                取消
               </Button>
-            </div>
-          </DialogHeader>
-          <div className={cn("flex-1 overflow-hidden flex gap-4", isMobile ? "flex-col" : "flex-row")}>
-            {listPreviewLoading ? (
-              <div className="flex items-center justify-center w-full h-full">
-                <span className="text-muted-foreground">正在生成预览...</span>
-              </div>
-            ) : (
-              <>
-                {/* Left: Template Config */}
-                <div className={cn("flex flex-col overflow-hidden", isMobile ? "h-1/2 w-full" : "w-1/2")}>
-                  <div className="text-sm font-medium mb-2 text-muted-foreground">模板配置</div>
-                  <Card className="flex-1 overflow-hidden">
-                    <ScrollArea className="h-full">
-                      <pre className="text-xs p-2 sm:p-4 font-mono whitespace-pre-wrap break-all">
-                        {formatTemplateForDisplay(listPreviewTemplateContent)}
-                      </pre>
-                    </ScrollArea>
-                  </Card>
-                </div>
-                {/* Right: Final Subscription Config */}
-                <div className={cn("flex flex-col overflow-hidden", isMobile ? "h-1/2 w-full" : "w-1/2")}>
-                  <div className="text-sm font-medium mb-2 text-muted-foreground">最终订阅配置</div>
-                  <Card className="flex-1 overflow-hidden">
-                    <ScrollArea className="h-full">
-                      <pre className="text-xs p-2 sm:p-4 font-mono whitespace-pre-wrap break-all">
-                        {listPreviewContent}
-                      </pre>
-                    </ScrollArea>
-                  </Card>
-                </div>
-              </>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+              <Button
+                onClick={() =>
+                  renamingTemplate &&
+                  renameMutation.mutate({
+                    oldName: renamingTemplate,
+                    newName: newTemplateName,
+                  })
+                }
+                disabled={renameMutation.isPending || !newTemplateName.trim()}
+              >
+                确认
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>确认删除</AlertDialogTitle>
-            <AlertDialogDescription>
-              确定要删除模板 "{deletingTemplateName}" 吗？此操作无法撤销。
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => deletingTemplateName && deleteMutation.mutate(deletingTemplateName)}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              删除
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        {/* Close Confirmation Dialog */}
+        <AlertDialog
+          open={isCloseConfirmOpen}
+          onOpenChange={setIsCloseConfirmOpen}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>确认关闭</AlertDialogTitle>
+              <AlertDialogDescription>
+                有未保存的更改，确定要关闭吗？
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>取消</AlertDialogCancel>
+              <AlertDialogAction onClick={doCloseEditor}>
+                确定关闭
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
-      {/* Rename Dialog */}
-      <Dialog open={isRenameDialogOpen} onOpenChange={setIsRenameDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>重命名模板</DialogTitle>
-            <DialogDescription>输入新的模板名称</DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <Input
-              value={newTemplateName}
-              onChange={(e) => setNewTemplateName(e.target.value)}
-              placeholder="新模板名称"
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsRenameDialogOpen(false)}>
-              取消
-            </Button>
-            <Button
-              onClick={() => renamingTemplate && renameMutation.mutate({ oldName: renamingTemplate, newName: newTemplateName })}
-              disabled={renameMutation.isPending || !newTemplateName.trim()}
-            >
-              确认
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Close Confirmation Dialog */}
-      <AlertDialog open={isCloseConfirmOpen} onOpenChange={setIsCloseConfirmOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>确认关闭</AlertDialogTitle>
-            <AlertDialogDescription>
-              有未保存的更改，确定要关闭吗？
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={doCloseEditor}>
-              确定关闭
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Draft Recovery Dialog */}
-      <AlertDialog open={isDraftRecoveryOpen} onOpenChange={setIsDraftRecoveryOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>恢复本地缓存</AlertDialogTitle>
-            <AlertDialogDescription>
-              检测到未保存的本地缓存，是否恢复？
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={handleDiscardDraft}>放弃</AlertDialogCancel>
-            <AlertDialogAction onClick={handleRecoverDraft}>恢复</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        {/* Draft Recovery Dialog */}
+        <AlertDialog
+          open={isDraftRecoveryOpen}
+          onOpenChange={setIsDraftRecoveryOpen}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>恢复本地缓存</AlertDialogTitle>
+              <AlertDialogDescription>
+                检测到未保存的本地缓存，是否恢复？
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={handleDiscardDraft}>
+                放弃
+              </AlertDialogCancel>
+              <AlertDialogAction onClick={handleRecoverDraft}>
+                恢复
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </main>
     </div>
   )

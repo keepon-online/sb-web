@@ -1025,6 +1025,11 @@ CREATE INDEX IF NOT EXISTS idx_proxy_provider_configs_external_subscription_id O
 		return fmt.Errorf("ensure geo_ip_filter column: %w", err)
 	}
 
+	// OperationPlan 审计表
+	if err := r.migrateOperationAuditTable(); err != nil {
+		return fmt.Errorf("migrate operation_audit: %w", err)
+	}
+
 	return nil
 }
 

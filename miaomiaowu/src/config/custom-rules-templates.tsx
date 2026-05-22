@@ -1,6 +1,6 @@
 // 规则集模板对应的规则内容
 export const RULE_PROVIDER_RULES = {
-	'loyalsoldier-blacklist': `- RULE-SET,applications,DIRECT
+  'loyalsoldier-blacklist': `- RULE-SET,applications,DIRECT
 - DOMAIN,clash.razord.top,DIRECT
 - DOMAIN,yacd.haishan.me,DIRECT
 - RULE-SET,private,DIRECT
@@ -9,7 +9,7 @@ export const RULE_PROVIDER_RULES = {
 - RULE-SET,gfw,PROXY
 - RULE-SET,telegramcidr,PROXY
 - MATCH,DIRECT`,
-	'loyalsoldier-whitelist': `- RULE-SET,applications,DIRECT
+  'loyalsoldier-whitelist': `- RULE-SET,applications,DIRECT
 - DOMAIN,clash.razord.top,DIRECT
 - DOMAIN,yacd.haishan.me,DIRECT
 - RULE-SET,private,DIRECT
@@ -25,7 +25,7 @@ export const RULE_PROVIDER_RULES = {
 - GEOIP,LAN,DIRECT
 - GEOIP,CN,DIRECT
 - MATCH,PROXY`,
-	'acl4ssr-standard': `- RULE-SET,LocalAreaNetwork,🎯 全球直连
+  'acl4ssr-standard': `- RULE-SET,LocalAreaNetwork,🎯 全球直连
 - RULE-SET,BanAD,🛑 全球拦截
 - RULE-SET,BanProgramAD,🍃 应用净化
 - RULE-SET,GoogleCN,🎯 全球直连
@@ -39,7 +39,7 @@ export const RULE_PROVIDER_RULES = {
 - RULE-SET,ChinaCompanyIp,🎯 全球直连
 - GEOIP,CN,🎯 全球直连
 - MATCH,🐟 漏网之鱼`,
-	'acl4ssr-lite': `- RULE-SET,LocalAreaNetwork,🎯 全球直连
+  'acl4ssr-lite': `- RULE-SET,LocalAreaNetwork,🎯 全球直连
 - RULE-SET,BanAD,🛑 全球拦截
 - RULE-SET,BanProgramAD,🛑 全球拦截
 - RULE-SET,GoogleCN,🎯 全球直连
@@ -51,7 +51,7 @@ export const RULE_PROVIDER_RULES = {
 - RULE-SET,ChinaCompanyIp,🎯 全球直连
 - GEOIP,CN,🎯 全球直连
 - MATCH,🐟 漏网之鱼`,
-	'aethersailor-standard': `- GEOSITE,private,🎯 全球直连
+  'aethersailor-standard': `- GEOSITE,private,🎯 全球直连
 - GEOIP,private,🎯 全球直连,no-resolve
 - RULE-SET,Custom_Direct_Classical,🎯 全球直连
 - RULE-SET,Custom_Proxy_Classical,🚀 手动选择
@@ -95,7 +95,7 @@ export const RULE_PROVIDER_RULES = {
 - GEOIP,cn,🎯 全球直连,no-resolve
 - RULE-SET,Custom_Port_Direct,🔀 非标端口
 - MATCH,🐟 漏网之鱼`,
-	'aethersailor-lite': `- GEOSITE,private,🎯 全球直连
+  'aethersailor-lite': `- GEOSITE,private,🎯 全球直连
 - GEOIP,private,🎯 全球直连,no-resolve
 - RULE-SET,Custom_Direct_Classical,🎯 全球直连
 - RULE-SET,Custom_Proxy_Classical,🚀 手动选择
@@ -117,15 +117,15 @@ export const RULE_PROVIDER_RULES = {
 - GEOSITE,cn,🎯 全球直连
 - GEOIP,cn,🎯 全球直连,no-resolve
 - RULE-SET,Custom_Port_Direct,🔀 非标端口
-- MATCH,🐟 漏网之鱼`
+- MATCH,🐟 漏网之鱼`,
 }
 
 // 预设模板
 export const RULE_TEMPLATES = {
-	dns: {
-		proxy: {
-			name: '使用♻️ 自动选择解析DNS',
-			content: `enable: true
+  dns: {
+    proxy: {
+      name: '使用♻️ 自动选择解析DNS',
+      content: `enable: true
 nameserver:
   - https://dns.google/dns-query/dns-query#♻️ 自动选择
 direct-nameserver:
@@ -151,11 +151,11 @@ fallback:
   - https://cloudflare-dns.com/dns-query/dns-query#♻️ 自动选择
   - https://doh.pub/dns-query
   - https://dns.alidns.com/dns-query
-use-hosts: true`
-		},
+use-hosts: true`,
+    },
     node_select_proxy: {
-			name: '使用🚀 节点选择解析DNS',
-			content: `enable: true
+      name: '使用🚀 节点选择解析DNS',
+      content: `enable: true
 nameserver:
   - https://dns.google/dns-query/dns-query#🚀 节点选择
 direct-nameserver:
@@ -181,11 +181,11 @@ fallback:
   - https://cloudflare-dns.com/dns-query/dns-query#🚀 节点选择
   - https://doh.pub/dns-query
   - https://dns.alidns.com/dns-query
-use-hosts: true`
-		},
-		local: {
-			name: '本地解析DNS',
-			content: `enable: true
+use-hosts: true`,
+    },
+    local: {
+      name: '本地解析DNS',
+      content: `enable: true
 nameserver:
   - https://doh.pub/dns-query
 direct-nameserver:
@@ -213,11 +213,11 @@ fallback:
   - https://doh.pub/dns-query
   - https://dns.alidns.com/dns-query
   - https://cloudflare-dns.com/dns-query/dns-query
-use-hosts: true`
-		},
+use-hosts: true`,
+    },
     redir_host_no_dnsleak: {
-			name: 'redir-host 模式(防DNS泄漏)',
-			content: `enable: true
+      name: 'redir-host 模式(防DNS泄漏)',
+      content: `enable: true
 enhanced-mode: redir-host
 nameserver:
   - https://dns.google/dns-query/dns-query#🚀 节点选择
@@ -231,11 +231,11 @@ proxy-server-nameserver:
 ipv6: false
 listen: 0.0.0.0:7874
 default-nameserver:
-  - https://cloudflare-dns.com/dns-query/dns-query#🚀 节点选择`
-		},
+  - https://cloudflare-dns.com/dns-query/dns-query#🚀 节点选择`,
+    },
     fake_ip_no_dnsleak: {
-			name: 'fake-ip 模式(防DNS泄漏)',
-			content: `enable: true
+      name: 'fake-ip 模式(防DNS泄漏)',
+      content: `enable: true
 enhanced-mode: fake-ip
 fake-ip-range: 198.18.0.1/16
 nameserver:
@@ -256,13 +256,13 @@ default-nameserver:
 fake-ip-filter:
   - '+.lan'
   - '+.local'
-  - '+.example.com'`
-		}
-	},
-	rules: {
-		'loyalsoldier-blacklist': {
-			name: 'Loyalsoldier 规则（黑名单）',
-			content: `- RULE-SET,applications,DIRECT
+  - '+.example.com'`,
+    },
+  },
+  rules: {
+    'loyalsoldier-blacklist': {
+      name: 'Loyalsoldier 规则（黑名单）',
+      content: `- RULE-SET,applications,DIRECT
 - DOMAIN,clash.razord.top,DIRECT
 - DOMAIN,yacd.haishan.me,DIRECT
 - RULE-SET,private,DIRECT
@@ -270,11 +270,11 @@ fake-ip-filter:
 - RULE-SET,tld-not-cn,PROXY
 - RULE-SET,gfw,PROXY
 - RULE-SET,telegramcidr,PROXY
-- MATCH,DIRECT`
-		},
-		'loyalsoldier-whitelist': {
-			name: 'Loyalsoldier 规则（白名单）',
-			content: `- RULE-SET,applications,DIRECT
+- MATCH,DIRECT`,
+    },
+    'loyalsoldier-whitelist': {
+      name: 'Loyalsoldier 规则（白名单）',
+      content: `- RULE-SET,applications,DIRECT
 - DOMAIN,clash.razord.top,DIRECT
 - DOMAIN,yacd.haishan.me,DIRECT
 - RULE-SET,private,DIRECT
@@ -289,11 +289,11 @@ fake-ip-filter:
 - RULE-SET,telegramcidr,PROXY
 - GEOIP,LAN,DIRECT
 - GEOIP,CN,DIRECT
-- MATCH,PROXY`
-		},
-		'acl4ssr-standard': {
-			name: 'ACL4SSR 规则（标准版）',
-			content: `- RULE-SET,LocalAreaNetwork,🎯 全球直连
+- MATCH,PROXY`,
+    },
+    'acl4ssr-standard': {
+      name: 'ACL4SSR 规则（标准版）',
+      content: `- RULE-SET,LocalAreaNetwork,🎯 全球直连
 - RULE-SET,BanAD,🛑 全球拦截
 - RULE-SET,BanProgramAD,🍃 应用净化
 - RULE-SET,GoogleCN,🎯 全球直连
@@ -306,11 +306,11 @@ fake-ip-filter:
 - RULE-SET,ChinaDomain,🎯 全球直连
 - RULE-SET,ChinaCompanyIp,🎯 全球直连
 - GEOIP,CN,🎯 全球直连
-- MATCH,🐟 漏网之鱼`
-		},
-		'acl4ssr-lite': {
-			name: 'ACL4SSR 规则（轻量版）',
-			content: `- RULE-SET,LocalAreaNetwork,🎯 全球直连
+- MATCH,🐟 漏网之鱼`,
+    },
+    'acl4ssr-lite': {
+      name: 'ACL4SSR 规则（轻量版）',
+      content: `- RULE-SET,LocalAreaNetwork,🎯 全球直连
 - RULE-SET,BanAD,🛑 全球拦截
 - RULE-SET,BanProgramAD,🛑 全球拦截
 - RULE-SET,GoogleCN,🎯 全球直连
@@ -321,11 +321,11 @@ fake-ip-filter:
 - RULE-SET,ChinaDomain,🎯 全球直连
 - RULE-SET,ChinaCompanyIp,🎯 全球直连
 - GEOIP,CN,🎯 全球直连
-- MATCH,🐟 漏网之鱼`
-		},
-		'aethersailor-standard': {
-			name: 'Aethersailor 规则（标准版）',
-			content: `- GEOSITE,private,🎯 全球直连
+- MATCH,🐟 漏网之鱼`,
+    },
+    'aethersailor-standard': {
+      name: 'Aethersailor 规则（标准版）',
+      content: `- GEOSITE,private,🎯 全球直连
 - GEOIP,private,🎯 全球直连,no-resolve
 - RULE-SET,Custom_Direct_Classical,🎯 全球直连
 - RULE-SET,Custom_Proxy_Classical,🚀 手动选择
@@ -368,11 +368,11 @@ fake-ip-filter:
 - GEOSITE,cn,🎯 全球直连
 - GEOIP,cn,🎯 全球直连,no-resolve
 - RULE-SET,Custom_Port_Direct,🔀 非标端口
-- MATCH,🐟 漏网之鱼`
-		},
-		'aethersailor-lite': {
-			name: 'Aethersailor 规则（轻量版）',
-			content: `- GEOSITE,private,🎯 全球直连
+- MATCH,🐟 漏网之鱼`,
+    },
+    'aethersailor-lite': {
+      name: 'Aethersailor 规则（轻量版）',
+      content: `- GEOSITE,private,🎯 全球直连
 - GEOIP,private,🎯 全球直连,no-resolve
 - RULE-SET,Custom_Direct_Classical,🎯 全球直连
 - RULE-SET,Custom_Proxy_Classical,🚀 手动选择
@@ -394,13 +394,13 @@ fake-ip-filter:
 - GEOSITE,cn,🎯 全球直连
 - GEOIP,cn,🎯 全球直连,no-resolve
 - RULE-SET,Custom_Port_Direct,🔀 非标端口
-- MATCH,🐟 漏网之鱼`
-		}
-	},
-	'rule-providers': {
-		'loyalsoldier-whitelist': {
-			name: 'Loyalsoldier 规则集（白名单）',
-			content: `reject:
+- MATCH,🐟 漏网之鱼`,
+    },
+  },
+  'rule-providers': {
+    'loyalsoldier-whitelist': {
+      name: 'Loyalsoldier 规则集（白名单）',
+      content: `reject:
   type: http
   behavior: domain
   url: "https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/reject.txt"
@@ -489,11 +489,11 @@ applications:
   behavior: classical
   url: "https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/applications.txt"
   path: ./ruleset/applications.yaml
-  interval: 86400`
-		},
-		'loyalsoldier-blacklist': {
-			name: 'Loyalsoldier 规则集（黑名单）',
-			content: `reject:
+  interval: 86400`,
+    },
+    'loyalsoldier-blacklist': {
+      name: 'Loyalsoldier 规则集（黑名单）',
+      content: `reject:
   type: http
   behavior: domain
   url: "https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/reject.txt"
@@ -533,11 +533,11 @@ applications:
   behavior: classical
   url: "https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/applications.txt"
   path: ./ruleset/applications.yaml
-  interval: 86400`
-		},
-		'aethersailor-standard': {
-			name: 'Aethersailor 规则集（标准版）',
-			content: `Custom_Direct_Classical:
+  interval: 86400`,
+    },
+    'aethersailor-standard': {
+      name: 'Aethersailor 规则集（标准版）',
+      content: `Custom_Direct_Classical:
   type: http
   behavior: classical
   url: https://testingcf.jsdelivr.net/gh/Aethersailor/Custom_OpenClash_Rules@main/rule/Custom_Direct_Classical.yaml
@@ -563,11 +563,11 @@ Custom_Port_Direct:
   behavior: classical
   url: https://testingcf.jsdelivr.net/gh/Aethersailor/Custom_OpenClash_Rules@main/rule/Custom_Port_Direct.yaml
   path: ./providers/2451647452112462632.yaml
-  interval: 28800`
-		},
-		'aethersailor-lite': {
-			name: 'Aethersailor 规则集（轻量版）',
-			content: `Custom_Direct_Classical:
+  interval: 28800`,
+    },
+    'aethersailor-lite': {
+      name: 'Aethersailor 规则集（轻量版）',
+      content: `Custom_Direct_Classical:
   type: http
   behavior: classical
   url: https://testingcf.jsdelivr.net/gh/Aethersailor/Custom_OpenClash_Rules@main/rule/Custom_Direct_Classical.yaml
@@ -593,11 +593,11 @@ Custom_Port_Direct:
   behavior: classical
   url: https://testingcf.jsdelivr.net/gh/Aethersailor/Custom_OpenClash_Rules@main/rule/Custom_Port_Direct.yaml
   path: ./providers/2451647452112462632.yaml
-  interval: 28800`
-		},
-		'acl4ssr-standard': {
-			name: 'ACL4SSR 规则集（标准版）',
-			content: `LocalAreaNetwork:
+  interval: 28800`,
+    },
+    'acl4ssr-standard': {
+      name: 'ACL4SSR 规则集（标准版）',
+      content: `LocalAreaNetwork:
   type: http
   behavior: classical
   url: https://api.dler.io/getruleset?type=6&url=cnVsZXMvQUNMNFNTUi9DbGFzaC9Mb2NhbEFyZWFOZXR3b3JrLmxpc3Q
@@ -679,11 +679,11 @@ ChinaCompanyIp:
   behavior: classical
   url: https://api.dler.io/getruleset?type=6&url=cnVsZXMvQUNMNFNTUi9DbGFzaC9DaGluYUNvbXBhbnlJcC5saXN0
   path: ./providers/8094975577528505650.yaml
-  interval: 86400`
-		},
-		'acl4ssr-lite': {
-			name: 'ACL4SSR 规则集（轻量版）',
-			content: `LocalAreaNetwork:
+  interval: 86400`,
+    },
+    'acl4ssr-lite': {
+      name: 'ACL4SSR 规则集（轻量版）',
+      content: `LocalAreaNetwork:
   type: http
   behavior: classical
   url: https://api.dler.io/getruleset?type=6&url=cnVsZXMvQUNMNFNTUi9DbGFzaC9Mb2NhbEFyZWFOZXR3b3JrLmxpc3Q
@@ -751,7 +751,7 @@ ChinaCompanyIp:
   behavior: classical
   url: https://api.dler.io/getruleset?type=6&url=cnVsZXMvQUNMNFNTUi9DbGFzaC9DaGluYUNvbXBhbnlJcC5saXN0
   path: ./providers/8094975577528505650.yaml
-  interval: 86400`
-		}
-	}
+  interval: 86400`,
+    },
+  },
 }

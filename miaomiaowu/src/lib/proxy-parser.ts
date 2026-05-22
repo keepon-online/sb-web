@@ -3,9 +3,13 @@
  * 支持解析 tuic、trojan、hysteria、hysteria2、vmess、vless、socks、ss 等协议
  * 并转换为 Clash 节点格式
  */
-
-import { toast } from "sonner"
-import { isIPv4, isIPv6, pickFirstDefined, applyTlsSniFallback } from "@/lib/substore/producers/utils"
+import { toast } from 'sonner'
+import {
+  isIPv4,
+  isIPv6,
+  pickFirstDefined,
+  applyTlsSniFallback,
+} from '@/lib/substore/producers/utils'
 
 // 通用代理节点接口
 export interface ProxyNode {
@@ -17,7 +21,7 @@ export interface ProxyNode {
   uuid?: string
   method?: string
   cipher?: string
-  [key: string]: unknown,
+  [key: string]: unknown
   'spider-x'?: string
 }
 
@@ -44,7 +48,9 @@ function base64Decode(str: string): string {
     }
     return decodeURIComponent(escape(atob(base64)))
   } catch (e) {
-    toast(`'Base64 decode error:' ${e instanceof Error ? e.message : String(e)}`)
+    toast(
+      `'Base64 decode error:' ${e instanceof Error ? e.message : String(e)}`
+    )
     return ''
   }
 }
@@ -99,7 +105,7 @@ function parseVmess(url: string): ProxyNode | null {
       alterId: parseInt(config.aid) || 0,
       cipher: config.scy || 'auto',
       network: config.net || 'tcp',
-      tls: config.tls === 'tls' || config.tls === true
+      tls: config.tls === 'tls' || config.tls === true,
     }
 
     // SNI/Servername
@@ -111,7 +117,8 @@ function parseVmess(url: string): ProxyNode | null {
 
     // ALPN
     if (config.alpn) {
-      node.alpn = typeof config.alpn === 'string' ? config.alpn.split(',') : config.alpn
+      node.alpn =
+        typeof config.alpn === 'string' ? config.alpn.split(',') : config.alpn
     }
 
     // Client Fingerprint
@@ -121,14 +128,19 @@ function parseVmess(url: string): ProxyNode | null {
 
     // Skip cert verify
     if (config.allowInsecure !== undefined) {
-      node.skipCertVerify = config.allowInsecure === true || config.allowInsecure === '1' || config.allowInsecure === 1
+      node.skipCertVerify =
+        config.allowInsecure === true ||
+        config.allowInsecure === '1' ||
+        config.allowInsecure === 1
     }
 
     // WebSocket
     if (config.net === 'ws') {
       node['ws-opts'] = {
         path: safeDecodeURIComponent(config.path) || '/',
-        headers: config.host ? { Host: safeDecodeURIComponent(config.host) } : {}
+        headers: config.host
+          ? { Host: safeDecodeURIComponent(config.host) }
+          : {},
       }
     }
 
@@ -136,21 +148,31 @@ function parseVmess(url: string): ProxyNode | null {
     if (config.net === 'h2') {
       const decodedHost = config.host ? safeDecodeURIComponent(config.host) : ''
       node['h2-opts'] = {
-        host: decodedHost ? (Array.isArray(config.host) ? config.host.map(safeDecodeURIComponent) : [decodedHost]) : [],
-        path: safeDecodeURIComponent(config.path) || '/'
+        host: decodedHost
+          ? Array.isArray(config.host)
+            ? config.host.map(safeDecodeURIComponent)
+            : [decodedHost]
+          : [],
+        path: safeDecodeURIComponent(config.path) || '/',
       }
     }
 
     // gRPC
     if (config.net === 'grpc') {
       node['grpc-opts'] = {
-        'grpc-service-name': safeDecodeURIComponent(config.path || config['grpc-service-name']) || ''
+        'grpc-service-name':
+          safeDecodeURIComponent(config.path || config['grpc-service-name']) ||
+          '',
       }
     }
 
     // UDP - 如果配置中明确指定了 udp 参数，使用配置的值；否则默认为 true
     if (config.udp !== undefined) {
-      node.udp = config.udp === true || config.udp === 'true' || config.udp === '1' || config.udp === 1
+      node.udp =
+        config.udp === true ||
+        config.udp === 'true' ||
+        config.udp === '1' ||
+        config.udp === 1
     } else {
       node.udp = true
     }
@@ -208,7 +230,7 @@ function parseShadowsocksR(url: string): ProxyNode | null {
       cipher: method,
       password,
       protocol,
-      obfs
+      obfs,
     }
 
     if (obfsParam) {
@@ -218,11 +240,13 @@ function parseShadowsocksR(url: string): ProxyNode | null {
       node['protocol-param'] = protoParam
     }
 
-    node.udp = true  // SSR 协议默认支持 UDP
+    node.udp = true // SSR 协议默认支持 UDP
 
     return node
   } catch (e) {
-    toast(`Parse ShadowsocksR error: ${e instanceof Error ? e.message : String(e)}`)
+    toast(
+      `Parse ShadowsocksR error: ${e instanceof Error ? e.message : String(e)}`
+    )
     return null
   }
 }
@@ -240,7 +264,13 @@ function parseShadowsocksR(url: string): ProxyNode | null {
  * - restls: host, password, version-hint, restls-script, client-fingerprint/fp
  * - kcptun: key, crypt, mode, conn, autoexpire, scavengettl, mtu, sndwnd, rcvwnd, datashard, parityshard, dscp, nocomp, acknodelay, nodelay, interval, resend, sockbuf, smuxver, smuxbuf, streambuf, keepalive
  */
-function parseSSPlugin(pluginStr: string): { plugin: string; pluginOpts: Record<string, unknown>; clientFingerprint?: string } | null {
+function parseSSPlugin(
+  pluginStr: string
+): {
+  plugin: string
+  pluginOpts: Record<string, unknown>
+  clientFingerprint?: string
+} | null {
   if (!pluginStr) return null
 
   // 先进行 URL 解码
@@ -342,9 +372,27 @@ function parseSSPlugin(pluginStr: string): { plugin: string; pluginOpts: Record<
 
       case 'kcptun':
         // kcptun 参数直接映射
-        if (['conn', 'autoexpire', 'scavengettl', 'mtu', 'sndwnd', 'rcvwnd',
-             'datashard', 'parityshard', 'dscp', 'nodelay', 'interval',
-             'resend', 'sockbuf', 'smuxver', 'smuxbuf', 'streambuf', 'keepalive'].includes(key)) {
+        if (
+          [
+            'conn',
+            'autoexpire',
+            'scavengettl',
+            'mtu',
+            'sndwnd',
+            'rcvwnd',
+            'datashard',
+            'parityshard',
+            'dscp',
+            'nodelay',
+            'interval',
+            'resend',
+            'sockbuf',
+            'smuxver',
+            'smuxbuf',
+            'streambuf',
+            'keepalive',
+          ].includes(key)
+        ) {
           pluginOpts[key] = parseInt(value)
         } else if (['nocomp', 'acknodelay'].includes(key)) {
           pluginOpts[key] = value === 'true' || value === '1'
@@ -362,7 +410,7 @@ function parseSSPlugin(pluginStr: string): { plugin: string; pluginOpts: Record<
   return {
     plugin,
     pluginOpts,
-    clientFingerprint
+    clientFingerprint,
   }
 }
 
@@ -426,18 +474,31 @@ function parseShadowsocks(url: string): ProxyNode | null {
       // 尝试解析认证部分
       // 首先检查是否是明文格式 (method:password)，通过检测是否包含已知的加密方法前缀
       const knownCiphers = [
-        'aes-128-gcm', 'aes-192-gcm', 'aes-256-gcm',
-        'aes-128-cfb', 'aes-192-cfb', 'aes-256-cfb',
-        'aes-128-ctr', 'aes-192-ctr', 'aes-256-ctr',
-        'chacha20-ietf-poly1305', 'xchacha20-ietf-poly1305',
-        'chacha20-ietf', 'chacha20', 'xchacha20',
-        '2022-blake3-aes-128-gcm', '2022-blake3-aes-256-gcm',
+        'aes-128-gcm',
+        'aes-192-gcm',
+        'aes-256-gcm',
+        'aes-128-cfb',
+        'aes-192-cfb',
+        'aes-256-cfb',
+        'aes-128-ctr',
+        'aes-192-ctr',
+        'aes-256-ctr',
+        'chacha20-ietf-poly1305',
+        'xchacha20-ietf-poly1305',
+        'chacha20-ietf',
+        'chacha20',
+        'xchacha20',
+        '2022-blake3-aes-128-gcm',
+        '2022-blake3-aes-256-gcm',
         '2022-blake3-chacha20-poly1305',
-        'rc4-md5', 'none'
+        'rc4-md5',
+        'none',
       ]
 
       // 检查 authPart 是否以已知加密方式开头（明文格式）
-      const matchedCipher = knownCiphers.find(cipher => authPart.startsWith(cipher + ':'))
+      const matchedCipher = knownCiphers.find((cipher) =>
+        authPart.startsWith(cipher + ':')
+      )
 
       if (matchedCipher) {
         // 格式3 或 格式4: 明文加密方式
@@ -463,7 +524,11 @@ function parseShadowsocks(url: string): ProxyNode | null {
         // 格式1: base64(method:password)@server:port
         const encodedPart = authPart
         // 修复ss password含有:号, urlencode格式转换
-        const decoded = base64Decode(encodedPart.indexOf('%') == -1 ? encodedPart : decodeURIComponent(encodedPart))
+        const decoded = base64Decode(
+          encodedPart.indexOf('%') == -1
+            ? encodedPart
+            : decodeURIComponent(encodedPart)
+        )
         const colonIndex = decoded.indexOf(':')
         method = decoded.substring(0, colonIndex)
         password = decoded.substring(colonIndex + 1)
@@ -496,7 +561,7 @@ function parseShadowsocks(url: string): ProxyNode | null {
       server,
       port,
       cipher: method,
-      password
+      password,
     }
 
     // SS 协议默认支持 UDP
@@ -521,7 +586,8 @@ function parseShadowsocks(url: string): ProxyNode | null {
     if (queryParams.uot || queryParams['udp-over-tcp']) {
       node['udp-over-tcp'] = queryParams['udp-over-tcp'] || queryParams.uot
       if (queryParams.uotv || queryParams['udp-over-tcp-version']) {
-        node['udp-over-tcp-version'] = queryParams['udp-over-tcp-version'] || queryParams.uotv
+        node['udp-over-tcp-version'] =
+          queryParams['udp-over-tcp-version'] || queryParams.uotv
       }
     }
 
@@ -531,7 +597,9 @@ function parseShadowsocks(url: string): ProxyNode | null {
 
     return node
   } catch (e) {
-    toast(`'Parse Shadowsocks error:' ${e instanceof Error ? e.message : String(e)}`)
+    toast(
+      `'Parse Shadowsocks error:' ${e instanceof Error ? e.message : String(e)}`
+    )
     return null
   }
 }
@@ -631,7 +699,7 @@ function parseSocks(url: string): ProxyNode | null {
       port,
       username,
       password,
-      udp: true
+      udp: true,
     }
   } catch (e) {
     toast(`'Parse SOCKS error:' ${e instanceof Error ? e.message : String(e)}`)
@@ -695,7 +763,9 @@ function parseHttp(url: string): ProxyNode | null {
       const lastColonIndex = serverPart.lastIndexOf(':')
       if (lastColonIndex !== -1) {
         server = serverPart.substring(0, lastColonIndex)
-        port = parseInt(serverPart.substring(lastColonIndex + 1)) || (isTls ? 443 : 80)
+        port =
+          parseInt(serverPart.substring(lastColonIndex + 1)) ||
+          (isTls ? 443 : 80)
       } else {
         server = serverPart
         port = isTls ? 443 : 80
@@ -832,7 +902,13 @@ function parseGenericProtocol(url: string, protocol: string): ProxyNode | null {
         const portPart = serverPart.substring(closeBracketIndex + 1)
         const parsedPort = parseInt(portPart.replace(':', '')) || 0
         // 如果没有端口，根据协议设置默认端口
-        port = parsedPort || ((protocol === 'anytls' || protocol === 'trojan' || protocol === 'vless') ? 443 : 0)
+        port =
+          parsedPort ||
+          (protocol === 'anytls' ||
+          protocol === 'trojan' ||
+          protocol === 'vless'
+            ? 443
+            : 0)
 
         // 对于 Hysteria2，保留方括号；其他协议去掉方括号
         if (protocol === 'hysteria2' || protocol === 'hysteria') {
@@ -850,7 +926,10 @@ function parseGenericProtocol(url: string, protocol: string): ProxyNode | null {
         port = parseInt(parts[1]) || 0
       } else {
         // 默认端口：anytls/trojan/vless 等 TLS 协议默认 443
-        port = (protocol === 'anytls' || protocol === 'trojan' || protocol === 'vless') ? 443 : 0
+        port =
+          protocol === 'anytls' || protocol === 'trojan' || protocol === 'vless'
+            ? 443
+            : 0
       }
     }
 
@@ -858,7 +937,7 @@ function parseGenericProtocol(url: string, protocol: string): ProxyNode | null {
       name,
       type: protocol,
       server,
-      port
+      port,
     }
 
     // 根据协议类型添加特定字段
@@ -866,7 +945,11 @@ function parseGenericProtocol(url: string, protocol: string): ProxyNode | null {
       case 'trojan':
         node.password = password
         {
-          const trojanSni = pickFirstDefined(queryParams.sni, queryParams.peer, queryParams.host)
+          const trojanSni = pickFirstDefined(
+            queryParams.sni,
+            queryParams.peer,
+            queryParams.host
+          )
           if (trojanSni !== undefined) {
             node.sni = safeDecodeURIComponent(trojanSni)
           }
@@ -882,16 +965,23 @@ function parseGenericProtocol(url: string, protocol: string): ProxyNode | null {
         if (queryParams.type === 'ws') {
           node['ws-opts'] = {
             path: safeDecodeURIComponent(queryParams.path) || '/',
-            headers: queryParams.host ? { Host: safeDecodeURIComponent(queryParams.host) } : {}
+            headers: queryParams.host
+              ? { Host: safeDecodeURIComponent(queryParams.host) }
+              : {},
           }
         } else if (queryParams.type === 'grpc') {
           node['grpc-opts'] = {
-            'grpc-service-name': safeDecodeURIComponent(queryParams.serviceName || queryParams.path) || ''
+            'grpc-service-name':
+              safeDecodeURIComponent(
+                queryParams.serviceName || queryParams.path
+              ) || '',
           }
         } else if (queryParams.type === 'h2' || queryParams.type === 'http') {
           node['h2-opts'] = {
-            host: queryParams.host ? [safeDecodeURIComponent(queryParams.host)] : [],
-            path: safeDecodeURIComponent(queryParams.path) || '/'
+            host: queryParams.host
+              ? [safeDecodeURIComponent(queryParams.host)]
+              : [],
+            path: safeDecodeURIComponent(queryParams.path) || '/',
           }
         }
 
@@ -911,7 +1001,9 @@ function parseGenericProtocol(url: string, protocol: string): ProxyNode | null {
         if (queryParams.fp) {
           node.fp = queryParams.fp
         }
-        node.skipCertVerify = queryParams.allowInsecure === '1' || queryParams['skip-cert-verify'] === '1'
+        node.skipCertVerify =
+          queryParams.allowInsecure === '1' ||
+          queryParams['skip-cert-verify'] === '1'
 
         // UDP 支持 - 如果 URL 中明确指定了 udp 参数，使用指定的值；否则默认为 true
         if (queryParams.udp !== undefined) {
@@ -927,7 +1019,8 @@ function parseGenericProtocol(url: string, protocol: string): ProxyNode | null {
         node.flow = queryParams.flow || ''
         node.encryption = queryParams.encryption || 'none' // 加密方式，默认为 none
         node.security = queryParams.security || 'none'
-        node.tls = queryParams.security === 'tls' || queryParams.security === 'reality'
+        node.tls =
+          queryParams.security === 'tls' || queryParams.security === 'reality'
         node.network = queryParams.type || 'tcp'
         if (queryParams.sni !== undefined) {
           const decodedSni = safeDecodeURIComponent(queryParams.sni)
@@ -951,23 +1044,32 @@ function parseGenericProtocol(url: string, protocol: string): ProxyNode | null {
         if (queryParams.type === 'ws') {
           node['ws-opts'] = {
             path: safeDecodeURIComponent(queryParams.path) || '/',
-            headers: queryParams.host ? { Host: safeDecodeURIComponent(queryParams.host) } : {}
+            headers: queryParams.host
+              ? { Host: safeDecodeURIComponent(queryParams.host) }
+              : {},
           }
         } else if (queryParams.type === 'grpc') {
           node['grpc-opts'] = {
-            'grpc-service-name': safeDecodeURIComponent(queryParams.serviceName || queryParams.path) || ''
+            'grpc-service-name':
+              safeDecodeURIComponent(
+                queryParams.serviceName || queryParams.path
+              ) || '',
           }
         } else if (queryParams.type === 'h2' || queryParams.type === 'http') {
           node['h2-opts'] = {
-            host: queryParams.host ? [safeDecodeURIComponent(queryParams.host)] : [],
-            path: safeDecodeURIComponent(queryParams.path) || '/'
+            host: queryParams.host
+              ? [safeDecodeURIComponent(queryParams.host)]
+              : [],
+            path: safeDecodeURIComponent(queryParams.path) || '/',
           }
         } else if (queryParams.type === 'xhttp') {
           // xhttp 与 reality一样使用opts
           node.network = 'xhttp'
           node['xhttp-opts'] = {
             path: safeDecodeURIComponent(queryParams.path) || '/',
-            headers: queryParams.host ? { Host: safeDecodeURIComponent(queryParams.host) } : {}
+            headers: queryParams.host
+              ? { Host: safeDecodeURIComponent(queryParams.host) }
+              : {},
           }
           node.mode = queryParams.mode || 'auto' // xhttp 没有解析mode参数, 参考shadowrocket客户端默认为auto
         }
@@ -976,7 +1078,7 @@ function parseGenericProtocol(url: string, protocol: string): ProxyNode | null {
         if (queryParams.alpn) {
           node.alpn = queryParams.alpn.split(',')
         }
-        // 
+        //
         // if (queryParams.host) {
         //   node.host = queryParams.host
         // }
@@ -1001,7 +1103,8 @@ function parseGenericProtocol(url: string, protocol: string): ProxyNode | null {
         node.auth = password // 内部临时字段，用于传递认证信息
         // node.ports = queryParams.mport || port.toString()
         node.obfs = queryParams.obfs
-        node['obfs-password'] = queryParams['obfs-password'] || queryParams.obfsParam
+        node['obfs-password'] =
+          queryParams['obfs-password'] || queryParams.obfsParam
         {
           const hySni = pickFirstDefined(queryParams.peer, queryParams.sni)
           if (hySni !== undefined) {
@@ -1010,7 +1113,10 @@ function parseGenericProtocol(url: string, protocol: string): ProxyNode | null {
         }
         node.alpn = queryParams.alpn ? queryParams.alpn.split(',') : undefined
         // insecure=1 表示跳过证书验证
-        node.skipCertVerify = queryParams.insecure === '1' || queryParams.allowInsecure === '1' || queryParams['skip-cert-verify'] === '1'
+        node.skipCertVerify =
+          queryParams.insecure === '1' ||
+          queryParams.allowInsecure === '1' ||
+          queryParams['skip-cert-verify'] === '1'
         node.up = queryParams.up || queryParams.upmbps
         node.down = queryParams.down || queryParams.downmbps
         // 只有在 URL 中明确指定了 fp 参数时才添加 client-fingerprint
@@ -1045,11 +1151,16 @@ function parseGenericProtocol(url: string, protocol: string): ProxyNode | null {
           node.sni = safeDecodeURIComponent(queryParams.sni)
         }
         node.alpn = queryParams.alpn ? queryParams.alpn.split(',') : ['h3']
-        node.skipCertVerify = queryParams.allowInsecure === '1' || queryParams.allow_insecure === '1'
+        node.skipCertVerify =
+          queryParams.allowInsecure === '1' ||
+          queryParams.allow_insecure === '1'
         node['congestion-controller'] = queryParams.congestion_control || 'bbr'
         node['udp-relay-mode'] = queryParams.udp_relay_mode || 'native'
         // 证书验证添加默认值
-        node['skip-cert-verify'] = queryParams.insecure === '1' || queryParams.allowInsecure === '1' || queryParams['skip-cert-verify'] === '1'
+        node['skip-cert-verify'] =
+          queryParams.insecure === '1' ||
+          queryParams.allowInsecure === '1' ||
+          queryParams['skip-cert-verify'] === '1'
         // UDP 支持 - 如果 URL 中明确指定了 udp 参数，使用指定的值；否则默认为 true（基于 QUIC）
         if (queryParams.udp !== undefined) {
           node.udp = queryParams.udp === 'true' || queryParams.udp === '1'
@@ -1067,7 +1178,10 @@ function parseGenericProtocol(url: string, protocol: string): ProxyNode | null {
           }
         }
         node.alpn = queryParams.alpn ? queryParams.alpn.split(',') : undefined
-        node.skipCertVerify = queryParams.insecure === '1' || queryParams.allowInsecure === '1' || queryParams['skip-cert-verify'] === '1'
+        node.skipCertVerify =
+          queryParams.insecure === '1' ||
+          queryParams.allowInsecure === '1' ||
+          queryParams['skip-cert-verify'] === '1'
         // client-fingerprint
         if (queryParams.fp) {
           node.fp = queryParams.fp
@@ -1080,10 +1194,14 @@ function parseGenericProtocol(url: string, protocol: string): ProxyNode | null {
         }
         // anytls 特有参数 - idle session 相关
         if (queryParams.idleSessionCheckInterval) {
-          node['idle-session-check-interval'] = parseInt(queryParams.idleSessionCheckInterval)
+          node['idle-session-check-interval'] = parseInt(
+            queryParams.idleSessionCheckInterval
+          )
         }
         if (queryParams.idleSessionTimeout) {
-          node['idle-session-timeout'] = parseInt(queryParams.idleSessionTimeout)
+          node['idle-session-timeout'] = parseInt(
+            queryParams.idleSessionTimeout
+          )
         }
         if (queryParams.minIdleSession) {
           node['min-idle-session'] = parseInt(queryParams.minIdleSession)
@@ -1091,18 +1209,24 @@ function parseGenericProtocol(url: string, protocol: string): ProxyNode | null {
         break
     }
     // ip-version解析
-    if (queryParams["ip-version"]) {
-      node['ip-version'] = queryParams["ip-version"]
+    if (queryParams['ip-version']) {
+      node['ip-version'] = queryParams['ip-version']
     }
 
     applyTlsSniFallback(node)
-    if (protocol === 'vless' && node.servername === undefined && node.sni !== undefined) {
+    if (
+      protocol === 'vless' &&
+      node.servername === undefined &&
+      node.sni !== undefined
+    ) {
       node.servername = node.sni
     }
 
     return node
   } catch (e) {
-    toast(`Parse ${protocol} error: ${e instanceof Error ? e.message : String(e)}`)
+    toast(
+      `Parse ${protocol} error: ${e instanceof Error ? e.message : String(e)}`
+    )
     return null
   }
 }
@@ -1118,7 +1242,9 @@ function parseWireGuard(url: string): ProxyNode | null {
     const content = url.replace(/^(wireguard|wg):\/\//, '')
 
     // 使用正则解析 URL 各部分
-    const match = /^((.*?)@)?(.*?)(:(\d+))?\/?(\?(.*?))?(?:#(.*?))?$/.exec(content)
+    const match = /^((.*?)@)?(.*?)(:(\d+))?\/?(\?(.*?))?(?:#(.*?))?$/.exec(
+      content
+    )
     if (!match) return null
 
     let privateKey = match[2] || ''
@@ -1161,18 +1287,18 @@ function parseWireGuard(url: string): ProxyNode | null {
           // reserved 参数是一个数组，格式：reserved=1,2,3
           const parsed = value
             .split(',')
-            .map(i => parseInt(i.trim(), 10))
-            .filter(i => Number.isInteger(i))
+            .map((i) => parseInt(i.trim(), 10))
+            .filter((i) => Number.isInteger(i))
           if (parsed.length === 3) {
             node[key] = parsed
           }
         } else if (['address', 'ip'].includes(key)) {
           // address 参数可能包含 IPv4 和 IPv6，格式：address=10.0.0.1/32,fd00::1/128
-          value.split(',').forEach(i => {
+          value.split(',').forEach((i) => {
             const ip = i
               .trim()
-              .replace(/\/\d+$/, '')  // 移除 CIDR 后缀
-              .replace(/^\[/, '')     // 移除 IPv6 方括号
+              .replace(/\/\d+$/, '') // 移除 CIDR 后缀
+              .replace(/^\[/, '') // 移除 IPv6 方括号
               .replace(/\]$/, '')
             if (isIPv4(ip)) {
               node.ip = ip
@@ -1197,12 +1323,19 @@ function parseWireGuard(url: string): ProxyNode | null {
           if (value.startsWith('[') && value.endsWith(']')) {
             // 去掉方括号，按逗号分割并去除空白
             const innerValue = value.slice(1, -1)
-            node[key] = innerValue.split(',').map(v => v.trim()).filter(v => v)
+            node[key] = innerValue
+              .split(',')
+              .map((v) => v.trim())
+              .filter((v) => v)
           } else {
             // 其他格式保持原样
             node[key] = value
           }
-        } else if (!['name', 'type', 'server', 'port', 'private-key', 'flag'].includes(key)) {
+        } else if (
+          !['name', 'type', 'server', 'port', 'private-key', 'flag'].includes(
+            key
+          )
+        ) {
           // 其他未知参数直接添加
           node[key] = value
         }
@@ -1211,7 +1344,9 @@ function parseWireGuard(url: string): ProxyNode | null {
 
     return node
   } catch (e) {
-    toast(`Parse WireGuard error: ${e instanceof Error ? e.message : String(e)}`)
+    toast(
+      `Parse WireGuard error: ${e instanceof Error ? e.message : String(e)}`
+    )
     return null
   }
 }
@@ -1236,8 +1371,8 @@ export function parseProxyUrl(url: string): ProxyNode | null {
     return parseSocks(url)
   } else if (url.startsWith('http://') || url.startsWith('https://')) {
     return parseHttp(url)
-  // } else if (url.startsWith('snell://')) {
-  //   return parseSnell(url)
+    // } else if (url.startsWith('snell://')) {
+    //   return parseSnell(url)
   } else if (url.startsWith('trojan://')) {
     return parseGenericProtocol(url, 'trojan')
   } else if (url.startsWith('vless://')) {
@@ -1245,7 +1380,10 @@ export function parseProxyUrl(url: string): ProxyNode | null {
   } else if (url.startsWith('hysteria://')) {
     return parseGenericProtocol(url, 'hysteria')
   } else if (url.startsWith('hy2://')) {
-    return parseGenericProtocol(url.replace('hy2://', 'hysteria2://'), 'hysteria2')
+    return parseGenericProtocol(
+      url.replace('hy2://', 'hysteria2://'),
+      'hysteria2'
+    )
   } else if (url.startsWith('hysteria2://')) {
     return parseGenericProtocol(url, 'hysteria2')
   } else if (url.startsWith('tuic://')) {
@@ -1266,33 +1404,40 @@ export function toClashProxy(node: ProxyNode): ClashProxy {
   // 参数名映射表：将缩写转换为 Clash 标准格式
   const paramMapping: Record<string, string> = {
     // VLESS Reality 参数
-    'pbk': 'public-key',
-    'sid': 'short-id',
-    'spx': 'spider-x',
-    'fp': 'client-fingerprint',
+    pbk: 'public-key',
+    sid: 'short-id',
+    spx: 'spider-x',
+    fp: 'client-fingerprint',
 
     // 通用参数映射
-    'sni': 'servername',
-    'alpn': 'alpn',
-    'allowInsecure': 'skip-cert-verify',
-    'skipCertVerify': 'skip-cert-verify',
+    sni: 'servername',
+    alpn: 'alpn',
+    allowInsecure: 'skip-cert-verify',
+    skipCertVerify: 'skip-cert-verify',
 
     // 保持原样的参数
-    'servername': 'servername',
+    servername: 'servername',
     'public-key': 'public-key',
     'short-id': 'short-id',
     'spider-x': 'spider-x',
-    'fingerprint': 'fingerprint',
-    'skip-cert-verify': 'skip-cert-verify'
+    fingerprint: 'fingerprint',
+    'skip-cert-verify': 'skip-cert-verify',
   }
 
   // 需要排除的中间参数（不输出到 Clash）
   const baseExcludeKeys = new Set([
-    'name', 'type', 'server', 'port',
+    'name',
+    'type',
+    'server',
+    'port',
     // 原始缩写参数（已转换为标准格式）
-    'pbk', 'sid', 'spx', 'fp',
+    'pbk',
+    'sid',
+    'spx',
+    'fp',
     // 中间状态参数
-    'allowInsecure', 'skipCertVerify',
+    'allowInsecure',
+    'skipCertVerify',
     'sni', // 已转换为 servername
     // 'servername', // 与 server 重复，不需要输出
     'auth', // Hysteria2 内部使用的中间字段，已转换为 password
@@ -1304,20 +1449,23 @@ export function toClashProxy(node: ProxyNode): ClashProxy {
     'security', // 已转换为 tls 和 reality-opts
     'fingerprint', // 已转换为 client-fingerprint
     'client-fingerprint', // SS plugin 中的 client-fingerprint，已单独处理
-    '_original-network' // xhttp 原始网络类型，用于 URI 生成，不输出到 Clash
+    '_original-network', // xhttp 原始网络类型，用于 URI 生成，不输出到 Clash
   ])
 
   // Reality 特定参数（仅当 security === 'reality' 时排除，已转换为 reality-opts）
   // 其他协议（如 WireGuard）可能需要这些字段，不应全局排除
   const realityExcludeKeys = new Set([
-    'public-key', 'short-id', 'spider-x', '_spider-x'
+    'public-key',
+    'short-id',
+    'spider-x',
+    '_spider-x',
   ])
 
   const clash: ClashProxy = {
     name: node.name,
     type: node.type,
     server: node.server,
-    port: node.port
+    port: node.port,
   }
 
   // 首先处理标准字段（按 Clash 推荐顺序）
@@ -1332,16 +1480,20 @@ export function toClashProxy(node: ProxyNode): ClashProxy {
     if (node.encryption) {
       clash.encryption = node.encryption
     }
-  // } else if (node.type === 'snell') {
-  //   // Snell 使用 psk (pre-shared key)
-  //   if (node.psk) {
-  //     clash.psk = node.psk
-  //   }
-  //   // Snell version
-  //   if (node.version) {
-  //     clash.version = node.version
-  //   }
-  } else if (node.type === 'hysteria2' || node.type === 'hysteria' || node.type === 'anytls') {
+    // } else if (node.type === 'snell') {
+    //   // Snell 使用 psk (pre-shared key)
+    //   if (node.psk) {
+    //     clash.psk = node.psk
+    //   }
+    //   // Snell version
+    //   if (node.version) {
+    //     clash.version = node.version
+    //   }
+  } else if (
+    node.type === 'hysteria2' ||
+    node.type === 'hysteria' ||
+    node.type === 'anytls'
+  ) {
     // Hysteria/Hysteria2/AnyTLS 使用 password
     if (node.password) {
       clash.password = node.password
@@ -1369,7 +1521,10 @@ export function toClashProxy(node: ProxyNode): ClashProxy {
     }
   } else if (node.tls !== undefined) {
     clash.tls = node.tls
-  } else if (node.type === 'trojan' && (node.security === 'tls' || node.security === 'reality')) {
+  } else if (
+    node.type === 'trojan' &&
+    (node.security === 'tls' || node.security === 'reality')
+  ) {
     clash.tls = true
   }
 
@@ -1396,13 +1551,22 @@ export function toClashProxy(node: ProxyNode): ClashProxy {
     }
     // 添加 spider-x 参数
     if (node.spx || node['spider-x'] || node['_spider-x']) {
-      realityOpts['spider-x'] = (node['spider-x'] || node['_spider-x'] || node.spx || '') as string
+      realityOpts['spider-x'] = (node['spider-x'] ||
+        node['_spider-x'] ||
+        node.spx ||
+        '') as string
     }
     clash['reality-opts'] = realityOpts
   }
 
   // SNI 设置 - 特定协议需要输出 sni 字段
-  if (node.type === 'hysteria' || node.type === 'hysteria2' || node.type === 'trojan' || node.type === 'tuic' || node.type === 'anytls') {
+  if (
+    node.type === 'hysteria' ||
+    node.type === 'hysteria2' ||
+    node.type === 'trojan' ||
+    node.type === 'tuic' ||
+    node.type === 'anytls'
+  ) {
     if (typeof node.sni === 'string') {
       clash.sni = node.sni
     }
@@ -1410,7 +1574,9 @@ export function toClashProxy(node: ProxyNode): ClashProxy {
 
   // Client Fingerprint (注意是 client-fingerprint 不是 fingerprint)
   if (node.fp || node.fingerprint || node['client-fingerprint']) {
-    clash['client-fingerprint'] = (node['client-fingerprint'] || node.fingerprint || node.fp) as string
+    clash['client-fingerprint'] = (node['client-fingerprint'] ||
+      node.fingerprint ||
+      node.fp) as string
   }
 
   // 网络类型
@@ -1456,12 +1622,13 @@ export function toClashProxy(node: ProxyNode): ClashProxy {
 
   // 复制其他属性（传输层配置等）
   for (const [key, value] of Object.entries(node)) {
-    if (value !== undefined &&
-        !effectiveExcludeKeys.has(key) &&
-        !Object.prototype.hasOwnProperty.call(clash, key) &&
-        key !== 'tls' && // tls 已经被处理过了
-        key !== 'security' && // security 已经被处理过了
-        key !== 'sni' // sni 已经映射为 servername
+    if (
+      value !== undefined &&
+      !effectiveExcludeKeys.has(key) &&
+      !Object.prototype.hasOwnProperty.call(clash, key) &&
+      key !== 'tls' && // tls 已经被处理过了
+      key !== 'security' && // security 已经被处理过了
+      key !== 'sni' // sni 已经映射为 servername
     ) {
       // 检查是否需要映射参数名
       const mappedKey = paramMapping[key] || key
@@ -1515,5 +1682,5 @@ export function parseSubscription(content: string): ClashProxy[] {
  * 生成 Clash 配置的代理部分
  */
 export function generateClashProxiesConfig(proxies: ClashProxy[]): string {
-  return `proxies:\n${proxies.map(p => '  - ' + JSON.stringify(p)).join('\n')}`
+  return `proxies:\n${proxies.map((p) => '  - ' + JSON.stringify(p)).join('\n')}`
 }

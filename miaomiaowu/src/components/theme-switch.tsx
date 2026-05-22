@@ -27,7 +27,8 @@ export function ThemeSwitch() {
 
   // 根据当前主题选择图标
   const Icon = theme === 'light' ? Sun : theme === 'dark' ? Moon : SunMoon
-  const label = theme === 'light' ? '浅色模式' : theme === 'dark' ? '深色模式' : '跟随系统'
+  const label =
+    theme === 'light' ? '浅色模式' : theme === 'dark' ? '深色模式' : '跟随系统'
 
   return (
     <Button

@@ -237,6 +237,9 @@ func convertDNSServer(server string) string {
 		if idx := strings.Index(server, "/"); idx > 0 {
 			server = server[:idx]
 		}
+		if server == "dns.alidns.com" {
+			return "223.5.5.5"
+		}
 	} else if after, found := strings.CutPrefix(server, "tls://"); found {
 		// e.g., "tls://223.5.5.5" -> "223.5.5.5"
 		server = after

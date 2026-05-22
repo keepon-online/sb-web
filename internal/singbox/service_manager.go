@@ -3,12 +3,12 @@ package singbox
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"miaomiaowu/internal/logger"
+	"miaomiaowu/internal/systemops"
 	"miaomiaowu/internal/util"
 )
 
@@ -39,9 +39,9 @@ type ServiceManager interface {
 // SystemdServiceManager systemd 服务管理器
 type SystemdServiceManager struct {
 	serviceName string
-	cmdExec     *util.SysCommand
 	binPath     string
 	configPath  string
+	cmdExec     *util.SysCommand // 保留用于 Status 和 Logs 方法
 }
 
 // DockerServiceManager Docker 服务管理器
@@ -69,12 +69,74 @@ func NewServiceManager(env Environment, paths ConfigPaths) (ServiceManager, erro
 
 // Systemd 服务管理实现
 
-// Install 安装服务
-func (m *SystemdServiceManager) Install() error {
-	logger.Info("[服务管理] 安装 systemd 服务")
+func (m *SystemdServiceManager) ServiceActionPlan(action systemops.ServiceAction, dryRun bool) (systemops.OperationPlan, error) {
+	actionText := string(action)
+	switch action {
+	case systemops.ServiceActionStart,
+		systemops.ServiceActionStop,
+		systemops.ServiceActionRestart,
+		systemops.ServiceActionEnable,
+		systemops.ServiceActionDisable:
+	default:
+		return systemops.OperationPlan{}, fmt.Errorf("unsupported service action %q", actionText)
+	}
 
-	// 创建服务文件
-	serviceContent := fmt.Sprintf(`[Unit]
+	titleAction := strings.ToUpper(actionText[:1]) + actionText[1:]
+	title := fmt.Sprintf("%s %s service", titleAction, m.serviceName)
+
+	return systemops.OperationPlan{
+		Name:   title,
+		DryRun: dryRun,
+		Steps: []systemops.OperationStep{
+			{
+				ID:      fmt.Sprintf("%s-service", actionText),
+				Title:   title,
+				Kind:    systemops.StepKindService,
+				Risk:    systemops.RiskLevelMedium,
+				Target:  m.serviceName,
+				Command: "systemctl",
+				Args:    []string{actionText, m.serviceName},
+				Metadata: map[string]string{
+					"service_action": actionText,
+				},
+			},
+		},
+	}, nil
+}
+
+func (m *SystemdServiceManager) InstallPlan(dryRun bool) systemops.OperationPlan {
+	servicePath := filepath.Join("/etc/systemd/system", "sing-box.service")
+
+	return systemops.OperationPlan{
+		Name:   "Install sing-box systemd service",
+		DryRun: dryRun,
+		Steps: []systemops.OperationStep{
+			{
+				ID:     "write-service-file",
+				Title:  "Write sing-box systemd service file",
+				Kind:   systemops.StepKindFile,
+				Risk:   systemops.RiskLevelHigh,
+				Target: servicePath,
+				Metadata: map[string]string{
+					"content": m.serviceFileContent(),
+					"mode":    "0644",
+				},
+			},
+			{
+				ID:      "reload-systemd",
+				Title:   "Reload systemd manager configuration",
+				Kind:    systemops.StepKindSystem,
+				Risk:    systemops.RiskLevelLow,
+				Target:  "systemd",
+				Command: "systemctl",
+				Args:    []string{"daemon-reload"},
+			},
+		},
+	}
+}
+
+func (m *SystemdServiceManager) serviceFileContent() string {
+	return fmt.Sprintf(`[Unit]
 Description=Sing-box Service
 Documentation=https://sing-box.sagernet.org
 After=network.target nss-lookup.target
@@ -90,16 +152,24 @@ LimitNOFILE=infinity
 [Install]
 WantedBy=multi-user.target
 `, m.binPath, m.configPath)
+}
 
-	servicePath := filepath.Join("/etc/systemd/system", "sing-box.service")
-	if err := os.WriteFile(servicePath, []byte(serviceContent), 0644); err != nil {
-		return fmt.Errorf("write service file: %w", err)
+// Install 安装服务
+func (m *SystemdServiceManager) Install() error {
+	logger.Info("[服务管理] 安装 systemd 服务")
+
+	plan := m.InstallPlan(false)
+	executor := systemops.NewDefaultStepExecutor()
+
+	result, err := plan.Execute(context.Background(), executor)
+	if err != nil {
+		return fmt.Errorf("execute install plan: %w", err)
 	}
 
-	// 重新加载 systemd
-	_, err := m.cmdExec.Execute("systemctl", "daemon-reload")
-	if err != nil {
-		return fmt.Errorf("daemon-reload: %w", err)
+	for _, step := range result.Steps {
+		if step.Error != "" {
+			return fmt.Errorf("step %s failed: %s", step.ID, step.Error)
+		}
 	}
 
 	logger.Info("[服务管理] 服务安装成功")
@@ -110,9 +180,21 @@ WantedBy=multi-user.target
 func (m *SystemdServiceManager) Start() error {
 	logger.Info("[服务管理] 启动服务")
 
-	result, err := m.cmdExec.Execute("systemctl", "start", m.serviceName)
+	plan, err := m.ServiceActionPlan(systemops.ServiceActionStart, false)
 	if err != nil {
-		return fmt.Errorf("start service: %w, output: %s", err, result.Output)
+		return fmt.Errorf("create start plan: %w", err)
+	}
+
+	executor := systemops.NewDefaultStepExecutor()
+	result, err := plan.Execute(context.Background(), executor)
+	if err != nil {
+		return fmt.Errorf("execute start plan: %w", err)
+	}
+
+	for _, step := range result.Steps {
+		if step.Error != "" {
+			return fmt.Errorf("step %s failed: %s", step.ID, step.Error)
+		}
 	}
 
 	// 等待服务启动
@@ -136,9 +218,21 @@ func (m *SystemdServiceManager) Start() error {
 func (m *SystemdServiceManager) Stop() error {
 	logger.Info("[服务管理] 停止服务")
 
-	result, err := m.cmdExec.Execute("systemctl", "stop", m.serviceName)
+	plan, err := m.ServiceActionPlan(systemops.ServiceActionStop, false)
 	if err != nil {
-		return fmt.Errorf("stop service: %w, output: %s", err, result.Output)
+		return fmt.Errorf("create stop plan: %w", err)
+	}
+
+	executor := systemops.NewDefaultStepExecutor()
+	result, err := plan.Execute(context.Background(), executor)
+	if err != nil {
+		return fmt.Errorf("execute stop plan: %w", err)
+	}
+
+	for _, step := range result.Steps {
+		if step.Error != "" {
+			return fmt.Errorf("step %s failed: %s", step.ID, step.Error)
+		}
 	}
 
 	logger.Info("[服务管理] 服务已停止")
@@ -149,9 +243,21 @@ func (m *SystemdServiceManager) Stop() error {
 func (m *SystemdServiceManager) Restart() error {
 	logger.Info("[服务管理] 重启服务")
 
-	result, err := m.cmdExec.Execute("systemctl", "restart", m.serviceName)
+	plan, err := m.ServiceActionPlan(systemops.ServiceActionRestart, false)
 	if err != nil {
-		return fmt.Errorf("restart service: %w, output: %s", err, result.Output)
+		return fmt.Errorf("create restart plan: %w", err)
+	}
+
+	executor := systemops.NewDefaultStepExecutor()
+	result, err := plan.Execute(context.Background(), executor)
+	if err != nil {
+		return fmt.Errorf("execute restart plan: %w", err)
+	}
+
+	for _, step := range result.Steps {
+		if step.Error != "" {
+			return fmt.Errorf("step %s failed: %s", step.ID, step.Error)
+		}
 	}
 
 	// 等待服务重启
@@ -165,9 +271,21 @@ func (m *SystemdServiceManager) Restart() error {
 func (m *SystemdServiceManager) Enable() error {
 	logger.Info("[服务管理] 启用服务开机自启")
 
-	result, err := m.cmdExec.Execute("systemctl", "enable", m.serviceName)
+	plan, err := m.ServiceActionPlan(systemops.ServiceActionEnable, false)
 	if err != nil {
-		return fmt.Errorf("enable service: %w, output: %s", err, result.Output)
+		return fmt.Errorf("create enable plan: %w", err)
+	}
+
+	executor := systemops.NewDefaultStepExecutor()
+	result, err := plan.Execute(context.Background(), executor)
+	if err != nil {
+		return fmt.Errorf("execute enable plan: %w", err)
+	}
+
+	for _, step := range result.Steps {
+		if step.Error != "" {
+			return fmt.Errorf("step %s failed: %s", step.ID, step.Error)
+		}
 	}
 
 	logger.Info("[服务管理] 服务已启用开机自启")
@@ -178,9 +296,21 @@ func (m *SystemdServiceManager) Enable() error {
 func (m *SystemdServiceManager) Disable() error {
 	logger.Info("[服务管理] 禁用服务开机自启")
 
-	result, err := m.cmdExec.Execute("systemctl", "disable", m.serviceName)
+	plan, err := m.ServiceActionPlan(systemops.ServiceActionDisable, false)
 	if err != nil {
-		return fmt.Errorf("disable service: %w, output: %s", err, result.Output)
+		return fmt.Errorf("create disable plan: %w", err)
+	}
+
+	executor := systemops.NewDefaultStepExecutor()
+	result, err := plan.Execute(context.Background(), executor)
+	if err != nil {
+		return fmt.Errorf("execute disable plan: %w", err)
+	}
+
+	for _, step := range result.Steps {
+		if step.Error != "" {
+			return fmt.Errorf("step %s failed: %s", step.ID, step.Error)
+		}
 	}
 
 	logger.Info("[服务管理] 服务已禁用开机自启")

@@ -8,5 +8,5 @@
 export type {
   DataTableColumn,
   DataTableCardField,
-  DataTableProps
+  DataTableProps,
 } from './data-table'

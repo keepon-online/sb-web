@@ -1,17 +1,32 @@
 import { useState, useEffect } from 'react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { RULE_TEMPLATES } from '@/config/custom-rules-templates'
 import { Upload, FileText, Plus, RefreshCw, Wand2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { createBlankTemplate } from '@/lib/template-v3-utils'
 import { api } from '@/lib/api'
-import { RULE_TEMPLATES } from '@/config/custom-rules-templates'
 import { ALL_TEMPLATE_PRESETS } from '@/lib/template-presets'
+import { createBlankTemplate } from '@/lib/template-v3-utils'
+import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Textarea } from '@/components/ui/textarea'
 
 interface UserTemplate {
   id: number
@@ -41,12 +56,15 @@ export function TemplateUploadDialog({
   onCreate,
   isLoading = false,
 }: TemplateUploadDialogProps) {
-  const [tab, setTab] = useState<'upload' | 'paste' | 'blank' | 'v2import' | 'fromSub'>('upload')
+  const [tab, setTab] = useState<
+    'upload' | 'paste' | 'blank' | 'v2import' | 'fromSub'
+  >('upload')
   const [pasteContent, setPasteContent] = useState('')
   const [newTemplateName, setNewTemplateName] = useState('')
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [isConverting, setIsConverting] = useState(false)
-  const [selectedDnsPreset, setSelectedDnsPreset] = useState<string>('fake_ip_no_dnsleak')
+  const [selectedDnsPreset, setSelectedDnsPreset] =
+    useState<string>('fake_ip_no_dnsleak')
 
   // V2 import states
   const [userTemplates, setUserTemplates] = useState<UserTemplate[]>([])
@@ -179,9 +197,12 @@ export function TemplateUploadDialog({
     setIsAnalyzing(true)
     try {
       // Analyze the subscription
-      const response = await api.post('/api/admin/template-v3/analyze-subscription', {
-        subscription_filename: selectedSubscription,
-      })
+      const response = await api.post(
+        '/api/admin/template-v3/analyze-subscription',
+        {
+          subscription_filename: selectedSubscription,
+        }
+      )
 
       const { template_content } = response.data
 
@@ -207,14 +228,19 @@ export function TemplateUploadDialog({
 
     setIsAnalyzing(true)
     try {
-      const response = await api.post('/api/admin/template-v3/analyze-subscription', {
-        subscription_filename: selectedSubscription,
-      })
+      const response = await api.post(
+        '/api/admin/template-v3/analyze-subscription',
+        {
+          subscription_filename: selectedSubscription,
+        }
+      )
 
       setAnalysisPreview(response.data.template_content)
 
       // Auto-fill template name from subscription
-      const sub = subscribeFiles.find(s => s.filename === selectedSubscription)
+      const sub = subscribeFiles.find(
+        (s) => s.filename === selectedSubscription
+      )
       if (sub && !newTemplateName) {
         setNewTemplateName(sub.name)
       }
@@ -241,7 +267,9 @@ export function TemplateUploadDialog({
       let ruleSourceUrl: string
       if (selectedV2Template.startsWith('user:')) {
         const templateId = selectedV2Template.replace('user:', '')
-        const template = userTemplates.find(t => t.id.toString() === templateId)
+        const template = userTemplates.find(
+          (t) => t.id.toString() === templateId
+        )
         if (!template) {
           toast.error('未找到选中的模板')
           return
@@ -249,7 +277,7 @@ export function TemplateUploadDialog({
         ruleSourceUrl = template.rule_source
       } else if (selectedV2Template.startsWith('preset:')) {
         const presetName = selectedV2Template.replace('preset:', '')
-        const preset = ALL_TEMPLATE_PRESETS.find(p => p.name === presetName)
+        const preset = ALL_TEMPLATE_PRESETS.find((p) => p.name === presetName)
         if (!preset) {
           toast.error('未找到选中的预设模板')
           return
@@ -261,10 +289,13 @@ export function TemplateUploadDialog({
       }
 
       // Fetch the template content from URL
-      const fetchResponse = await api.post('/api/admin/templates/fetch-source', {
-        url: ruleSourceUrl,
-        use_proxy: false,
-      })
+      const fetchResponse = await api.post(
+        '/api/admin/templates/fetch-source',
+        {
+          url: ruleSourceUrl,
+          use_proxy: false,
+        }
+      )
       const v2Content = fetchResponse.data.content
 
       // Convert to v3
@@ -275,7 +306,11 @@ export function TemplateUploadDialog({
       const { proxy_groups, rules, rule_providers } = response.data
 
       // Generate v3 template YAML
-      const v3Content = generateV3TemplateFromConversion(proxy_groups, rules, rule_providers)
+      const v3Content = generateV3TemplateFromConversion(
+        proxy_groups,
+        rules,
+        rule_providers
+      )
 
       let name = newTemplateName.trim()
       if (!name.endsWith('.yaml') && !name.endsWith('.yml')) {
@@ -303,7 +338,8 @@ export function TemplateUploadDialog({
     lines.push('mode: rule')
 
     // DNS config from preset
-    const dnsPreset = RULE_TEMPLATES.dns[selectedDnsPreset as keyof typeof RULE_TEMPLATES.dns]
+    const dnsPreset =
+      RULE_TEMPLATES.dns[selectedDnsPreset as keyof typeof RULE_TEMPLATES.dns]
     if (dnsPreset) {
       lines.push('dns:')
       // Indent the DNS content
@@ -387,13 +423,13 @@ export function TemplateUploadDialog({
     let baseName = ''
     if (value.startsWith('user:')) {
       const templateId = value.replace('user:', '')
-      const template = userTemplates.find(t => t.id.toString() === templateId)
+      const template = userTemplates.find((t) => t.id.toString() === templateId)
       if (template) {
         baseName = template.name
       }
     } else if (value.startsWith('preset:')) {
       const presetName = value.replace('preset:', '')
-      const preset = ALL_TEMPLATE_PRESETS.find(p => p.name === presetName)
+      const preset = ALL_TEMPLATE_PRESETS.find((p) => p.name === presetName)
       if (preset) {
         baseName = preset.label
       }
@@ -405,7 +441,7 @@ export function TemplateUploadDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[700px] max-h-[85vh] overflow-y-auto">
+      <DialogContent className='max-h-[85vh] overflow-y-auto sm:max-w-[700px]'>
         <DialogHeader>
           <DialogTitle>创建模板</DialogTitle>
           <DialogDescription>
@@ -414,81 +450,82 @@ export function TemplateUploadDialog({
         </DialogHeader>
 
         <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
-          <TabsList className="w-full grid grid-cols-5">
-            <TabsTrigger value="upload">
-              <Upload className="h-4 w-4 mr-1" />
+          <TabsList className='grid w-full grid-cols-5'>
+            <TabsTrigger value='upload'>
+              <Upload className='mr-1 h-4 w-4' />
               上传
             </TabsTrigger>
-            <TabsTrigger value="paste">
-              <FileText className="h-4 w-4 mr-1" />
+            <TabsTrigger value='paste'>
+              <FileText className='mr-1 h-4 w-4' />
               粘贴
             </TabsTrigger>
-            <TabsTrigger value="blank">
-              <Plus className="h-4 w-4 mr-1" />
+            <TabsTrigger value='blank'>
+              <Plus className='mr-1 h-4 w-4' />
               空白
             </TabsTrigger>
-            <TabsTrigger value="v2import">
-              <RefreshCw className="h-4 w-4 mr-1" />
+            <TabsTrigger value='v2import'>
+              <RefreshCw className='mr-1 h-4 w-4' />
               V2导入
             </TabsTrigger>
-            <TabsTrigger value="fromSub">
-              <Wand2 className="h-4 w-4 mr-1" />
+            <TabsTrigger value='fromSub'>
+              <Wand2 className='mr-1 h-4 w-4' />
               从订阅
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="upload" className="space-y-4 mt-4">
-            <div className="space-y-2">
+          <TabsContent value='upload' className='mt-4 space-y-4'>
+            <div className='space-y-2'>
               <Label>选择 YAML 文件</Label>
               <Input
-                type="file"
-                accept=".yaml,.yml"
+                type='file'
+                accept='.yaml,.yml'
                 onChange={handleFileChange}
               />
               {selectedFile && (
-                <p className="text-sm text-muted-foreground">
+                <p className='text-muted-foreground text-sm'>
                   已选择: {selectedFile.name}
                 </p>
               )}
             </div>
           </TabsContent>
 
-          <TabsContent value="paste" className="space-y-4 mt-4">
-            <div className="space-y-2">
+          <TabsContent value='paste' className='mt-4 space-y-4'>
+            <div className='space-y-2'>
               <Label>模板名称</Label>
               <Input
                 value={newTemplateName}
                 onChange={(e) => setNewTemplateName(e.target.value)}
-                placeholder="my_template.yaml"
+                placeholder='my_template.yaml'
               />
             </div>
-            <div className="space-y-2">
+            <div className='space-y-2'>
               <Label>YAML 内容</Label>
               <Textarea
                 value={pasteContent}
                 onChange={(e) => setPasteContent(e.target.value)}
-                placeholder="粘贴 YAML 内容..."
-                className="min-h-[200px] font-mono text-sm"
+                placeholder='粘贴 YAML 内容...'
+                className='min-h-[200px] font-mono text-sm'
               />
             </div>
           </TabsContent>
 
-          <TabsContent value="blank" className="space-y-4 mt-4">
-            <div className="space-y-2">
+          <TabsContent value='blank' className='mt-4 space-y-4'>
+            <div className='space-y-2'>
               <Label>模板名称</Label>
               <Input
                 value={newTemplateName}
                 onChange={(e) => setNewTemplateName(e.target.value)}
-                placeholder="my_template.yaml"
+                placeholder='my_template.yaml'
               />
             </div>
-            <p className="text-sm text-muted-foreground">
-              将创建包含基础结构的空白 v3 模板，包含节点选择、自动选择和全球直连三个代理组。
+            <p className='text-muted-foreground text-sm'>
+              将创建包含基础结构的空白 v3
+              模板，包含节点选择、自动选择和全球直连三个代理组。
             </p>
           </TabsContent>
 
-          <TabsContent value="v2import" className="space-y-4 mt-4">
-            <div className="space-y-2">
+          <TabsContent value='v2import' className='mt-4 space-y-4'>
+            <div className='space-y-2'>
               <Label>选择 V2 模板</Label>
               <Select
                 value={selectedV2Template}
@@ -496,14 +533,19 @@ export function TemplateUploadDialog({
                 disabled={isFetchingTemplates}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder={isFetchingTemplates ? '加载中...' : '选择模板'} />
+                  <SelectValue
+                    placeholder={isFetchingTemplates ? '加载中...' : '选择模板'}
+                  />
                 </SelectTrigger>
                 <SelectContent>
                   {userTemplates.length > 0 && (
                     <SelectGroup>
                       <SelectLabel>我的模板</SelectLabel>
                       {userTemplates.map((template) => (
-                        <SelectItem key={`user-${template.id}`} value={`user:${template.id}`}>
+                        <SelectItem
+                          key={`user-${template.id}`}
+                          value={`user:${template.id}`}
+                        >
                           {template.name}
                         </SelectItem>
                       ))}
@@ -512,7 +554,10 @@ export function TemplateUploadDialog({
                   <SelectGroup>
                     <SelectLabel>预设模板</SelectLabel>
                     {ALL_TEMPLATE_PRESETS.map((preset) => (
-                      <SelectItem key={`preset-${preset.name}`} value={`preset:${preset.name}`}>
+                      <SelectItem
+                        key={`preset-${preset.name}`}
+                        value={`preset:${preset.name}`}
+                      >
                         {preset.label}
                       </SelectItem>
                     ))}
@@ -521,20 +566,23 @@ export function TemplateUploadDialog({
               </Select>
             </div>
 
-            <div className="space-y-2">
+            <div className='space-y-2'>
               <Label>新模板名称</Label>
               <Input
                 value={newTemplateName}
                 onChange={(e) => setNewTemplateName(e.target.value)}
-                placeholder="my_template.yaml"
+                placeholder='my_template.yaml'
               />
             </div>
 
-            <div className="space-y-2">
+            <div className='space-y-2'>
               <Label>DNS 配置</Label>
-              <Select value={selectedDnsPreset} onValueChange={setSelectedDnsPreset}>
+              <Select
+                value={selectedDnsPreset}
+                onValueChange={setSelectedDnsPreset}
+              >
                 <SelectTrigger>
-                  <SelectValue placeholder="选择 DNS 配置" />
+                  <SelectValue placeholder='选择 DNS 配置' />
                 </SelectTrigger>
                 <SelectContent>
                   {Object.entries(RULE_TEMPLATES.dns).map(([key, preset]) => (
@@ -546,17 +594,15 @@ export function TemplateUploadDialog({
               </Select>
             </div>
 
-            <p className="text-sm text-muted-foreground">
+            <p className='text-muted-foreground text-sm'>
               将自动转换 custom_proxy_group 和 ruleset 配置为 v3 格式。
-              <br />
-              • <code>.*</code> 会转换为 <code>include-all: true</code>
-              <br />
-              • 正则表达式会转换为 <code>filter</code> 字段
+              <br />• <code>.*</code> 会转换为 <code>include-all: true</code>
+              <br />• 正则表达式会转换为 <code>filter</code> 字段
             </p>
           </TabsContent>
 
-          <TabsContent value="fromSub" className="space-y-4 mt-4">
-            <div className="space-y-2">
+          <TabsContent value='fromSub' className='mt-4 space-y-4'>
+            <div className='space-y-2'>
               <Label>选择订阅文件</Label>
               <Select
                 value={selectedSubscription}
@@ -564,7 +610,11 @@ export function TemplateUploadDialog({
                 disabled={isFetchingSubscriptions}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder={isFetchingSubscriptions ? '加载中...' : '选择订阅'} />
+                  <SelectValue
+                    placeholder={
+                      isFetchingSubscriptions ? '加载中...' : '选择订阅'
+                    }
+                  />
                 </SelectTrigger>
                 <SelectContent>
                   {subscribeFiles.map((sub) => (
@@ -576,18 +626,18 @@ export function TemplateUploadDialog({
               </Select>
             </div>
 
-            <div className="space-y-2">
+            <div className='space-y-2'>
               <Label>新模板名称</Label>
               <Input
                 value={newTemplateName}
                 onChange={(e) => setNewTemplateName(e.target.value)}
-                placeholder="my_template.yaml"
+                placeholder='my_template.yaml'
               />
             </div>
 
-            <div className="flex gap-2">
+            <div className='flex gap-2'>
               <Button
-                variant="outline"
+                variant='outline'
                 onClick={handleAnalyzePreview}
                 disabled={isAnalyzing || !selectedSubscription}
               >
@@ -596,31 +646,35 @@ export function TemplateUploadDialog({
             </div>
 
             {analysisPreview && (
-              <div className="space-y-2">
+              <div className='space-y-2'>
                 <Label>分析结果预览</Label>
                 <Textarea
                   value={analysisPreview}
                   readOnly
-                  className="min-h-[200px] font-mono text-xs"
+                  className='min-h-[200px] font-mono text-xs'
                 />
               </div>
             )}
 
-            <p className="text-sm text-muted-foreground">
-              从已有订阅文件分析代理组配置，智能推断 filter、include-all 等配置。
+            <p className='text-muted-foreground text-sm'>
+              从已有订阅文件分析代理组配置，智能推断 filter、include-all
+              等配置。
               <br />
               • 自动识别区域节点并生成对应的 filter
-              <br />
-              • 支持 include-all-proxies、include-region-proxy-groups 等配置
+              <br />• 支持 include-all-proxies、include-region-proxy-groups
+              等配置
             </p>
           </TabsContent>
         </Tabs>
 
         <DialogFooter>
-          <Button variant="outline" onClick={handleClose}>
+          <Button variant='outline' onClick={handleClose}>
             取消
           </Button>
-          <Button onClick={handleSubmit} disabled={isLoading || isConverting || isAnalyzing}>
+          <Button
+            onClick={handleSubmit}
+            disabled={isLoading || isConverting || isAnalyzing}
+          >
             {isLoading || isConverting || isAnalyzing
               ? '处理中...'
               : tab === 'v2import'

@@ -27,6 +27,7 @@ proxy-groups:
       - __PROXY_PROVIDERS__
       - __PROXY_NODES__
       - 🌄 落地节点
+      - __REGION_PROXY_GROUPS__
   - name: ♻️ 自动选择
     type: url-test
     include-all: true

@@ -1,11 +1,16 @@
 import { api } from '@/lib/api'
-import type { PredefinedRuleSetType, ProxyGroupCategory } from '@/lib/sublink/types'
+import type {
+  PredefinedRuleSetType,
+  ProxyGroupCategory,
+} from '@/lib/sublink/types'
 
 /**
  * Fetch proxy group categories from the API
  * @returns Promise of proxy group categories array
  */
-export async function fetchProxyGroupCategories(): Promise<ProxyGroupCategory[]> {
+export async function fetchProxyGroupCategories(): Promise<
+  ProxyGroupCategory[]
+> {
   try {
     const response = await api.get<ProxyGroupCategory[]>('/api/proxy-groups')
     return response.data ?? []
@@ -20,7 +25,9 @@ export async function fetchProxyGroupCategories(): Promise<ProxyGroupCategory[]>
  * @param sourceUrl - Optional custom source URL, defaults to environment config
  * @returns Promise of sync result
  */
-export async function syncProxyGroupCategories(sourceUrl?: string): Promise<{ message: string; timestamp: string }> {
+export async function syncProxyGroupCategories(
+  sourceUrl?: string
+): Promise<{ message: string; timestamp: string }> {
   try {
     const response = await api.post<{ message: string; timestamp: string }>(
       '/api/admin/proxy-groups/sync',
@@ -65,7 +72,9 @@ export function createCategoryNameMap(
  * @param categories - Array of categories
  * @returns Object with preset as key and array of category names as value
  */
-export function createPresetMap(categories: ProxyGroupCategory[]): Record<string, string[]> {
+export function createPresetMap(
+  categories: ProxyGroupCategory[]
+): Record<string, string[]> {
   const map: Record<string, string[]> = {}
 
   for (const category of categories) {

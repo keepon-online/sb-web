@@ -9,12 +9,23 @@ import {
   Circle,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { useAuthStore } from '@/stores/auth-store'
 import { api } from '@/lib/api'
+import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Progress } from '@/components/ui/progress'
 
 // 轻量 markdown 渲染：处理 GitHub release notes 常见格式
 function processInline(text: string): ReactNode[] {
   const parts: ReactNode[] = []
-  const pattern = /(\*\*(.+?)\*\*)|(\[([^\]]+)\]\(([^)]+)\))|(`([^`]+)`)|(https?:\/\/[^\s)<]+)/g
+  const pattern =
+    /(\*\*(.+?)\*\*)|(\[([^\]]+)\]\(([^)]+)\))|(`([^`]+)`)|(https?:\/\/[^\s)<]+)/g
   let lastIndex = 0
   let match: RegExpExecArray | null
   let key = 0
@@ -25,15 +36,31 @@ function processInline(text: string): ReactNode[] {
       parts.push(<strong key={key++}>{match[2]}</strong>)
     } else if (match[4] && match[5]) {
       parts.push(
-        <a key={key++} href={match[5]} target='_blank' rel='noopener noreferrer' className='text-primary hover:underline'>
+        <a
+          key={key++}
+          href={match[5]}
+          target='_blank'
+          rel='noopener noreferrer'
+          className='text-primary hover:underline'
+        >
           {match[4]}
         </a>
       )
     } else if (match[7]) {
-      parts.push(<code key={key++} className='bg-muted px-1 rounded text-xs'>{match[7]}</code>)
+      parts.push(
+        <code key={key++} className='bg-muted rounded px-1 text-xs'>
+          {match[7]}
+        </code>
+      )
     } else if (match[8]) {
       parts.push(
-        <a key={key++} href={match[8]} target='_blank' rel='noopener noreferrer' className='text-primary hover:underline break-all'>
+        <a
+          key={key++}
+          href={match[8]}
+          target='_blank'
+          rel='noopener noreferrer'
+          className='text-primary break-all hover:underline'
+        >
           {match[8]}
         </a>
       )
@@ -46,13 +73,27 @@ function processInline(text: string): ReactNode[] {
 
 function ReleaseNotes({ text }: { text: string }) {
   return (
-    <div className='space-y-1.5 text-sm text-muted-foreground'>
+    <div className='text-muted-foreground space-y-1.5 text-sm'>
       {text.split('\n').map((line, i) => {
         if (/^#{1,3} /.test(line)) {
-          return <h4 key={i} className='font-semibold text-foreground mt-2 first:mt-0'>{processInline(line.replace(/^#{1,3} /, ''))}</h4>
+          return (
+            <h4
+              key={i}
+              className='text-foreground mt-2 font-semibold first:mt-0'
+            >
+              {processInline(line.replace(/^#{1,3} /, ''))}
+            </h4>
+          )
         }
         if (/^[*\-] /.test(line)) {
-          return <div key={i} className='flex gap-1.5 ml-1'><span className='shrink-0'>•</span><span className='min-w-0'>{processInline(line.replace(/^[*\-] /, ''))}</span></div>
+          return (
+            <div key={i} className='ml-1 flex gap-1.5'>
+              <span className='shrink-0'>•</span>
+              <span className='min-w-0'>
+                {processInline(line.replace(/^[*\-] /, ''))}
+              </span>
+            </div>
+          )
         }
         if (!line.trim()) return <div key={i} className='h-1' />
         return <p key={i}>{processInline(line)}</p>
@@ -60,16 +101,6 @@ function ReleaseNotes({ text }: { text: string }) {
     </div>
   )
 }
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
-import { Progress } from '@/components/ui/progress'
-import { useAuthStore } from '@/stores/auth-store'
 
 interface UpdateDialogProps {
   open: boolean
@@ -86,7 +117,14 @@ interface UpdateInfo {
 }
 
 interface UpdateProgress {
-  step: 'checking' | 'downloading' | 'backing_up' | 'replacing' | 'restarting' | 'done' | 'error'
+  step:
+    | 'checking'
+    | 'downloading'
+    | 'backing_up'
+    | 'replacing'
+    | 'restarting'
+    | 'done'
+    | 'error'
   progress: number
   message: string
 }
@@ -101,7 +139,9 @@ const STEPS = [
 
 export function UpdateDialog({ open, onOpenChange }: UpdateDialogProps) {
   const [isUpdating, setIsUpdating] = useState(false)
-  const [updateProgress, setUpdateProgress] = useState<UpdateProgress | null>(null)
+  const [updateProgress, setUpdateProgress] = useState<UpdateProgress | null>(
+    null
+  )
   const updateCompleteRef = useRef(false)
   const { auth } = useAuthStore()
 
@@ -190,7 +230,9 @@ export function UpdateDialog({ open, onOpenChange }: UpdateDialogProps) {
     } catch (error) {
       if (!updateCompleteRef.current) {
         setIsUpdating(false)
-        toast.error(`更新失败: ${error instanceof Error ? error.message : '未知错误'}`)
+        toast.error(
+          `更新失败: ${error instanceof Error ? error.message : '未知错误'}`
+        )
       }
     }
   }, [auth.accessToken])
@@ -203,11 +245,13 @@ export function UpdateDialog({ open, onOpenChange }: UpdateDialogProps) {
   const isCheckingOrRefetching = isLoading || isRefetching
 
   // Get current step index for UI
-  const currentStepIndex = STEPS.findIndex(s => s.key === updateProgress?.step)
+  const currentStepIndex = STEPS.findIndex(
+    (s) => s.key === updateProgress?.step
+  )
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className='sm:max-w-md overflow-hidden'>
+      <DialogContent className='overflow-hidden sm:max-w-md'>
         <DialogHeader>
           <DialogTitle className='flex items-center gap-2'>
             <RefreshCw className='size-5' /> 检查更新
@@ -217,9 +261,9 @@ export function UpdateDialog({ open, onOpenChange }: UpdateDialogProps) {
 
         <div className='space-y-4'>
           {isCheckingOrRefetching ? (
-            <div className='text-center py-8'>
-              <RefreshCw className='size-8 animate-spin mx-auto mb-3 text-primary' />
-              <p className='text-sm text-muted-foreground'>正在检查更新...</p>
+            <div className='py-8 text-center'>
+              <RefreshCw className='text-primary mx-auto mb-3 size-8 animate-spin' />
+              <p className='text-muted-foreground text-sm'>正在检查更新...</p>
             </div>
           ) : updateInfo?.has_update ? (
             <div className='space-y-4'>
@@ -228,10 +272,12 @@ export function UpdateDialog({ open, onOpenChange }: UpdateDialogProps) {
                 <span className='font-medium'>发现新版本！</span>
               </div>
 
-              <div className='bg-muted/50 rounded-lg p-3 space-y-2'>
+              <div className='bg-muted/50 space-y-2 rounded-lg p-3'>
                 <div className='flex justify-between text-sm'>
                   <span className='text-muted-foreground'>当前版本</span>
-                  <span className='font-mono'>v{updateInfo.current_version}</span>
+                  <span className='font-mono'>
+                    v{updateInfo.current_version}
+                  </span>
                 </div>
                 <div className='flex justify-between text-sm'>
                   <span className='text-muted-foreground'>最新版本</span>
@@ -244,7 +290,7 @@ export function UpdateDialog({ open, onOpenChange }: UpdateDialogProps) {
               {updateInfo.release_notes && !isUpdating && (
                 <div className='space-y-2 overflow-hidden'>
                   <p className='text-sm font-medium'>更新内容：</p>
-                  <div className='bg-muted/30 rounded-lg p-3 max-h-48 overflow-y-auto overflow-x-hidden'>
+                  <div className='bg-muted/30 max-h-48 overflow-x-hidden overflow-y-auto rounded-lg p-3'>
                     <ReleaseNotes text={updateInfo.release_notes} />
                   </div>
                 </div>
@@ -257,16 +303,17 @@ export function UpdateDialog({ open, onOpenChange }: UpdateDialogProps) {
                     {STEPS.map((step, index) => {
                       const isCompleted = index < currentStepIndex
                       const isCurrent = step.key === updateProgress?.step
-                      const isPending = index > currentStepIndex || currentStepIndex === -1
+                      const isPending =
+                        index > currentStepIndex || currentStepIndex === -1
 
                       return (
                         <div key={step.key} className='flex items-center gap-3'>
                           {isCompleted ? (
-                            <CheckCircle className='size-5 text-green-500 shrink-0' />
+                            <CheckCircle className='size-5 shrink-0 text-green-500' />
                           ) : isCurrent ? (
-                            <RefreshCw className='size-5 text-primary animate-spin shrink-0' />
+                            <RefreshCw className='text-primary size-5 shrink-0 animate-spin' />
                           ) : (
-                            <Circle className='size-5 text-muted-foreground shrink-0' />
+                            <Circle className='text-muted-foreground size-5 shrink-0' />
                           )}
                           <span
                             className={
@@ -279,11 +326,13 @@ export function UpdateDialog({ open, onOpenChange }: UpdateDialogProps) {
                           >
                             {step.label}
                           </span>
-                          {isCurrent && step.key === 'downloading' && updateProgress && (
-                            <span className='ml-auto text-sm font-mono'>
-                              {updateProgress.progress}%
-                            </span>
-                          )}
+                          {isCurrent &&
+                            step.key === 'downloading' &&
+                            updateProgress && (
+                              <span className='ml-auto font-mono text-sm'>
+                                {updateProgress.progress}%
+                              </span>
+                            )}
                         </div>
                       )
                     })}
@@ -294,7 +343,7 @@ export function UpdateDialog({ open, onOpenChange }: UpdateDialogProps) {
                     <Progress value={updateProgress.progress} className='h-2' />
                   )}
 
-                  <div className='bg-blue-50 dark:bg-blue-950/30 rounded-lg p-3'>
+                  <div className='rounded-lg bg-blue-50 p-3 dark:bg-blue-950/30'>
                     <p className='text-sm text-blue-600 dark:text-blue-400'>
                       {updateProgress?.message || '正在准备更新...'}
                     </p>
@@ -309,12 +358,12 @@ export function UpdateDialog({ open, onOpenChange }: UpdateDialogProps) {
                     disabled={isUpdating || !updateInfo.download_url}
                     className='w-full'
                   >
-                    <Download className='size-4 mr-2' />
+                    <Download className='mr-2 size-4' />
                     立即更新
                   </Button>
 
                   {!updateInfo.download_url && (
-                    <p className='text-xs text-destructive text-center'>
+                    <p className='text-destructive text-center text-xs'>
                       未找到适合当前系统的下载文件
                     </p>
                   )}
@@ -323,9 +372,11 @@ export function UpdateDialog({ open, onOpenChange }: UpdateDialogProps) {
                     <Button
                       variant='outline'
                       className='w-full'
-                      onClick={() => window.open(updateInfo.release_url, '_blank')}
+                      onClick={() =>
+                        window.open(updateInfo.release_url, '_blank')
+                      }
                     >
-                      <ExternalLink className='size-4 mr-2' />
+                      <ExternalLink className='mr-2 size-4' />
                       查看 GitHub Release
                     </Button>
                   )}
@@ -333,10 +384,10 @@ export function UpdateDialog({ open, onOpenChange }: UpdateDialogProps) {
               )}
             </div>
           ) : (
-            <div className='text-center py-8'>
-              <CheckCircle className='size-12 text-green-500 mx-auto mb-3' />
-              <p className='font-medium text-lg'>已是最新版本</p>
-              <p className='text-sm text-muted-foreground mt-1'>
+            <div className='py-8 text-center'>
+              <CheckCircle className='mx-auto mb-3 size-12 text-green-500' />
+              <p className='text-lg font-medium'>已是最新版本</p>
+              <p className='text-muted-foreground mt-1 text-sm'>
                 当前版本：v{updateInfo?.current_version}
               </p>
             </div>
@@ -349,7 +400,7 @@ export function UpdateDialog({ open, onOpenChange }: UpdateDialogProps) {
             className='w-full'
           >
             <RefreshCw
-              className={`size-4 mr-2 ${isCheckingOrRefetching ? 'animate-spin' : ''}`}
+              className={`mr-2 size-4 ${isCheckingOrRefetching ? 'animate-spin' : ''}`}
             />
             重新检查
           </Button>

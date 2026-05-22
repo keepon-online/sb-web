@@ -1,6 +1,13 @@
 import { ReactNode } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 
 /**
  * 表格列配置
@@ -107,9 +114,8 @@ export function DataTable<T>({
   emptyText = '暂无数据',
   containerClassName = '',
   onRowClick,
-  rowClassName
+  rowClassName,
 }: DataTableProps<T>) {
-
   const renderCellContent = (column: DataTableColumn<T>, item: T) => {
     // 优先使用 cell 函数
     if (column.cell) {
@@ -133,10 +139,10 @@ export function DataTable<T>({
     <>
       {/* 移动端卡片视图 */}
       {mobileCard && (
-        <div className='md:hidden space-y-2'>
+        <div className='space-y-2 md:hidden'>
           {data.length === 0 ? (
             <Card>
-              <CardContent className='text-center text-muted-foreground py-8'>
+              <CardContent className='text-muted-foreground py-8 text-center'>
                 {emptyText}
               </CardContent>
             </Card>
@@ -147,11 +153,11 @@ export function DataTable<T>({
                 className={`overflow-hidden ${onRowClick ? 'cursor-pointer' : ''} ${rowClassName?.(item) || ''} ${mobileCard.cardClassName || ''}`}
                 onClick={() => onRowClick?.(item)}
               >
-                <CardContent className={`p-3 space-y-2 ${mobileCard.contentClassName || ''}`}>
+                <CardContent
+                  className={`space-y-2 p-3 ${mobileCard.contentClassName || ''}`}
+                >
                   {/* 卡片头部 */}
-                  {mobileCard.header && (
-                    <div>{mobileCard.header(item)}</div>
-                  )}
+                  {mobileCard.header && <div>{mobileCard.header(item)}</div>}
 
                   {/* 卡片字段 - 紧凑单行布局 */}
                   {mobileCard.fields && mobileCard.fields.length > 0 && (
@@ -161,9 +167,16 @@ export function DataTable<T>({
                           return null
                         }
                         return (
-                          <div key={fieldIndex} className={`flex items-start gap-2 text-xs ${field.className || ''}`}>
-                            <span className='text-muted-foreground shrink-0 min-w-[60px]'>{field.label}:</span>
-                            <div className='flex-1 min-w-0'>{field.value(item)}</div>
+                          <div
+                            key={fieldIndex}
+                            className={`flex items-start gap-2 text-xs ${field.className || ''}`}
+                          >
+                            <span className='text-muted-foreground min-w-[60px] shrink-0'>
+                              {field.label}:
+                            </span>
+                            <div className='min-w-0 flex-1'>
+                              {field.value(item)}
+                            </div>
                           </div>
                         )
                       })}
@@ -172,7 +185,10 @@ export function DataTable<T>({
 
                   {/* 卡片操作按钮 */}
                   {mobileCard.actions && (
-                    <div className='flex items-center justify-center gap-2 pt-2 border-t' onClick={(e) => e.stopPropagation()}>
+                    <div
+                      className='flex items-center justify-center gap-2 border-t pt-2'
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       {mobileCard.actions(item)}
                     </div>
                   )}
@@ -184,7 +200,9 @@ export function DataTable<T>({
       )}
 
       {/* 桌面端表格视图 */}
-      <div className={`hidden md:block rounded-md border overflow-auto ${containerClassName}`}>
+      <div
+        className={`hidden overflow-auto rounded-md border md:block ${containerClassName}`}
+      >
         <Table className='w-full'>
           <TableHeader>
             <TableRow>
@@ -204,7 +222,7 @@ export function DataTable<T>({
               <TableRow>
                 <TableCell
                   colSpan={columns.length}
-                  className='text-center text-muted-foreground py-8'
+                  className='text-muted-foreground py-8 text-center'
                 >
                   {emptyText}
                 </TableCell>
@@ -217,10 +235,7 @@ export function DataTable<T>({
                   onClick={() => onRowClick?.(item)}
                 >
                   {columns.map((column, colIndex) => (
-                    <TableCell
-                      key={colIndex}
-                      className={column.cellClassName}
-                    >
+                    <TableCell key={colIndex} className={column.cellClassName}>
                       {renderCellContent(column, item)}
                     </TableCell>
                   ))}

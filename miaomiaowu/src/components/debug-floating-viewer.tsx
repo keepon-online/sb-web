@@ -2,11 +2,16 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Bug, X, Download } from 'lucide-react'
 import { toast } from 'sonner'
-import { Button } from '@/components/ui/button'
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
-import { Badge } from '@/components/ui/badge'
-import { api } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth-store'
+import { api } from '@/lib/api'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet'
 
 const AUTO_CLOSE_SECONDS = 5 * 60
 
@@ -40,7 +45,7 @@ export function DebugFloatingViewer() {
       }
     },
     enabled: Boolean(auth.accessToken),
-    refetchInterval: (query) => query.state.data?.enabled ? 5000 : false,
+    refetchInterval: (query) => (query.state.data?.enabled ? 5000 : false),
   })
 
   const { data: tailData } = useQuery({
@@ -49,7 +54,8 @@ export function DebugFloatingViewer() {
       const response = await api.get('/api/user/debug/tail?lines=200')
       return response.data as { lines: string; total_size: number }
     },
-    enabled: Boolean(auth.accessToken) && debugStatus?.enabled === true && sheetOpen,
+    enabled:
+      Boolean(auth.accessToken) && debugStatus?.enabled === true && sheetOpen,
     refetchInterval: 2000,
   })
 
@@ -65,11 +71,16 @@ export function DebugFloatingViewer() {
 
       if (data.download_url) {
         try {
-          const response = await api.get(data.download_url, { responseType: 'blob' })
+          const response = await api.get(data.download_url, {
+            responseType: 'blob',
+          })
           const url = window.URL.createObjectURL(new Blob([response.data]))
           const link = document.createElement('a')
           link.href = url
-          link.setAttribute('download', data.download_url.split('file=')[1] || 'debug.log')
+          link.setAttribute(
+            'download',
+            data.download_url.split('file=')[1] || 'debug.log'
+          )
           document.body.appendChild(link)
           link.click()
           link.remove()
@@ -126,28 +137,38 @@ export function DebugFloatingViewer() {
       {/* 浮动图标 - 右侧垂直居中 */}
       <button
         onClick={() => setSheetOpen(true)}
-        className='fixed top-1/2 -translate-y-1/2 right-3 z-50 flex items-center gap-1.5 rounded-full bg-orange-500 px-3 py-2 text-white shadow-lg hover:bg-orange-600 transition-colors cursor-pointer'
+        className='fixed top-1/2 right-3 z-50 flex -translate-y-1/2 cursor-pointer items-center gap-1.5 rounded-full bg-orange-500 px-3 py-2 text-white shadow-lg transition-colors hover:bg-orange-600'
         title='查看 Debug 日志'
       >
         <Bug className='size-4 animate-pulse' />
-        <Badge variant='secondary' className='bg-white/20 text-white text-xs px-1.5 py-0'>
+        <Badge
+          variant='secondary'
+          className='bg-white/20 px-1.5 py-0 text-xs text-white'
+        >
           {elapsed || '0s'}
         </Badge>
       </button>
 
       {/* 日志查看器 Sheet */}
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-        <SheetContent side='right' className='w-[600px] sm:max-w-[600px] flex flex-col p-0'>
-          <SheetHeader className='px-4 py-3 border-b shrink-0'>
+        <SheetContent
+          side='right'
+          className='flex w-[600px] flex-col p-0 sm:max-w-[600px]'
+        >
+          <SheetHeader className='shrink-0 border-b px-4 py-3'>
             <div className='flex items-center justify-between'>
               <SheetTitle className='flex items-center gap-2 text-base'>
                 <Bug className='size-4 text-orange-500' />
                 Debug 日志
                 {debugStatus.file_size && (
-                  <Badge variant='secondary' className='text-xs'>{debugStatus.file_size}</Badge>
+                  <Badge variant='secondary' className='text-xs'>
+                    {debugStatus.file_size}
+                  </Badge>
                 )}
                 {elapsed && (
-                  <Badge variant='outline' className='text-xs'>{elapsed}</Badge>
+                  <Badge variant='outline' className='text-xs'>
+                    {elapsed}
+                  </Badge>
                 )}
               </SheetTitle>
               <div className='flex items-center gap-1'>
@@ -158,10 +179,15 @@ export function DebugFloatingViewer() {
                   onClick={handleClose}
                   disabled={disableMutation.isPending}
                 >
-                  <Download className='size-3 mr-1' />
+                  <Download className='mr-1 size-3' />
                   关闭并下载
                 </Button>
-                <Button variant='ghost' size='icon' className='size-7' onClick={() => setSheetOpen(false)}>
+                <Button
+                  variant='ghost'
+                  size='icon'
+                  className='size-7'
+                  onClick={() => setSheetOpen(false)}
+                >
                   <X className='size-4' />
                 </Button>
               </div>
@@ -170,7 +196,7 @@ export function DebugFloatingViewer() {
           <pre
             ref={logRef}
             onScroll={handleScroll}
-            className='flex-1 overflow-auto p-4 text-xs font-mono leading-relaxed bg-muted/30 whitespace-pre-wrap break-all'
+            className='bg-muted/30 flex-1 overflow-auto p-4 font-mono text-xs leading-relaxed break-all whitespace-pre-wrap'
           >
             {tailData?.lines || '等待日志...'}
           </pre>

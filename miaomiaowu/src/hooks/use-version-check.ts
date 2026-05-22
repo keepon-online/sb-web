@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 
 const CURRENT_VERSION = '0.6.5'
-const GITHUB_API_URL = 'https://api.github.com/repos/iluobei/miaomiaowu/releases/latest'
+const GITHUB_API_URL =
+  'https://api.github.com/repos/iluobei/miaomiaowu/releases/latest'
 
 interface GitHubRelease {
   tag_name: string
@@ -28,7 +29,11 @@ function compareVersions(current: string, latest: string): boolean {
   return false
 }
 
-async function fetchLatestVersion(): Promise<{ version: string; hasUpdate: boolean; url: string }> {
+async function fetchLatestVersion(): Promise<{
+  version: string
+  hasUpdate: boolean
+  url: string
+}> {
   try {
     const response = await fetch(GITHUB_API_URL)
     if (!response.ok) {
@@ -42,14 +47,14 @@ async function fetchLatestVersion(): Promise<{ version: string; hasUpdate: boole
     return {
       version: latestVersion,
       hasUpdate,
-      url: data.html_url
+      url: data.html_url,
     }
   } catch (error) {
     console.error('Error fetching latest version:', error)
     return {
       version: CURRENT_VERSION,
       hasUpdate: false,
-      url: 'https://github.com/iluobei/miaomiaowu/releases'
+      url: 'https://github.com/iluobei/miaomiaowu/releases',
     }
   }
 }
@@ -68,6 +73,6 @@ export function useVersionCheck() {
     currentVersion: CURRENT_VERSION,
     latestVersion: data?.version || CURRENT_VERSION,
     hasUpdate: data?.hasUpdate || false,
-    releaseUrl: data?.url || 'https://github.com/iluobei/miaomiaowu/releases'
+    releaseUrl: data?.url || 'https://github.com/iluobei/miaomiaowu/releases',
   }
 }

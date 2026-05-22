@@ -28,13 +28,22 @@ api.interceptors.response.use(
     if (error instanceof AxiosError) {
       if (error.response?.status === 401) {
         useAuthStore.getState().auth.reset()
-        if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+        if (
+          typeof window !== 'undefined' &&
+          window.location.pathname !== '/login'
+        ) {
           window.location.href = '/login'
         }
       }
       // 静默模式返回 404 时跳转到 404 页面
-      if (error.response?.status === 404 && error.response?.headers?.['x-silent-mode'] === 'true') {
-        if (typeof window !== 'undefined' && window.location.pathname !== '/404') {
+      if (
+        error.response?.status === 404 &&
+        error.response?.headers?.['x-silent-mode'] === 'true'
+      ) {
+        if (
+          typeof window !== 'undefined' &&
+          window.location.pathname !== '/404'
+        ) {
           window.location.href = '/404'
         }
       }

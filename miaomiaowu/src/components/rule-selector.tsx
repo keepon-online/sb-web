@@ -1,7 +1,15 @@
 import { useState, useEffect } from 'react'
 import { ChevronDown, ChevronUp, HelpCircle } from 'lucide-react'
-import { Label } from '@/components/ui/label'
+import type { PredefinedRuleSetType } from '@/lib/sublink/types'
+import { useProxyGroupCategories } from '@/hooks/use-proxy-groups'
+import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
+import { Label } from '@/components/ui/label'
 import {
   Select,
   SelectContent,
@@ -10,19 +18,11 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible'
-import { Button } from '@/components/ui/button'
-import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { useProxyGroupCategories } from '@/hooks/use-proxy-groups'
-import type { PredefinedRuleSetType } from '@/lib/sublink/types'
 
 interface RuleSelectorProps {
   ruleSet: PredefinedRuleSetType
@@ -38,7 +38,11 @@ export function RuleSelector({
   onCategoriesChange,
 }: RuleSelectorProps) {
   const [isOpen, setIsOpen] = useState(true)
-  const { data: categories = [], isLoading, isError } = useProxyGroupCategories()
+  const {
+    data: categories = [],
+    isLoading,
+    isError,
+  } = useProxyGroupCategories()
 
   // Track the previous ruleset to detect changes
   const [prevRuleSet, setPrevRuleSet] = useState<PredefinedRuleSetType>(ruleSet)
@@ -51,9 +55,13 @@ export function RuleSelector({
       // Calculate preset categories for initial ruleset
       let presetCategories: string[] = []
       if (ruleSet === 'minimal') {
-        presetCategories = categories.filter((c) => c.presets.includes('minimal')).map((c) => c.name)
+        presetCategories = categories
+          .filter((c) => c.presets.includes('minimal'))
+          .map((c) => c.name)
       } else if (ruleSet === 'balanced') {
-        presetCategories = categories.filter((c) => c.presets.includes('balanced')).map((c) => c.name)
+        presetCategories = categories
+          .filter((c) => c.presets.includes('balanced'))
+          .map((c) => c.name)
       } else if (ruleSet === 'comprehensive') {
         presetCategories = categories.map((c) => c.name)
       }
@@ -82,9 +90,13 @@ export function RuleSelector({
       // Calculate preset categories directly to avoid dependency on predefinedRuleSets
       let presetCategories: string[] = []
       if (ruleSet === 'minimal') {
-        presetCategories = categories.filter((c) => c.presets.includes('minimal')).map((c) => c.name)
+        presetCategories = categories
+          .filter((c) => c.presets.includes('minimal'))
+          .map((c) => c.name)
       } else if (ruleSet === 'balanced') {
-        presetCategories = categories.filter((c) => c.presets.includes('balanced')).map((c) => c.name)
+        presetCategories = categories
+          .filter((c) => c.presets.includes('balanced'))
+          .map((c) => c.name)
       } else if (ruleSet === 'comprehensive') {
         presetCategories = categories.map((c) => c.name)
       }
@@ -120,10 +132,12 @@ export function RuleSelector({
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <HelpCircle className='h-4 w-4 text-muted-foreground' />
+              <HelpCircle className='text-muted-foreground h-4 w-4' />
             </TooltipTrigger>
             <TooltipContent className='max-w-xs'>
-              <p>这个功能是从https://github.com/7Sageer/sublink-worker复制粘贴过来的</p>
+              <p>
+                这个功能是从https://github.com/7Sageer/sublink-worker复制粘贴过来的
+              </p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
@@ -141,7 +155,7 @@ export function RuleSelector({
         </SelectContent>
       </Select>
 
-      <p className='text-sm text-muted-foreground'>
+      <p className='text-muted-foreground text-sm'>
         {ruleSet === 'custom' && '自定义选择需要的规则类别'}
         {ruleSet === 'minimal' && '已自动选择基础规则，可以手动调整'}
         {ruleSet === 'balanced' && '已自动选择常用规则，可以手动调整'}
@@ -167,15 +181,19 @@ export function RuleSelector({
 
           <CollapsibleContent>
             {isLoading && (
-              <p className='text-sm text-muted-foreground'>正在加载规则分类...</p>
+              <p className='text-muted-foreground text-sm'>
+                正在加载规则分类...
+              </p>
             )}
             {isError && (
-              <p className='text-sm text-destructive'>
+              <p className='text-destructive text-sm'>
                 无法加载规则分类，请稍后重试或联系管理员。
               </p>
             )}
             {!isLoading && !isError && categories.length === 0 && (
-              <p className='text-sm text-muted-foreground'>暂无可用的规则分类</p>
+              <p className='text-muted-foreground text-sm'>
+                暂无可用的规则分类
+              </p>
             )}
             {!isLoading && !isError && categories.length > 0 && (
               <div className='grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3'>

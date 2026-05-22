@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { Collapsible } from '@/components/ui/collapsible'
 import type { CustomRule } from '@/lib/sublink/types'
+import { Collapsible } from '@/components/ui/collapsible'
 
 interface CustomRulesEditorProps {
   rules: CustomRule[]

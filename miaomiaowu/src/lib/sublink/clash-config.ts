@@ -10,7 +10,8 @@ export const DEFAULT_CLASH_CONFIG = {
   'geodata-loader': 'standard',
   'geo-update-interval': 24,
   'geox-url': {
-    geoip: 'https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/geoip.dat',
+    geoip:
+      'https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/geoip.dat',
     geosite:
       'https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/geosite.dat',
     mmdb: 'https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/country.mmdb',
@@ -22,7 +23,10 @@ export const DEFAULT_CLASH_CONFIG = {
     ipv6: true,
     'respect-rules': true,
     'enhanced-mode': 'fake-ip',
-    nameserver: ['https://doh.pub/dns-query', 'https://dns.alidns.com/dns-query'],
+    nameserver: [
+      'https://doh.pub/dns-query',
+      'https://dns.alidns.com/dns-query',
+    ],
     'proxy-server-nameserver': [
       'https://doh.pub/dns-query',
       'https://dns.alidns.com/dns-query',

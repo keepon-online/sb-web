@@ -33,7 +33,7 @@ interface Proxy {
   tfo?: boolean
   'fast-open'?: boolean
   token?: string
-  'auth_str'?: string
+  auth_str?: string
   'auth-str'?: string
   keepalive?: number
   'persistent-keepalive'?: number
@@ -85,12 +85,20 @@ interface Proxy {
 
 interface Producer {
   type: string
-  produce: (proxies: Proxy[], type: string, opts?: ProduceOptions) => Proxy[] | string
+  produce: (
+    proxies: Proxy[],
+    type: string,
+    opts?: ProduceOptions
+  ) => Proxy[] | string
 }
 
 export default function ClashMeta_Producer(): Producer {
   const type = 'ALL'
-  const produce = (proxies: Proxy[], type: string, opts: ProduceOptions = {}): Proxy[] | string => {
+  const produce = (
+    proxies: Proxy[],
+    type: string,
+    opts: ProduceOptions = {}
+  ): Proxy[] | string => {
     const list = proxies
       .filter((proxy) => {
         if (opts['include-unsupported-proxy']) return true
@@ -168,15 +176,21 @@ export default function ClashMeta_Producer(): Producer {
           // https://stash.wiki/proxy-protocols/proxy-types#vmess
           if (
             isPresent(proxy, 'cipher') &&
-            !['auto', 'none', 'zero', 'aes-128-gcm', 'chacha20-poly1305'].includes(
-              proxy.cipher as string
-            )
+            ![
+              'auto',
+              'none',
+              'zero',
+              'aes-128-gcm',
+              'chacha20-poly1305',
+            ].includes(proxy.cipher as string)
           ) {
             proxy.cipher = 'auto'
           }
         } else if (proxy.type === 'tuic') {
           if (isPresent(proxy, 'alpn')) {
-            proxy.alpn = Array.isArray(proxy.alpn) ? proxy.alpn : [proxy.alpn as string]
+            proxy.alpn = Array.isArray(proxy.alpn)
+              ? proxy.alpn
+              : [proxy.alpn as string]
           }
           //  else {
           //     proxy.alpn = ['h3'];
@@ -197,7 +211,9 @@ export default function ClashMeta_Producer(): Producer {
             proxy['auth-str'] = proxy['auth_str']
           }
           if (isPresent(proxy, 'alpn')) {
-            proxy.alpn = Array.isArray(proxy.alpn) ? proxy.alpn : [proxy.alpn as string]
+            proxy.alpn = Array.isArray(proxy.alpn)
+              ? proxy.alpn
+              : [proxy.alpn as string]
           }
           if (isPresent(proxy, 'tfo') && !isPresent(proxy, 'fast-open')) {
             proxy['fast-open'] = proxy.tfo
@@ -205,7 +221,8 @@ export default function ClashMeta_Producer(): Producer {
         } else if (proxy.type === 'wireguard') {
           proxy.keepalive = proxy.keepalive ?? proxy['persistent-keepalive']
           proxy['persistent-keepalive'] = proxy.keepalive
-          proxy['preshared-key'] = proxy['preshared-key'] ?? proxy['pre-shared-key']
+          proxy['preshared-key'] =
+            proxy['preshared-key'] ?? proxy['pre-shared-key']
           proxy['pre-shared-key'] = proxy['preshared-key']
         } else if (proxy.type === 'snell' && (proxy.version ?? 0) < 3) {
           delete proxy.udp
@@ -215,7 +232,10 @@ export default function ClashMeta_Producer(): Producer {
             delete proxy.sni
           }
         } else if (proxy.type === 'ss') {
-          if (isPresent(proxy, 'shadow-tls-password') && !isPresent(proxy, 'plugin')) {
+          if (
+            isPresent(proxy, 'shadow-tls-password') &&
+            !isPresent(proxy, 'plugin')
+          ) {
             proxy.plugin = 'shadow-tls'
             proxy['plugin-opts'] = {
               host: proxy['shadow-tls-sni'],
@@ -228,13 +248,19 @@ export default function ClashMeta_Producer(): Producer {
           }
         }
 
-        if (['vmess', 'vless'].includes(proxy.type) && proxy.network === 'http') {
+        if (
+          ['vmess', 'vless'].includes(proxy.type) &&
+          proxy.network === 'http'
+        ) {
           const httpPath = proxy['http-opts']?.path
           if (isPresent(proxy, 'http-opts.path') && !Array.isArray(httpPath)) {
             proxy['http-opts']!.path = [httpPath as string]
           }
           const httpHost = proxy['http-opts']?.headers?.Host
-          if (isPresent(proxy, 'http-opts.headers.Host') && !Array.isArray(httpHost)) {
+          if (
+            isPresent(proxy, 'http-opts.headers.Host') &&
+            !Array.isArray(httpHost)
+          ) {
             proxy['http-opts']!.headers!.Host = [httpHost as string]
           }
         }
@@ -244,37 +270,52 @@ export default function ClashMeta_Producer(): Producer {
             proxy['h2-opts']!.path = path[0]
           }
           const host = proxy['h2-opts']?.headers?.host
-          if (isPresent(proxy, 'h2-opts.headers.Host') && !Array.isArray(host)) {
+          if (
+            isPresent(proxy, 'h2-opts.headers.Host') &&
+            !Array.isArray(host)
+          ) {
             proxy['h2-opts']!.headers!.host = [host as string]
           }
         }
         if (['ws'].includes(proxy.network as string)) {
-          const networkPath = (proxy[`${proxy.network}-opts`] as Record<string, unknown>)?.path as
-            | string
-            | undefined
+          const networkPath = (
+            proxy[`${proxy.network}-opts`] as Record<string, unknown>
+          )?.path as string | undefined
           if (networkPath) {
             const reg = /^(.*?)(?:\?ed=(\d+))?$/
-             
+
             const [_, path = '', ed = ''] = reg.exec(networkPath) ?? []
-            ;(proxy[`${proxy.network}-opts`] as Record<string, unknown>).path = path
+            ;(proxy[`${proxy.network}-opts`] as Record<string, unknown>).path =
+              path
             if (ed !== '') {
-              proxy['ws-opts']!['early-data-header-name'] = 'Sec-WebSocket-Protocol'
+              proxy['ws-opts']!['early-data-header-name'] =
+                'Sec-WebSocket-Protocol'
               proxy['ws-opts']!['max-early-data'] = parseInt(ed, 10)
             }
           } else {
-            proxy[`${proxy.network}-opts`] = proxy[`${proxy.network}-opts`] || {}
-            ;(proxy[`${proxy.network}-opts`] as Record<string, unknown>).path = '/'
+            proxy[`${proxy.network}-opts`] =
+              proxy[`${proxy.network}-opts`] || {}
+            ;(proxy[`${proxy.network}-opts`] as Record<string, unknown>).path =
+              '/'
           }
         }
 
         if ((proxy['plugin-opts'] as Record<string, unknown>)?.tls) {
           if (isPresent(proxy, 'skip-cert-verify')) {
-            ;(proxy['plugin-opts'] as Record<string, unknown>)['skip-cert-verify'] =
-              proxy['skip-cert-verify']
+            ;(proxy['plugin-opts'] as Record<string, unknown>)[
+              'skip-cert-verify'
+            ] = proxy['skip-cert-verify']
           }
         }
         if (
-          ['trojan', 'tuic', 'hysteria', 'hysteria2', 'juicity', 'anytls'].includes(proxy.type)
+          [
+            'trojan',
+            'tuic',
+            'hysteria',
+            'hysteria2',
+            'juicity',
+            'anytls',
+          ].includes(proxy.type)
         ) {
           delete proxy.tls
         }
@@ -304,9 +345,16 @@ export default function ClashMeta_Producer(): Producer {
             }
           }
         }
-        if (['grpc'].includes(proxy.network as string) && proxy[`${proxy.network}-opts`]) {
-          delete (proxy[`${proxy.network}-opts`] as Record<string, unknown>)['_grpc-type']
-          delete (proxy[`${proxy.network}-opts`] as Record<string, unknown>)['_grpc-authority']
+        if (
+          ['grpc'].includes(proxy.network as string) &&
+          proxy[`${proxy.network}-opts`]
+        ) {
+          delete (proxy[`${proxy.network}-opts`] as Record<string, unknown>)[
+            '_grpc-type'
+          ]
+          delete (proxy[`${proxy.network}-opts`] as Record<string, unknown>)[
+            '_grpc-authority'
+          ]
         }
 
         if (proxy['ip-version']) {
@@ -318,7 +366,8 @@ export default function ClashMeta_Producer(): Producer {
 
     return type === 'internal'
       ? list
-      : 'proxies:\n' + list.map((proxy) => '  - ' + JSON.stringify(proxy) + '\n').join('')
+      : 'proxies:\n' +
+          list.map((proxy) => '  - ' + JSON.stringify(proxy) + '\n').join('')
   }
   return { type, produce }
 }

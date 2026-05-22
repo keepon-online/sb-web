@@ -14,7 +14,10 @@ const parseCache = new Map<string, string>()
  * 使用 CDN 加载 SVG 格式的 emoji，确保跨平台显示一致
  * 使用缓存优化性能，避免重复解析相同内容
  */
-export const Twemoji = memo(function Twemoji({ children, className }: TwemojiProps) {
+export const Twemoji = memo(function Twemoji({
+  children,
+  className,
+}: TwemojiProps) {
   const parsedHtml = useMemo(() => {
     const text = String(children || '')
 

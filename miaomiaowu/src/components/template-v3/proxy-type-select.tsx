@@ -1,12 +1,16 @@
 import { useState } from 'react'
+import { ChevronDown } from 'lucide-react'
+import { PROXY_TYPES, type ProxyType } from '@/lib/template-v3-utils'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { ChevronDown } from 'lucide-react'
-import { PROXY_TYPES, type ProxyType } from '@/lib/template-v3-utils'
 
 interface ProxyTypeSelectProps {
   value: ProxyType[]
@@ -40,52 +44,52 @@ export function ProxyTypeSelect({
   }
 
   return (
-    <div className="space-y-2">
+    <div className='space-y-2'>
       <Label>{label}</Label>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
-            variant="outline"
-            className="w-full justify-between font-normal"
+            variant='outline'
+            className='w-full justify-between font-normal'
           >
             {value.length > 0 ? (
-              <span className="flex items-center gap-2">
-                <Badge variant="secondary">{value.length}</Badge>
-                <span className="text-muted-foreground truncate">
+              <span className='flex items-center gap-2'>
+                <Badge variant='secondary'>{value.length}</Badge>
+                <span className='text-muted-foreground truncate'>
                   {value.slice(0, 3).join(', ')}
                   {value.length > 3 && '...'}
                 </span>
               </span>
             ) : (
-              <span className="text-muted-foreground">{placeholder}</span>
+              <span className='text-muted-foreground'>{placeholder}</span>
             )}
-            <ChevronDown className="h-4 w-4 opacity-50" />
+            <ChevronDown className='h-4 w-4 opacity-50' />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-[200px] p-0" align="start">
-          <div className="p-2 border-b">
+        <PopoverContent className='w-[200px] p-0' align='start'>
+          <div className='border-b p-2'>
             <Button
-              variant="ghost"
-              size="sm"
-              className="w-full justify-start"
+              variant='ghost'
+              size='sm'
+              className='w-full justify-start'
               onClick={handleSelectAll}
             >
               {value.length === PROXY_TYPES.length ? '取消全选' : '全选'}
             </Button>
           </div>
-          <ScrollArea className="h-[200px]">
-            <div className="p-2 space-y-1">
+          <ScrollArea className='h-[200px]'>
+            <div className='space-y-1 p-2'>
               {PROXY_TYPES.map((type) => (
                 <div
                   key={type}
-                  className="flex items-center space-x-2 p-2 rounded hover:bg-accent cursor-pointer"
+                  className='hover:bg-accent flex cursor-pointer items-center space-x-2 rounded p-2'
                   onClick={() => handleToggle(type)}
                 >
                   <Checkbox
                     checked={value.includes(type)}
                     onCheckedChange={() => handleToggle(type)}
                   />
-                  <span className="text-sm font-mono">{type}</span>
+                  <span className='font-mono text-sm'>{type}</span>
                 </div>
               ))}
             </div>

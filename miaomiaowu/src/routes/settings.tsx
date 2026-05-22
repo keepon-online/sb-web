@@ -3,7 +3,11 @@ import { useForm } from 'react-hook-form'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { toast } from 'sonner'
-import { Topbar } from '@/components/layout/topbar'
+import { useAuthStore } from '@/stores/auth-store'
+import { api } from '@/lib/api'
+import { handleServerError } from '@/lib/handle-server-error'
+import { profileQueryFn } from '@/lib/profile'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -14,11 +18,7 @@ import {
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { api } from '@/lib/api'
-import { handleServerError } from '@/lib/handle-server-error'
-import { profileQueryFn } from '@/lib/profile'
-import { useAuthStore } from '@/stores/auth-store'
+import { Topbar } from '@/components/layout/topbar'
 
 type ProfileFormValues = {
   username: string
@@ -156,7 +156,9 @@ function SettingsPage() {
 
   const updateShortCodeMutation = useMutation({
     mutationFn: async (code: string) => {
-      const response = await api.post('/api/user/custom-short-code', { custom_short_code: code.trim() })
+      const response = await api.post('/api/user/custom-short-code', {
+        custom_short_code: code.trim(),
+      })
       return response.data
     },
     onSuccess: () => {
@@ -225,15 +227,19 @@ function SettingsPage() {
   })
 
   const displayName = profile?.nickname || profile?.username || '用户'
-  const fallbackAvatar = profile?.is_admin ? '/images/admin-avatar.webp' : '/images/user-avatar.png'
-  const avatarSrc = profile?.avatar_url?.trim() ? profile.avatar_url.trim() : fallbackAvatar
+  const fallbackAvatar = profile?.is_admin
+    ? '/images/admin-avatar.webp'
+    : '/images/user-avatar.png'
+  const avatarSrc = profile?.avatar_url?.trim()
+    ? profile.avatar_url.trim()
+    : fallbackAvatar
   const avatarFallback = displayName.slice(0, 2) || '用户'
   const tokenValue = tokenData?.token ?? ''
 
   return (
-    <div className='min-h-svh bg-background'>
+    <div className='bg-background min-h-svh'>
       <Topbar />
-      <main className='mx-auto w-full max-w-4xl px-4 py-8 sm:px-6 pt-24'>
+      <main className='mx-auto w-full max-w-4xl px-4 py-8 pt-24 sm:px-6'>
         <section className='space-y-2'>
           <h1 className='text-3xl font-semibold tracking-tight'>个人设置</h1>
         </section>
@@ -244,7 +250,9 @@ function SettingsPage() {
             <Card>
               <CardHeader>
                 <CardTitle>个人资料</CardTitle>
-                <CardDescription>修改用户名、昵称、邮箱和头像链接。</CardDescription>
+                <CardDescription>
+                  修改用户名、昵称、邮箱和头像链接。
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <form className='space-y-5' onSubmit={submitProfile}>
@@ -253,8 +261,10 @@ function SettingsPage() {
                       <AvatarImage src={avatarSrc} alt={displayName} />
                       <AvatarFallback>{avatarFallback}</AvatarFallback>
                     </Avatar>
-                    <div className='text-sm text-muted-foreground'>
-                      {profile?.is_admin ? '管理员头像默认根据角色区分，设置自定义链接将覆盖默认头像。' : '支持使用任意公开可访问的图片链接。'}
+                    <div className='text-muted-foreground text-sm'>
+                      {profile?.is_admin
+                        ? '管理员头像默认根据角色区分，设置自定义链接将覆盖默认头像。'
+                        : '支持使用任意公开可访问的图片链接。'}
                     </div>
                   </div>
 
@@ -267,7 +277,9 @@ function SettingsPage() {
                       {...profileForm.register('username', { required: true })}
                     />
                     {profile?.is_admin ? (
-                      <p className='text-xs text-muted-foreground'>管理员用户名暂不支持修改。</p>
+                      <p className='text-muted-foreground text-xs'>
+                        管理员用户名暂不支持修改。
+                      </p>
                     ) : null}
                   </div>
 
@@ -302,7 +314,11 @@ function SettingsPage() {
                     />
                   </div>
 
-                  <Button type='submit' className='w-full' disabled={updateProfileMutation.isPending}>
+                  <Button
+                    type='submit'
+                    className='w-full'
+                    disabled={updateProfileMutation.isPending}
+                  >
                     {updateProfileMutation.isPending ? '保存中…' : '保存变更'}
                   </Button>
                 </form>
@@ -312,7 +328,9 @@ function SettingsPage() {
             <Card>
               <CardHeader>
                 <CardTitle>自定义订阅连接</CardTitle>
-                <CardDescription>设置后短链接中将使用自定义连接替代系统随机生成的部分。只允许字母和数字，留空则使用系统默认。</CardDescription>
+                <CardDescription>
+                  设置后短链接中将使用自定义连接替代系统随机生成的部分。只允许字母和数字，留空则使用系统默认。
+                </CardDescription>
               </CardHeader>
               <CardContent className='space-y-3'>
                 <div className='space-y-2'>
@@ -340,7 +358,9 @@ function SettingsPage() {
             <Card>
               <CardHeader>
                 <CardTitle>修改密码</CardTitle>
-                <CardDescription>修改后需要使用新密码重新登录系统。</CardDescription>
+                <CardDescription>
+                  修改后需要使用新密码重新登录系统。
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <form className='space-y-4' onSubmit={submitPassword}>
@@ -351,7 +371,9 @@ function SettingsPage() {
                       type='password'
                       autoComplete='current-password'
                       placeholder='请输入当前密码'
-                      {...passwordForm.register('current_password', { required: true })}
+                      {...passwordForm.register('current_password', {
+                        required: true,
+                      })}
                     />
                   </div>
                   <div className='space-y-2'>
@@ -361,7 +383,9 @@ function SettingsPage() {
                       type='password'
                       autoComplete='new-password'
                       placeholder='至少 8 位，建议包含符号'
-                      {...passwordForm.register('new_password', { required: true })}
+                      {...passwordForm.register('new_password', {
+                        required: true,
+                      })}
                     />
                   </div>
                   <div className='space-y-2'>
@@ -371,7 +395,9 @@ function SettingsPage() {
                       type='password'
                       autoComplete='new-password'
                       placeholder='再次输入新密码'
-                      {...passwordForm.register('confirm_password', { required: true })}
+                      {...passwordForm.register('confirm_password', {
+                        required: true,
+                      })}
                     />
                   </div>
                   <Button
@@ -388,10 +414,14 @@ function SettingsPage() {
             <Card>
               <CardHeader>
                 <CardTitle>订阅 Token</CardTitle>
-                <CardDescription><p className='mt-2 text-sm font-semibold text-destructive'>token用于客户端订阅，发生泄露后重置token只会影响更新订阅，为防止盗用，还需要修改服务器各个节点的鉴权凭证。</p></CardDescription>
+                <CardDescription>
+                  <p className='text-destructive mt-2 text-sm font-semibold'>
+                    token用于客户端订阅，发生泄露后重置token只会影响更新订阅，为防止盗用，还需要修改服务器各个节点的鉴权凭证。
+                  </p>
+                </CardDescription>
               </CardHeader>
               <CardContent className='space-y-4'>
-                <div className='font-mono text-xs sm:text-sm break-all rounded-md border bg-muted/40 p-3 shadow-inner'>
+                <div className='bg-muted/40 rounded-md border p-3 font-mono text-xs break-all shadow-inner sm:text-sm'>
                   {loadingToken ? '加载中…' : tokenValue || '尚未生成'}
                 </div>
                 <div className='flex flex-wrap gap-2'>
@@ -401,7 +431,10 @@ function SettingsPage() {
                     disabled={!tokenValue || resetTokenMutation.isPending}
                     onClick={async () => {
                       if (!tokenValue) return
-                      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+                      if (
+                        typeof navigator !== 'undefined' &&
+                        navigator.clipboard?.writeText
+                      ) {
                         try {
                           await navigator.clipboard.writeText(tokenValue)
                           toast.success('Token 已复制')
@@ -425,9 +458,9 @@ function SettingsPage() {
                   </Button>
                 </div>
 
-                <div className='space-y-2 pt-4 border-t'>
+                <div className='space-y-2 border-t pt-4'>
                   <Label>订阅短链接</Label>
-                  <p className='text-xs text-muted-foreground'>
+                  <p className='text-muted-foreground text-xs'>
                     重置所有订阅的短链接。短链接在订阅链接页面显示。
                   </p>
                   <Button
@@ -437,7 +470,9 @@ function SettingsPage() {
                     onClick={() => resetShortLinkMutation.mutate()}
                     className='w-full'
                   >
-                    {resetShortLinkMutation.isPending ? '重置中…' : '重置所有订阅短链接'}
+                    {resetShortLinkMutation.isPending
+                      ? '重置中…'
+                      : '重置所有订阅短链接'}
                   </Button>
                 </div>
               </CardContent>

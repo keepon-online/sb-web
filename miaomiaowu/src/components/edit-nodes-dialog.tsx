@@ -1,6 +1,10 @@
-import React, { useState, useMemo, memo, useContext, createContext } from 'react'
-import { GripVertical, X, Plus, Check, Search, Settings2, Eye, EyeOff, Smile } from 'lucide-react'
-import { Twemoji } from '@/components/twemoji'
+import React, {
+  useState,
+  useMemo,
+  memo,
+  useContext,
+  createContext,
+} from 'react'
 import {
   DndContext,
   DragOverlay,
@@ -14,17 +18,57 @@ import {
   type DragEndEvent,
   pointerWithin,
   closestCenter,
-  type CollisionDetection
+  type CollisionDetection,
 } from '@dnd-kit/core'
-import { SortableContext, rectSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
+import {
+  SortableContext,
+  rectSortingStrategy,
+  useSortable,
+  arrayMove,
+} from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import {
+  GripVertical,
+  X,
+  Plus,
+  Check,
+  Search,
+  Settings2,
+  Eye,
+  EyeOff,
+  Smile,
+} from 'lucide-react'
 import { useProxyGroupCategories } from '@/hooks/use-proxy-groups'
+import { Button } from '@/components/ui/button'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Twemoji } from '@/components/twemoji'
 
 // 预置的代理分流服务相关 emoji
 // 注意: 这个列表已废弃，改为从 proxy-groups.json 动态获取
@@ -42,7 +86,7 @@ interface ProxyGroup {
   name: string
   type: string
   proxies: string[]
-  use?: string[]  // 代理集合引用
+  use?: string[] // 代理集合引用
   url?: string
   interval?: number
   strategy?: 'round-robin' | 'consistent-hashing' | 'sticky-sessions'
@@ -57,7 +101,14 @@ interface Node {
 }
 
 // 拖拽类型定义
-type DragItemType = 'available-node' | 'available-header' | 'group-node' | 'group-title' | 'group-card' | 'proxy-provider' | 'use-item'
+type DragItemType =
+  | 'available-node'
+  | 'available-header'
+  | 'group-node'
+  | 'group-title'
+  | 'group-card'
+  | 'proxy-provider'
+  | 'use-item'
 
 interface DragItemData {
   type: DragItemType
@@ -65,7 +116,7 @@ interface DragItemData {
   nodeNames?: string[]
   groupName?: string
   index?: number
-  providerName?: string  // 代理集合名称
+  providerName?: string // 代理集合名称
 }
 
 interface ActiveDragItem {
@@ -77,7 +128,9 @@ interface ActiveDragItem {
 const SPECIAL_NODES = ['♻️ 自动选择', '🚀 节点选择', 'DIRECT', 'REJECT']
 
 // 拖拽状态 Context - 避免 isActiveDragging 导致全量重渲染
-const DragStateContext = createContext<{ isActiveDragging: boolean }>({ isActiveDragging: false })
+const DragStateContext = createContext<{ isActiveDragging: boolean }>({
+  isActiveDragging: false,
+})
 
 // 代理组类型选择器 - 提取到外部
 interface ProxyTypeSelectorProps {
@@ -87,16 +140,26 @@ interface ProxyTypeSelectorProps {
   onClose?: () => void
 }
 
-const ProxyTypeSelector = memo(function ProxyTypeSelector({ group, allGroups, onChange, onClose }: ProxyTypeSelectorProps) {
+const ProxyTypeSelector = memo(function ProxyTypeSelector({
+  group,
+  allGroups,
+  onChange,
+  onClose,
+}: ProxyTypeSelectorProps) {
   const types = [
     { value: 'select', label: '手动选择', hasUrl: false, hasStrategy: false },
     { value: 'url-test', label: '自动选择', hasUrl: true, hasStrategy: false },
     { value: 'fallback', label: '自动回退', hasUrl: true, hasStrategy: false },
-    { value: 'load-balance', label: '负载均衡', hasUrl: true, hasStrategy: true },
+    {
+      value: 'load-balance',
+      label: '负载均衡',
+      hasUrl: true,
+      hasStrategy: true,
+    },
   ]
 
   const handleTypeSelect = (type: string) => {
-    const typeConfig = types.find(t => t.value === type)
+    const typeConfig = types.find((t) => t.value === type)
     const updatedGroup: ProxyGroup = {
       ...group,
       type,
@@ -137,11 +200,14 @@ const ProxyTypeSelector = memo(function ProxyTypeSelector({ group, allGroups, on
       ))}
 
       {group.type === 'load-balance' && (
-        <div className='pt-2 border-t'>
-          <p className='text-xs text-muted-foreground mb-1'>策略</p>
+        <div className='border-t pt-2'>
+          <p className='text-muted-foreground mb-1 text-xs'>策略</p>
           <Select
             value={group.strategy || 'round-robin'}
-            onValueChange={(value) => { onChange({ ...group, strategy: value as ProxyGroup['strategy'] }); onClose?.() }}
+            onValueChange={(value) => {
+              onChange({ ...group, strategy: value as ProxyGroup['strategy'] })
+              onClose?.()
+            }}
           >
             <SelectTrigger className='h-8 text-xs'>
               <SelectValue />
@@ -155,8 +221,8 @@ const ProxyTypeSelector = memo(function ProxyTypeSelector({ group, allGroups, on
         </div>
       )}
 
-      <div className='pt-2 border-t'>
-        <p className='text-xs text-muted-foreground mb-1'>中转代理组</p>
+      <div className='border-t pt-2'>
+        <p className='text-muted-foreground mb-1 text-xs'>中转代理组</p>
         <Select
           value={group.dialerProxyGroup || '__none__'}
           onValueChange={(value) => {
@@ -175,11 +241,13 @@ const ProxyTypeSelector = memo(function ProxyTypeSelector({ group, allGroups, on
           </SelectTrigger>
           <SelectContent>
             <SelectItem value='__none__'>无</SelectItem>
-            {allGroups.filter(g => g.name !== group.name).map(g => (
-              <SelectItem key={g.name} value={g.name}>
-                <Twemoji>{g.name}</Twemoji>
-              </SelectItem>
-            ))}
+            {allGroups
+              .filter((g) => g.name !== group.name)
+              .map((g) => (
+                <SelectItem key={g.name} value={g.name}>
+                  <Twemoji>{g.name}</Twemoji>
+                </SelectItem>
+              ))}
           </SelectContent>
         </Select>
       </div>
@@ -191,19 +259,23 @@ const ProxyTypeSelector = memo(function ProxyTypeSelector({ group, allGroups, on
 const DroppableAllGroupsZone = memo(function DroppableAllGroupsZone() {
   const { setNodeRef, isOver } = useDroppable({
     id: 'all-groups-zone',
-    data: { type: 'all-groups-zone' }
+    data: { type: 'all-groups-zone' },
   })
 
   return (
     <div
       ref={setNodeRef}
-      className={`w-40 h-20 border-2 rounded-lg flex items-center justify-center text-sm transition-all ${
+      className={`flex h-20 w-40 items-center justify-center rounded-lg border-2 text-sm transition-all ${
         isOver
           ? 'border-primary bg-primary/10 border-solid'
-          : 'border-dashed border-muted-foreground/30 bg-muted/20'
+          : 'border-muted-foreground/30 bg-muted/20 border-dashed'
       }`}
     >
-      <span className={isOver ? 'text-primary font-medium' : 'text-muted-foreground'}>
+      <span
+        className={
+          isOver ? 'text-primary font-medium' : 'text-muted-foreground'
+        }
+      >
         添加到所有代理组
       </span>
     </div>
@@ -214,19 +286,23 @@ const DroppableAllGroupsZone = memo(function DroppableAllGroupsZone() {
 const DroppableRemoveFromAllZone = memo(function DroppableRemoveFromAllZone() {
   const { setNodeRef, isOver } = useDroppable({
     id: 'remove-from-all-zone',
-    data: { type: 'remove-from-all-zone' }
+    data: { type: 'remove-from-all-zone' },
   })
 
   return (
     <div
       ref={setNodeRef}
-      className={`w-40 h-20 border-2 rounded-lg flex items-center justify-center text-sm transition-all ${
+      className={`flex h-20 w-40 items-center justify-center rounded-lg border-2 text-sm transition-all ${
         isOver
           ? 'border-destructive bg-destructive/10 border-solid'
-          : 'border-dashed border-muted-foreground/30 bg-muted/20'
+          : 'border-muted-foreground/30 bg-muted/20 border-dashed'
       }`}
     >
-      <span className={isOver ? 'text-destructive font-medium' : 'text-muted-foreground'}>
+      <span
+        className={
+          isOver ? 'text-destructive font-medium' : 'text-muted-foreground'
+        }
+      >
         从所有代理组移除
       </span>
     </div>
@@ -238,17 +314,19 @@ interface DroppableAvailableZoneProps {
   children: React.ReactNode
 }
 
-const DroppableAvailableZone = memo(function DroppableAvailableZone({ children }: DroppableAvailableZoneProps) {
+const DroppableAvailableZone = memo(function DroppableAvailableZone({
+  children,
+}: DroppableAvailableZoneProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: 'available-zone',
-    data: { type: 'available-zone' }
+    data: { type: 'available-zone' },
   })
 
   return (
     <Card
       ref={setNodeRef}
-      className={`flex flex-col flex-1 transition-all duration-75 ${
-        isOver ? 'ring-2 ring-primary shadow-lg scale-[1.02]' : ''
+      className={`flex flex-1 flex-col transition-all duration-75 ${
+        isOver ? 'ring-primary scale-[1.02] shadow-lg ring-2' : ''
       }`}
     >
       {children}
@@ -274,28 +352,40 @@ const DraggableGroupTitle = memo(function DraggableGroupTitle({
   onEditingValueChange,
   onSubmitEdit,
   onCancelEdit,
-  onStartEdit
+  onStartEdit,
 }: DraggableGroupTitleProps) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: `group-title-${groupName}`,
-    data: {
-      type: 'group-title',
-      groupName
-    } as DragItemData
-  })
+  const { attributes, listeners, setNodeRef, transform, isDragging } =
+    useDraggable({
+      id: `group-title-${groupName}`,
+      data: {
+        type: 'group-title',
+        groupName,
+      } as DragItemData,
+    })
 
   const style: React.CSSProperties = {
-    transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
+    transform: transform
+      ? `translate3d(${transform.x}px, ${transform.y}px, 0)`
+      : undefined,
     opacity: isDragging ? 0.5 : 1,
   }
 
   return (
-    <div ref={setNodeRef} style={style} className='flex items-center gap-2 group/title'>
-      <div {...attributes} {...listeners} className='cursor-move' style={{ touchAction: 'none' }}>
-        <GripVertical className='h-3 w-3 text-muted-foreground flex-shrink-0' />
+    <div
+      ref={setNodeRef}
+      style={style}
+      className='group/title flex items-center gap-2'
+    >
+      <div
+        {...attributes}
+        {...listeners}
+        className='cursor-move'
+        style={{ touchAction: 'none' }}
+      >
+        <GripVertical className='text-muted-foreground h-3 w-3 flex-shrink-0' />
       </div>
       {isEditing ? (
-        <div className='flex items-center gap-1 flex-1 min-w-0'>
+        <div className='flex min-w-0 flex-1 items-center gap-1'>
           <Input
             value={editingValue}
             onChange={(e) => onEditingValueChange(e.target.value)}
@@ -303,17 +393,22 @@ const DraggableGroupTitle = memo(function DraggableGroupTitle({
               if (e.key === 'Enter') onSubmitEdit()
               else if (e.key === 'Escape') onCancelEdit()
             }}
-            className='h-6 text-base flex-1 min-w-0'
+            className='h-6 min-w-0 flex-1 text-base'
             placeholder='输入新名称...'
             autoFocus
           />
-          <Button size='sm' className='h-6 w-6 p-0' onClick={onSubmitEdit} variant='ghost'>
+          <Button
+            size='sm'
+            className='h-6 w-6 p-0'
+            onClick={onSubmitEdit}
+            variant='ghost'
+          >
             <Check className='h-3 w-3 text-green-600' />
           </Button>
         </div>
       ) : (
         <CardTitle
-          className='text-base truncate cursor-text hover:text-foreground/80 flex-1 min-w-0'
+          className='hover:text-foreground/80 min-w-0 flex-1 cursor-text truncate text-base'
           onClick={() => onStartEdit(groupName)}
           title='点击编辑名称'
         >
@@ -354,7 +449,7 @@ const SortableCard = memo(function SortableCard({
   onRemoveGroup,
   onRemoveNodeFromGroup,
   onRemoveUseItem,
-  mmwProviderNames
+  mmwProviderNames,
 }: SortableCardProps) {
   // 从 context 获取拖拽状态
   const { isActiveDragging } = useContext(DragStateContext)
@@ -400,28 +495,32 @@ const SortableCard = memo(function SortableCard({
       }}
       style={style}
       className={`flex flex-col transition-all ${
-        isOver ? 'ring-2 ring-primary shadow-lg scale-[1.02]' : ''
+        isOver ? 'ring-primary scale-[1.02] shadow-lg ring-2' : ''
       }`}
     >
       <CardHeader className='pb-3'>
         {/* 顶部居中拖动按钮 */}
         <div
-          className={`flex justify-center -mt-2 mb-2 ${
+          className={`-mt-2 mb-2 flex justify-center ${
             isEditing ? 'cursor-not-allowed opacity-50' : 'cursor-move'
           }`}
           style={isEditing ? {} : { touchAction: 'none' }}
           {...(isEditing ? {} : attributes)}
           {...(isEditing ? {} : listeners)}
         >
-          <div className={`group/drag-handle rounded-md px-3 py-1 transition-colors ${
-            isEditing ? 'opacity-50' : ''
-          } ${!isActiveDragging ? 'hover:bg-accent' : ''}`}>
-            <GripVertical className={`h-4 w-4 text-muted-foreground transition-colors ${!isActiveDragging ? 'group-hover/drag-handle:text-foreground' : ''}`} />
+          <div
+            className={`group/drag-handle rounded-md px-3 py-1 transition-colors ${
+              isEditing ? 'opacity-50' : ''
+            } ${!isActiveDragging ? 'hover:bg-accent' : ''}`}
+          >
+            <GripVertical
+              className={`text-muted-foreground h-4 w-4 transition-colors ${!isActiveDragging ? 'group-hover/drag-handle:text-foreground' : ''}`}
+            />
           </div>
         </div>
 
         <div className='flex items-start justify-between gap-2'>
-          <div className='flex-1 min-w-0'>
+          <div className='min-w-0 flex-1'>
             <DraggableGroupTitle
               groupName={group.name}
               isEditing={isEditing}
@@ -432,7 +531,11 @@ const SortableCard = memo(function SortableCard({
               onStartEdit={onStartEdit}
             />
             <CardDescription className='text-xs'>
-              {group.type} ({(group.proxies || []).length} 个节点{(group.use || []).length > 0 ? `, ${(group.use || []).length} 个集合` : ''})
+              {group.type} ({(group.proxies || []).length} 个节点
+              {(group.use || []).length > 0
+                ? `, ${(group.use || []).length} 个集合`
+                : ''}
+              )
             </CardDescription>
           </div>
           {!isEditing && (
@@ -442,17 +545,19 @@ const SortableCard = memo(function SortableCard({
                   <Button
                     variant='ghost'
                     size='sm'
-                    className='h-8 w-8 p-0 flex-shrink-0'
+                    className='h-8 w-8 flex-shrink-0 p-0'
                     title='切换代理组类型'
                   >
-                    <Settings2 className='h-4 w-4 text-muted-foreground hover:text-foreground' />
+                    <Settings2 className='text-muted-foreground hover:text-foreground h-4 w-4' />
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className='w-48 p-2' align='end'>
                   <ProxyTypeSelector
                     group={group}
                     allGroups={allGroups}
-                    onChange={(updatedGroup) => onGroupTypeChange(group.name, updatedGroup)}
+                    onChange={(updatedGroup) =>
+                      onGroupTypeChange(group.name, updatedGroup)
+                    }
                     onClose={() => setTypePopoverOpen(false)}
                   />
                 </PopoverContent>
@@ -460,40 +565,45 @@ const SortableCard = memo(function SortableCard({
               <Button
                 variant='ghost'
                 size='sm'
-                className='h-8 w-8 p-0 flex-shrink-0'
+                className='h-8 w-8 flex-shrink-0 p-0'
                 onClick={(e) => {
                   e.stopPropagation()
                   onRemoveGroup(group.name)
                 }}
               >
-                <X className='h-4 w-4 text-muted-foreground hover:text-destructive' />
+                <X className='text-muted-foreground hover:text-destructive h-4 w-4' />
               </Button>
             </div>
           )}
         </div>
       </CardHeader>
-      <CardContent className='flex-1 space-y-1 min-h-[200px]' data-card-content>
+      <CardContent className='min-h-[200px] flex-1 space-y-1' data-card-content>
         {/* 合并 proxies 和 use 到同一个 SortableContext，解决单个 use-item 无法拖动的问题 */}
         <SortableContext
           items={[
-            ...(group.proxies || []).filter(p => p).map(p => `${group.name}-${p}`),
-            ...(group.use || []).map(providerName => `use-${group.name}-${providerName}`)
+            ...(group.proxies || [])
+              .filter((p) => p)
+              .map((p) => `${group.name}-${p}`),
+            ...(group.use || []).map(
+              (providerName) => `use-${group.name}-${providerName}`
+            ),
           ]}
           strategy={rectSortingStrategy}
         >
           {/* 普通节点 */}
-          {(group.proxies || []).map((proxy, idx) => (
-            proxy && (
-              <SortableProxy
-                key={`${group.name}-${proxy}-${idx}`}
-                proxy={proxy}
-                groupName={group.name}
-                index={idx}
-                isMmwProvider={mmwProviderNames.has(proxy)}
-                onRemove={onRemoveNodeFromGroup}
-              />
-            )
-          ))}
+          {(group.proxies || []).map(
+            (proxy, idx) =>
+              proxy && (
+                <SortableProxy
+                  key={`${group.name}-${proxy}-${idx}`}
+                  proxy={proxy}
+                  groupName={group.name}
+                  index={idx}
+                  isMmwProvider={mmwProviderNames.has(proxy)}
+                  onRemove={onRemoveNodeFromGroup}
+                />
+              )
+          )}
 
           {/* 代理集合（use）显示 */}
           {(group.use || []).map((providerName, idx) => (
@@ -507,13 +617,16 @@ const SortableCard = memo(function SortableCard({
           ))}
         </SortableContext>
 
-        {(group.proxies || []).filter(p => p).length === 0 && (group.use || []).length === 0 && (
-          <div className={`text-sm text-center py-8 transition-colors ${
-            isOver ? 'text-primary font-medium' : 'text-muted-foreground'
-          }`}>
-            将节点拖拽到这里
-          </div>
-        )}
+        {(group.proxies || []).filter((p) => p).length === 0 &&
+          (group.use || []).length === 0 && (
+            <div
+              className={`py-8 text-center text-sm transition-colors ${
+                isOver ? 'text-primary font-medium' : 'text-muted-foreground'
+              }`}
+            >
+              将节点拖拽到这里
+            </div>
+          )}
       </CardContent>
     </Card>
   )
@@ -525,20 +638,26 @@ interface DraggableAvailableNodeProps {
   index: number
 }
 
-const DraggableAvailableNode = memo(function DraggableAvailableNode({ proxy, index }: DraggableAvailableNodeProps) {
+const DraggableAvailableNode = memo(function DraggableAvailableNode({
+  proxy,
+  index,
+}: DraggableAvailableNodeProps) {
   // 从 context 获取拖拽状态
   const { isActiveDragging } = useContext(DragStateContext)
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: `available-node-${proxy}-${index}`,
-    data: {
-      type: 'available-node',
-      nodeName: proxy,
-      index
-    } as DragItemData
-  })
+  const { attributes, listeners, setNodeRef, transform, isDragging } =
+    useDraggable({
+      id: `available-node-${proxy}-${index}`,
+      data: {
+        type: 'available-node',
+        nodeName: proxy,
+        index,
+      } as DragItemData,
+    })
 
   const style: React.CSSProperties = {
-    transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
+    transform: transform
+      ? `translate3d(${transform.x}px, ${transform.y}px, 0)`
+      : undefined,
     opacity: isDragging ? 0.5 : 1,
     touchAction: 'none',
     // 拖拽时禁用非拖拽元素的指针事件，避免 hover 效果触发
@@ -551,10 +670,12 @@ const DraggableAvailableNode = memo(function DraggableAvailableNode({ proxy, ind
       style={style}
       {...attributes}
       {...listeners}
-      className='flex items-center gap-2 p-2 rounded border hover:border-border hover:bg-accent cursor-move transition-colors duration-75'
+      className='hover:border-border hover:bg-accent flex cursor-move items-center gap-2 rounded border p-2 transition-colors duration-75'
     >
-      <GripVertical className='h-4 w-4 text-muted-foreground flex-shrink-0' />
-      <span className='text-sm truncate flex-1'><Twemoji>{proxy}</Twemoji></span>
+      <GripVertical className='text-muted-foreground h-4 w-4 flex-shrink-0' />
+      <span className='flex-1 truncate text-sm'>
+        <Twemoji>{proxy}</Twemoji>
+      </span>
     </div>
   )
 })
@@ -564,17 +685,22 @@ interface DraggableProxyProviderProps {
   name: string
 }
 
-const DraggableProxyProvider = memo(function DraggableProxyProvider({ name }: DraggableProxyProviderProps) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: `proxy-provider-${name}`,
-    data: {
-      type: 'proxy-provider',
-      providerName: name
-    } as DragItemData
-  })
+const DraggableProxyProvider = memo(function DraggableProxyProvider({
+  name,
+}: DraggableProxyProviderProps) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } =
+    useDraggable({
+      id: `proxy-provider-${name}`,
+      data: {
+        type: 'proxy-provider',
+        providerName: name,
+      } as DragItemData,
+    })
 
   const style: React.CSSProperties = {
-    transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
+    transform: transform
+      ? `translate3d(${transform.x}px, ${transform.y}px, 0)`
+      : undefined,
     opacity: isDragging ? 0.5 : 1,
     touchAction: 'none',
   }
@@ -585,10 +711,12 @@ const DraggableProxyProvider = memo(function DraggableProxyProvider({ name }: Dr
       style={style}
       {...attributes}
       {...listeners}
-      className='flex items-center gap-2 p-2 rounded border border-purple-200 dark:border-purple-800 hover:border-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/30 cursor-move transition-colors duration-75'
+      className='flex cursor-move items-center gap-2 rounded border border-purple-200 p-2 transition-colors duration-75 hover:border-purple-400 hover:bg-purple-50 dark:border-purple-800 dark:hover:bg-purple-900/30'
     >
-      <GripVertical className='h-4 w-4 text-purple-500 flex-shrink-0' />
-      <span className='text-sm truncate flex-1 text-purple-700 dark:text-purple-300'>📦 {name}</span>
+      <GripVertical className='h-4 w-4 flex-shrink-0 text-purple-500' />
+      <span className='flex-1 truncate text-sm text-purple-700 dark:text-purple-300'>
+        📦 {name}
+      </span>
     </div>
   )
 })
@@ -599,17 +727,23 @@ interface DraggableAvailableHeaderProps {
   totalNodes: number
 }
 
-const DraggableAvailableHeader = memo(function DraggableAvailableHeader({ filteredNodes, totalNodes }: DraggableAvailableHeaderProps) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: 'available-header',
-    data: {
-      type: 'available-header',
-      nodeNames: filteredNodes
-    } as DragItemData
-  })
+const DraggableAvailableHeader = memo(function DraggableAvailableHeader({
+  filteredNodes,
+  totalNodes,
+}: DraggableAvailableHeaderProps) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } =
+    useDraggable({
+      id: 'available-header',
+      data: {
+        type: 'available-header',
+        nodeNames: filteredNodes,
+      } as DragItemData,
+    })
 
   const style: React.CSSProperties = {
-    transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
+    transform: transform
+      ? `translate3d(${transform.x}px, ${transform.y}px, 0)`
+      : undefined,
     opacity: isDragging ? 0.5 : 1,
     touchAction: 'none',
   }
@@ -620,9 +754,9 @@ const DraggableAvailableHeader = memo(function DraggableAvailableHeader({ filter
       style={style}
       {...attributes}
       {...listeners}
-      className='flex items-center gap-2 cursor-move rounded-md px-2 py-1 hover:bg-accent transition-colors'
+      className='hover:bg-accent flex cursor-move items-center gap-2 rounded-md px-2 py-1 transition-colors'
     >
-      <GripVertical className='h-4 w-4 text-muted-foreground flex-shrink-0' />
+      <GripVertical className='text-muted-foreground h-4 w-4 flex-shrink-0' />
       <div>
         <CardTitle className='text-base'>可用节点</CardTitle>
         <CardDescription className='text-xs'>
@@ -647,7 +781,7 @@ const SortableProxy = memo(function SortableProxy({
   groupName,
   index,
   isMmwProvider,
-  onRemove
+  onRemove,
 }: SortableProxyProps) {
   // 从 context 获取拖拽状态
   const { isActiveDragging } = useContext(DragStateContext)
@@ -670,7 +804,7 @@ const SortableProxy = memo(function SortableProxy({
       groupName,
       nodeName: proxy,
       providerName: isMmwProvider ? proxy : undefined,
-      index
+      index,
     } as DragItemData,
   })
 
@@ -689,26 +823,35 @@ const SortableProxy = memo(function SortableProxy({
   // MMW 代理集合使用紫色样式
   if (isMmwProvider) {
     return (
-      <div className='relative' style={{ pointerEvents: isActiveDragging && !isDragging ? 'none' : 'auto' }}>
+      <div
+        className='relative'
+        style={{
+          pointerEvents: isActiveDragging && !isDragging ? 'none' : 'auto',
+        }}
+      >
         {showDropIndicator && (
-          <div className='absolute -top-0.5 left-0 right-0 h-1 bg-blue-500 rounded-full z-10' />
+          <div className='absolute -top-0.5 right-0 left-0 z-10 h-1 rounded-full bg-blue-500' />
         )}
         <div
           ref={setNodeRef}
           style={style}
           {...attributes}
           {...listeners}
-          className={`flex items-center gap-2 p-2 rounded border border-purple-300 dark:border-purple-700 bg-purple-50 dark:bg-purple-950/20 cursor-move ${
-            showDropIndicator ? 'border-blue-400 bg-blue-100 dark:bg-blue-950/30' : ''
+          className={`flex cursor-move items-center gap-2 rounded border border-purple-300 bg-purple-50 p-2 dark:border-purple-700 dark:bg-purple-950/20 ${
+            showDropIndicator
+              ? 'border-blue-400 bg-blue-100 dark:bg-blue-950/30'
+              : ''
           } ${isDragging ? 'shadow-lg' : ''}`}
           data-use-item
         >
-          <GripVertical className='h-4 w-4 text-purple-500 flex-shrink-0' />
-          <span className='text-sm truncate flex-1 text-purple-700 dark:text-purple-300'>📦 {proxy}</span>
+          <GripVertical className='h-4 w-4 flex-shrink-0 text-purple-500' />
+          <span className='flex-1 truncate text-sm text-purple-700 dark:text-purple-300'>
+            📦 {proxy}
+          </span>
           <Button
             variant='ghost'
             size='sm'
-            className='h-6 w-6 p-0 flex-shrink-0'
+            className='h-6 w-6 flex-shrink-0 p-0'
             onPointerDown={(e) => e.stopPropagation()}
             onTouchStart={(e) => e.stopPropagation()}
             onClick={(e) => {
@@ -716,7 +859,7 @@ const SortableProxy = memo(function SortableProxy({
               onRemove(groupName, index)
             }}
           >
-            <X className='h-4 w-4 text-purple-400 hover:text-destructive' />
+            <X className='hover:text-destructive h-4 w-4 text-purple-400' />
           </Button>
         </div>
       </div>
@@ -724,27 +867,36 @@ const SortableProxy = memo(function SortableProxy({
   }
 
   return (
-    <div className='relative' style={{ pointerEvents: isActiveDragging && !isDragging ? 'none' : 'auto' }}>
+    <div
+      className='relative'
+      style={{
+        pointerEvents: isActiveDragging && !isDragging ? 'none' : 'auto',
+      }}
+    >
       {/* 顶部插入指示器 */}
       {showDropIndicator && (
-        <div className='absolute -top-0.5 left-0 right-0 h-1 bg-blue-500 rounded-full z-10' />
+        <div className='absolute -top-0.5 right-0 left-0 z-10 h-1 rounded-full bg-blue-500' />
       )}
       <div
         ref={setNodeRef}
         style={style}
         {...attributes}
         {...listeners}
-        className={`flex items-center gap-2 p-2 rounded border hover:border-border hover:bg-accent group/item cursor-move ${
-          showDropIndicator ? 'border-blue-400 bg-blue-50 dark:bg-blue-950/30' : ''
+        className={`hover:border-border hover:bg-accent group/item flex cursor-move items-center gap-2 rounded border p-2 ${
+          showDropIndicator
+            ? 'border-blue-400 bg-blue-50 dark:bg-blue-950/30'
+            : ''
         }`}
         data-proxy-item
       >
-        <GripVertical className='h-4 w-4 text-muted-foreground flex-shrink-0' />
-        <span className='text-sm truncate flex-1'><Twemoji>{proxy}</Twemoji></span>
+        <GripVertical className='text-muted-foreground h-4 w-4 flex-shrink-0' />
+        <span className='flex-1 truncate text-sm'>
+          <Twemoji>{proxy}</Twemoji>
+        </span>
         <Button
           variant='ghost'
           size='sm'
-          className='h-6 w-6 p-0 flex-shrink-0'
+          className='h-6 w-6 flex-shrink-0 p-0'
           onPointerDown={(e) => e.stopPropagation()}
           onTouchStart={(e) => e.stopPropagation()}
           onClick={(e) => {
@@ -752,7 +904,7 @@ const SortableProxy = memo(function SortableProxy({
             onRemove(groupName, index)
           }}
         >
-          <X className='h-4 w-4 text-muted-foreground hover:text-destructive' />
+          <X className='text-muted-foreground hover:text-destructive h-4 w-4' />
         </Button>
       </div>
     </div>
@@ -771,7 +923,7 @@ const SortableUseItem = memo(function SortableUseItem({
   providerName,
   groupName,
   index,
-  onRemove
+  onRemove,
 }: SortableUseItemProps) {
   // 从 context 获取拖拽状态
   const { isActiveDragging } = useContext(DragStateContext)
@@ -782,7 +934,7 @@ const SortableUseItem = memo(function SortableUseItem({
     transform,
     transition,
     isDragging,
-    isOver
+    isOver,
   } = useSortable({
     id: `use-${groupName}-${providerName}`,
     transition: {
@@ -793,7 +945,7 @@ const SortableUseItem = memo(function SortableUseItem({
       type: 'use-item',
       groupName,
       providerName,
-      index
+      index,
     } as DragItemData,
   })
 
@@ -810,27 +962,36 @@ const SortableUseItem = memo(function SortableUseItem({
   }
 
   return (
-    <div className='relative' style={{ pointerEvents: isActiveDragging && !isDragging ? 'none' : 'auto' }}>
+    <div
+      className='relative'
+      style={{
+        pointerEvents: isActiveDragging && !isDragging ? 'none' : 'auto',
+      }}
+    >
       {/* 顶部插入指示器 */}
       {showDropIndicator && (
-        <div className='absolute -top-0.5 left-0 right-0 h-1 bg-blue-500 rounded-full z-10' />
+        <div className='absolute -top-0.5 right-0 left-0 z-10 h-1 rounded-full bg-blue-500' />
       )}
       <div
         ref={setNodeRef}
         style={style}
         {...attributes}
         {...listeners}
-        className={`flex items-center gap-2 p-2 rounded border border-purple-300 dark:border-purple-700 bg-purple-50 dark:bg-purple-950/20 cursor-move ${
-          showDropIndicator ? 'border-blue-400 bg-blue-100 dark:bg-blue-950/30' : ''
+        className={`flex cursor-move items-center gap-2 rounded border border-purple-300 bg-purple-50 p-2 dark:border-purple-700 dark:bg-purple-950/20 ${
+          showDropIndicator
+            ? 'border-blue-400 bg-blue-100 dark:bg-blue-950/30'
+            : ''
         } ${isDragging ? 'shadow-lg' : ''}`}
         data-use-item
       >
-        <GripVertical className='h-4 w-4 text-purple-500 flex-shrink-0' />
-        <span className='text-sm truncate flex-1 text-purple-700 dark:text-purple-300'>📦 {providerName}</span>
+        <GripVertical className='h-4 w-4 flex-shrink-0 text-purple-500' />
+        <span className='flex-1 truncate text-sm text-purple-700 dark:text-purple-300'>
+          📦 {providerName}
+        </span>
         <Button
           variant='ghost'
           size='sm'
-          className='h-6 w-6 p-0 flex-shrink-0'
+          className='h-6 w-6 flex-shrink-0 p-0'
           onPointerDown={(e) => e.stopPropagation()}
           onTouchStart={(e) => e.stopPropagation()}
           onClick={(e) => {
@@ -838,7 +999,7 @@ const SortableUseItem = memo(function SortableUseItem({
             onRemove()
           }}
         >
-          <X className='h-4 w-4 text-purple-400 hover:text-destructive' />
+          <X className='hover:text-destructive h-4 w-4 text-purple-400' />
         </Button>
       </div>
     </div>
@@ -861,8 +1022,12 @@ interface EditNodesDialogProps {
   onConfigureChainProxy?: () => void
   cancelButtonText?: string
   saveButtonText?: string
-  showSpecialNodesAtBottom?: boolean  // 是否在底部显示特殊节点
-  proxyProviderConfigs?: Array<{ id: number; name: string; process_mode?: string }>  // 代理集合配置列表
+  showSpecialNodesAtBottom?: boolean // 是否在底部显示特殊节点
+  proxyProviderConfigs?: Array<{
+    id: number
+    name: string
+    process_mode?: string
+  }> // 代理集合配置列表
   // 保留旧的 props 以保持向后兼容，但不再使用
   draggedNode?: any
   onDragStart?: any
@@ -902,7 +1067,7 @@ export function EditNodesDialog({
   proxyProviderConfigs = [],
   onRemoveNodeFromGroup,
   onRemoveGroup,
-  onRenameGroup
+  onRenameGroup,
 }: EditNodesDialogProps) {
   // 获取代理组配置
   const { data: proxyGroupCategories = [] } = useProxyGroupCategories()
@@ -910,7 +1075,7 @@ export function EditNodesDialog({
   // 合并基础 emoji 和从 proxy-groups.json 获取的 emoji
   const allServiceEmojis = useMemo(() => {
     // 从 proxy-groups.json 提取 emoji 列表
-    const dynamicEmojis = proxyGroupCategories.map(category => ({
+    const dynamicEmojis = proxyGroupCategories.map((category) => ({
       emoji: category.emoji,
       label: category.label,
     }))
@@ -925,7 +1090,12 @@ export function EditNodesDialog({
     return stored ? Number(stored) : 0
   })
   const maxColumns = 6
-  const effectiveColumns = totalColumns || Math.max(2, Math.min(maxColumns, Math.floor(window.innerWidth * 0.95 / 260)))
+  const effectiveColumns =
+    totalColumns ||
+    Math.max(
+      2,
+      Math.min(maxColumns, Math.floor((window.innerWidth * 0.95) / 260))
+    )
   const proxyGroupColumns = Math.max(1, effectiveColumns - 1)
 
   const handleColumnsChange = (cols: number) => {
@@ -948,7 +1118,7 @@ export function EditNodesDialog({
   // 检查新代理组名称是否与现有组冲突
   const isGroupNameDuplicate = useMemo(() => {
     if (!finalGroupName) return false
-    return proxyGroups.some(group => group.name === finalGroupName)
+    return proxyGroups.some((group) => group.name === finalGroupName)
   }, [finalGroupName, proxyGroups])
 
   // 代理组改名状态
@@ -960,7 +1130,9 @@ export function EditNodesDialog({
   const [nodeTagFilter, setNodeTagFilter] = useState<string>('all')
 
   // 统一的拖拽状态
-  const [activeDragItem, setActiveDragItem] = useState<ActiveDragItem | null>(null)
+  const [activeDragItem, setActiveDragItem] = useState<ActiveDragItem | null>(
+    null
+  )
 
   // 保存滚动位置
   const scrollContainerRef = React.useRef<HTMLDivElement>(null)
@@ -969,8 +1141,12 @@ export function EditNodesDialog({
   // 提取唯一标签列表
   const uniqueTags = useMemo(() => {
     const tags = new Set<string>()
-    allNodes.forEach(node => {
-      const nodeTags = node.tags?.length ? node.tags : (node.tag ? [node.tag] : [])
+    allNodes.forEach((node) => {
+      const nodeTags = node.tags?.length
+        ? node.tags
+        : node.tag
+          ? [node.tag]
+          : []
       for (const t of nodeTags) {
         if (t.trim()) tags.add(t.trim())
       }
@@ -981,8 +1157,11 @@ export function EditNodesDialog({
   // 创建节点名称到标签的映射
   const nodeTagMap = useMemo(() => {
     const map = new Map<string, string[]>()
-    allNodes.forEach(node => {
-      map.set(node.node_name, node.tags?.length ? node.tags : (node.tag ? [node.tag] : []))
+    allNodes.forEach((node) => {
+      map.set(
+        node.node_name,
+        node.tags?.length ? node.tags : node.tag ? [node.tag] : []
+      )
     })
     return map
   }, [allNodes])
@@ -991,8 +1170,8 @@ export function EditNodesDialog({
   const mmwProviderNames = useMemo(() => {
     return new Set(
       proxyProviderConfigs
-        .filter(c => c.process_mode === 'mmw')
-        .map(c => c.name)
+        .filter((c) => c.process_mode === 'mmw')
+        .map((c) => c.name)
     )
   }, [proxyProviderConfigs])
 
@@ -1003,14 +1182,14 @@ export function EditNodesDialog({
     // 按名称筛选
     if (nodeNameFilter.trim()) {
       const filterLower = nodeNameFilter.toLowerCase().trim()
-      filtered = filtered.filter(nodeName =>
+      filtered = filtered.filter((nodeName) =>
         nodeName.toLowerCase().includes(filterLower)
       )
     }
 
     // 按标签筛选
     if (nodeTagFilter && nodeTagFilter !== 'all') {
-      filtered = filtered.filter(nodeName => {
+      filtered = filtered.filter((nodeName) => {
         const tags = nodeTagMap.get(nodeName) || []
         return tags.includes(nodeTagFilter)
       })
@@ -1035,15 +1214,18 @@ export function EditNodesDialog({
   )
 
   // 自定义碰撞检测 - 优先使用指针检测，然后使用最近中心点
-  const customCollisionDetection: CollisionDetection = React.useCallback((args) => {
-    // 先尝试指针检测
-    const pointerCollisions = pointerWithin(args)
-    if (pointerCollisions.length > 0) {
-      return pointerCollisions
-    }
-    // 回退到最近中心点检测（比矩形相交更精确）
-    return closestCenter(args)
-  }, [])
+  const customCollisionDetection: CollisionDetection = React.useCallback(
+    (args) => {
+      // 先尝试指针检测
+      const pointerCollisions = pointerWithin(args)
+      if (pointerCollisions.length > 0) {
+        return pointerCollisions
+      }
+      // 回退到最近中心点检测（比矩形相交更精确）
+      return closestCenter(args)
+    },
+    []
+  )
 
   // 统一的拖拽开始处理
   const handleDragStart = (event: DragStartEvent) => {
@@ -1056,7 +1238,7 @@ export function EditNodesDialog({
 
     setActiveDragItem({
       id: String(active.id),
-      data
+      data,
     })
   }
 
@@ -1065,7 +1247,8 @@ export function EditNodesDialog({
     const { active, over } = event
 
     // 保存可用节点列表的滚动位置
-    const availableNodesScrollTop = availableNodesScrollRef.current?.scrollTop ?? 0
+    const availableNodesScrollTop =
+      availableNodesScrollRef.current?.scrollTop ?? 0
 
     // 恢复 body 滚动
     document.body.style.overflow = ''
@@ -1086,7 +1269,10 @@ export function EditNodesDialog({
 
     const activeData = active.data.current as DragItemData
     const overId = String(over.id)
-    const overData = over.data.current as DragItemData | { type?: string; groupName?: string } | undefined
+    const overData = over.data.current as
+      | DragItemData
+      | { type?: string; groupName?: string }
+      | undefined
 
     // 获取目标代理组名称
     const getTargetGroupName = (): string | null => {
@@ -1097,9 +1283,15 @@ export function EditNodesDialog({
       // 优先从 overData 中获取 groupName（适用于 group-node、use-item 等）
       if (overData?.groupName) return overData.groupName
       // 检查是否放在了某个代理组的节点上（排除 available-node、group-title）
-      if (overId.includes('-') && !overId.startsWith('available-node-') && !overId.startsWith('group-title-')) {
+      if (
+        overId.includes('-') &&
+        !overId.startsWith('available-node-') &&
+        !overId.startsWith('group-title-')
+      ) {
         // 找到对应的代理组
-        const groupName = proxyGroups.find(g => overId.startsWith(`${g.name}-`))?.name
+        const groupName = proxyGroups.find((g) =>
+          overId.startsWith(`${g.name}-`)
+        )?.name
         if (groupName) return groupName
       }
       return null
@@ -1108,7 +1300,12 @@ export function EditNodesDialog({
     // 计算在目标代理组中的插入位置
     const getInsertIndex = (group: ProxyGroup): number => {
       // 如果 overData 包含 index 信息（放在了某个节点或 use-item 上）
-      if (overData && 'index' in overData && typeof overData.index === 'number' && overData.groupName === group.name) {
+      if (
+        overData &&
+        'index' in overData &&
+        typeof overData.index === 'number' &&
+        overData.groupName === group.name
+      ) {
         // 如果是 use-item，index 已经是正确的位置（proxies.length + use 的 index）
         // 但我们需要将节点插入到 proxies 末尾
         if (overData.type === 'use-item') {
@@ -1124,15 +1321,24 @@ export function EditNodesDialog({
     const getUseInsertIndex = (group: ProxyGroup): number => {
       const currentUse = group.use || []
       // 如果 overData 是 use-item 且在同一代理组
-      if (overData && 'type' in overData && overData.type === 'use-item' &&
-          'index' in overData && typeof overData.index === 'number' &&
-          overData.groupName === group.name) {
+      if (
+        overData &&
+        'type' in overData &&
+        overData.type === 'use-item' &&
+        'index' in overData &&
+        typeof overData.index === 'number' &&
+        overData.groupName === group.name
+      ) {
         // use-item 的 index 已经是 use 数组内的索引
         return Math.max(0, Math.min(overData.index, currentUse.length))
       }
       // 如果 overData 是 group-node，插入到 use 数组末尾（紧跟在普通节点后面）
-      if (overData && 'type' in overData && overData.type === 'group-node' &&
-          overData.groupName === group.name) {
+      if (
+        overData &&
+        'type' in overData &&
+        overData.type === 'group-node' &&
+        overData.groupName === group.name
+      ) {
         return 0
       }
       // 否则插入到末尾
@@ -1149,16 +1355,19 @@ export function EditNodesDialog({
 
         if (targetGroup === 'remove-from-all') {
           // 从所有代理组移除该节点
-          const updatedGroups = proxyGroups.map(group => {
+          const updatedGroups = proxyGroups.map((group) => {
             if (group.proxies.includes(nodeName)) {
-              return { ...group, proxies: group.proxies.filter(p => p !== nodeName) }
+              return {
+                ...group,
+                proxies: group.proxies.filter((p) => p !== nodeName),
+              }
             }
             return group
           })
           onProxyGroupsChange(updatedGroups)
         } else if (targetGroup === 'all-groups') {
           // 添加到所有代理组（跳过与节点同名的代理组，防止代理组添加到自己内部）
-          const updatedGroups = proxyGroups.map(group => {
+          const updatedGroups = proxyGroups.map((group) => {
             if (group.name !== nodeName && !group.proxies.includes(nodeName)) {
               return { ...group, proxies: [...group.proxies, nodeName] }
             }
@@ -1170,8 +1379,11 @@ export function EditNodesDialog({
           if (nodeName === targetGroup) return
 
           // 添加到指定代理组
-          const updatedGroups = proxyGroups.map(group => {
-            if (group.name === targetGroup && !group.proxies.includes(nodeName)) {
+          const updatedGroups = proxyGroups.map((group) => {
+            if (
+              group.name === targetGroup &&
+              !group.proxies.includes(nodeName)
+            ) {
               // 使用 getInsertIndex 计算插入位置
               const insertIndex = getInsertIndex(group)
 
@@ -1196,8 +1408,10 @@ export function EditNodesDialog({
         if (targetGroup === 'remove-from-all') {
           // 批量从所有代理组移除
           const nodeNamesToRemove = new Set(nodeNames)
-          const updatedGroups = proxyGroups.map(group => {
-            const newProxies = group.proxies.filter(p => !nodeNamesToRemove.has(p))
+          const updatedGroups = proxyGroups.map((group) => {
+            const newProxies = group.proxies.filter(
+              (p) => !nodeNamesToRemove.has(p)
+            )
             if (newProxies.length !== group.proxies.length) {
               return { ...group, proxies: newProxies }
             }
@@ -1206,10 +1420,12 @@ export function EditNodesDialog({
           onProxyGroupsChange(updatedGroups)
         } else if (targetGroup === 'all-groups') {
           // 添加到所有代理组（过滤掉与代理组同名的节点，防止代理组添加到自己内部）
-          const updatedGroups = proxyGroups.map(group => {
+          const updatedGroups = proxyGroups.map((group) => {
             const existingNodes = new Set(group.proxies)
             // 过滤掉已存在的节点和与当前代理组同名的节点
-            const newNodes = nodeNames.filter(name => !existingNodes.has(name) && name !== group.name)
+            const newNodes = nodeNames.filter(
+              (name) => !existingNodes.has(name) && name !== group.name
+            )
             if (newNodes.length > 0) {
               return { ...group, proxies: [...group.proxies, ...newNodes] }
             }
@@ -1218,11 +1434,13 @@ export function EditNodesDialog({
           onProxyGroupsChange(updatedGroups)
         } else {
           // 添加到指定代理组
-          const updatedGroups = proxyGroups.map(group => {
+          const updatedGroups = proxyGroups.map((group) => {
             if (group.name === targetGroup) {
               const existingNodes = new Set(group.proxies)
               // 过滤掉已存在的节点和与当前代理组同名的节点
-              const newNodes = nodeNames.filter(name => !existingNodes.has(name) && name !== group.name)
+              const newNodes = nodeNames.filter(
+                (name) => !existingNodes.has(name) && name !== group.name
+              )
               if (newNodes.length > 0) {
                 // 使用 getInsertIndex 计算插入位置
                 const insertIndex = getInsertIndex(group)
@@ -1256,9 +1474,12 @@ export function EditNodesDialog({
         if (targetGroup === 'remove-from-all') {
           // 从所有代理组移除该节点
           const nodeName = activeData.nodeName!
-          const updatedGroups = proxyGroups.map(group => {
+          const updatedGroups = proxyGroups.map((group) => {
             if (group.proxies.includes(nodeName)) {
-              return { ...group, proxies: group.proxies.filter(p => p !== nodeName) }
+              return {
+                ...group,
+                proxies: group.proxies.filter((p) => p !== nodeName),
+              }
             }
             return group
           })
@@ -1268,7 +1489,7 @@ export function EditNodesDialog({
 
         if (sourceGroup === targetGroup) {
           // 同一代理组内排序
-          const group = proxyGroups.find(g => g.name === sourceGroup)
+          const group = proxyGroups.find((g) => g.name === sourceGroup)
           if (!group) return
 
           const oldIndex = activeData.index!
@@ -1277,9 +1498,12 @@ export function EditNodesDialog({
           const newIndex = group.proxies.indexOf(targetNodeName)
 
           if (newIndex !== -1 && oldIndex !== newIndex) {
-            const updatedGroups = proxyGroups.map(g => {
+            const updatedGroups = proxyGroups.map((g) => {
               if (g.name === sourceGroup) {
-                return { ...g, proxies: arrayMove(g.proxies, oldIndex, newIndex) }
+                return {
+                  ...g,
+                  proxies: arrayMove(g.proxies, oldIndex, newIndex),
+                }
               }
               return g
             })
@@ -1288,7 +1512,7 @@ export function EditNodesDialog({
         } else if (targetGroup === 'all-groups') {
           // 添加到所有代理组
           const nodeName = activeData.nodeName!
-          const updatedGroups = proxyGroups.map(group => {
+          const updatedGroups = proxyGroups.map((group) => {
             if (group.name !== nodeName && !group.proxies.includes(nodeName)) {
               return { ...group, proxies: [...group.proxies, nodeName] }
             }
@@ -1302,12 +1526,18 @@ export function EditNodesDialog({
           // 阻止将代理组添加到自己内部（代理组名称不能作为节点添加到同名代理组）
           if (nodeName === targetGroup) return
 
-          const updatedGroups = proxyGroups.map(group => {
+          const updatedGroups = proxyGroups.map((group) => {
             if (group.name === sourceGroup) {
               // 从源组移除
-              return { ...group, proxies: group.proxies.filter((_, i) => i !== activeData.index) }
+              return {
+                ...group,
+                proxies: group.proxies.filter((_, i) => i !== activeData.index),
+              }
             }
-            if (group.name === targetGroup && !group.proxies.includes(nodeName)) {
+            if (
+              group.name === targetGroup &&
+              !group.proxies.includes(nodeName)
+            ) {
               // 使用 getInsertIndex 计算插入位置
               const insertIndex = getInsertIndex(group)
               const newProxies = [...group.proxies]
@@ -1326,12 +1556,20 @@ export function EditNodesDialog({
         const sourceGroupName = activeData.groupName!
         const targetGroup = getTargetGroupName()
 
-        if (!targetGroup || targetGroup === sourceGroupName || targetGroup === 'available') return
+        if (
+          !targetGroup ||
+          targetGroup === sourceGroupName ||
+          targetGroup === 'available'
+        )
+          return
 
         if (targetGroup === 'all-groups') {
           // 添加到所有代理组
-          const updatedGroups = proxyGroups.map(group => {
-            if (group.name !== sourceGroupName && !group.proxies.includes(sourceGroupName)) {
+          const updatedGroups = proxyGroups.map((group) => {
+            if (
+              group.name !== sourceGroupName &&
+              !group.proxies.includes(sourceGroupName)
+            ) {
               return { ...group, proxies: [...group.proxies, sourceGroupName] }
             }
             return group
@@ -1339,8 +1577,11 @@ export function EditNodesDialog({
           onProxyGroupsChange(updatedGroups)
         } else {
           // 添加到指定代理组
-          const updatedGroups = proxyGroups.map(group => {
-            if (group.name === targetGroup && !group.proxies.includes(sourceGroupName)) {
+          const updatedGroups = proxyGroups.map((group) => {
+            if (
+              group.name === targetGroup &&
+              !group.proxies.includes(sourceGroupName)
+            ) {
               // 使用 getInsertIndex 计算插入位置
               const insertIndex = getInsertIndex(group)
               const newProxies = [...group.proxies]
@@ -1358,8 +1599,8 @@ export function EditNodesDialog({
         // 代理组卡片排序
         if (active.id === over.id) return
 
-        const oldIndex = proxyGroups.findIndex(g => g.name === active.id)
-        const newIndex = proxyGroups.findIndex(g => g.name === over.id)
+        const oldIndex = proxyGroups.findIndex((g) => g.name === active.id)
+        const newIndex = proxyGroups.findIndex((g) => g.name === over.id)
 
         if (oldIndex !== -1 && newIndex !== -1) {
           onProxyGroupsChange(arrayMove(proxyGroups, oldIndex, newIndex))
@@ -1372,11 +1613,16 @@ export function EditNodesDialog({
         const providerName = activeData.providerName!
         const targetGroup = getTargetGroupName()
 
-        if (!targetGroup || targetGroup === 'available' || targetGroup === 'remove-from-all') return
+        if (
+          !targetGroup ||
+          targetGroup === 'available' ||
+          targetGroup === 'remove-from-all'
+        )
+          return
 
         if (targetGroup === 'all-groups') {
           // 添加到所有代理组的 use 数组
-          const updatedGroups = proxyGroups.map(group => {
+          const updatedGroups = proxyGroups.map((group) => {
             const currentUse = group.use || []
             if (!currentUse.includes(providerName)) {
               return { ...group, use: [...currentUse, providerName] }
@@ -1386,7 +1632,7 @@ export function EditNodesDialog({
           onProxyGroupsChange(updatedGroups)
         } else {
           // 添加到指定代理组的 use 数组
-          const updatedGroups = proxyGroups.map(group => {
+          const updatedGroups = proxyGroups.map((group) => {
             if (group.name === targetGroup) {
               const currentUse = group.use || []
               if (!currentUse.includes(providerName)) {
@@ -1414,7 +1660,7 @@ export function EditNodesDialog({
 
         // 同一代理组内排序
         if (targetGroup === sourceGroup && overData && 'type' in overData) {
-          const group = proxyGroups.find(g => g.name === sourceGroup)
+          const group = proxyGroups.find((g) => g.name === sourceGroup)
           if (!group?.use) break
 
           const oldIndex = group.use.indexOf(sourceProviderName)
@@ -1431,7 +1677,7 @@ export function EditNodesDialog({
           }
 
           if (newIndex !== -1 && oldIndex !== newIndex) {
-            const updatedGroups = proxyGroups.map(g => {
+            const updatedGroups = proxyGroups.map((g) => {
               if (g.name === sourceGroup && g.use) {
                 return { ...g, use: arrayMove(g.use, oldIndex, newIndex) }
               }
@@ -1441,11 +1687,18 @@ export function EditNodesDialog({
           }
         }
         // 跨代理组移动 use-item
-        else if (targetGroup !== sourceGroup && targetGroup !== 'available' && targetGroup !== 'remove-from-all') {
-          const updatedGroups = proxyGroups.map(group => {
+        else if (
+          targetGroup !== sourceGroup &&
+          targetGroup !== 'available' &&
+          targetGroup !== 'remove-from-all'
+        ) {
+          const updatedGroups = proxyGroups.map((group) => {
             if (group.name === sourceGroup && group.use) {
               // 从源组移除
-              return { ...group, use: group.use.filter(u => u !== sourceProviderName) }
+              return {
+                ...group,
+                use: group.use.filter((u) => u !== sourceProviderName),
+              }
             }
             if (group.name === targetGroup) {
               const currentUse = group.use || []
@@ -1469,7 +1722,9 @@ export function EditNodesDialog({
   }
 
   // 保存滚动位置的包装函数
-  const withScrollPreservation = <T extends (...args: any[]) => void>(fn: T) => {
+  const withScrollPreservation = <T extends (...args: any[]) => void>(
+    fn: T
+  ) => {
     return (...args: Parameters<T>) => {
       const scrollTop = scrollContainerRef.current?.scrollTop ?? 0
       fn(...args)
@@ -1510,7 +1765,9 @@ export function EditNodesDialog({
       return
     }
 
-    const existingGroup = proxyGroups.find(group => group.name === trimmedName && group.name !== oldName)
+    const existingGroup = proxyGroups.find(
+      (group) => group.name === trimmedName && group.name !== oldName
+    )
     if (existingGroup) {
       return
     }
@@ -1545,7 +1802,7 @@ export function EditNodesDialog({
     const newGroup: ProxyGroup = {
       name: finalGroupName,
       type: 'select',
-      proxies: []
+      proxies: [],
     }
 
     onProxyGroupsChange([newGroup, ...proxyGroups])
@@ -1569,36 +1826,48 @@ export function EditNodesDialog({
   }
 
   // 代理组类型变更处理
-  const handleGroupTypeChange = React.useCallback((groupName: string, updatedGroup: ProxyGroup) => {
-    const updatedGroups = proxyGroups.map(g =>
-      g.name === groupName ? updatedGroup : g
-    )
-    onProxyGroupsChange(updatedGroups)
-  }, [proxyGroups, onProxyGroupsChange])
+  const handleGroupTypeChange = React.useCallback(
+    (groupName: string, updatedGroup: ProxyGroup) => {
+      const updatedGroups = proxyGroups.map((g) =>
+        g.name === groupName ? updatedGroup : g
+      )
+      onProxyGroupsChange(updatedGroups)
+    },
+    [proxyGroups, onProxyGroupsChange]
+  )
 
   // 移除 use-item 的回调
-  const handleRemoveUseItem = React.useCallback((groupName: string, index: number) => {
-    const updatedGroups = proxyGroups.map(g => {
-      if (g.name === groupName) {
-        const newUse = (g.use || []).filter((_, i) => i !== index)
-        return { ...g, use: newUse.length > 0 ? newUse : undefined }
-      }
-      return g
-    })
-    onProxyGroupsChange(updatedGroups)
-  }, [proxyGroups, onProxyGroupsChange])
+  const handleRemoveUseItem = React.useCallback(
+    (groupName: string, index: number) => {
+      const updatedGroups = proxyGroups.map((g) => {
+        if (g.name === groupName) {
+          const newUse = (g.use || []).filter((_, i) => i !== index)
+          return { ...g, use: newUse.length > 0 ? newUse : undefined }
+        }
+        return g
+      })
+      onProxyGroupsChange(updatedGroups)
+    },
+    [proxyGroups, onProxyGroupsChange]
+  )
 
   // Context 值 - 使用 useMemo 避免不必要的重渲染
-  const dragStateValue = useMemo(() => ({
-    isActiveDragging: !!activeDragItem
-  }), [activeDragItem])
+  const dragStateValue = useMemo(
+    () => ({
+      isActiveDragging: !!activeDragItem,
+    }),
+    [activeDragItem]
+  )
 
   // ================== 渲染 ==================
 
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className='!max-w-[95vw] w-[95vw] max-h-[90vh] flex flex-col' style={{ maxWidth: '95vw', width: '95vw' }}>
+        <DialogContent
+          className='flex max-h-[90vh] w-[95vw] !max-w-[95vw] flex-col'
+          style={{ maxWidth: '95vw', width: '95vw' }}
+        >
           <DndContext
             sensors={sensors}
             collisionDetection={customCollisionDetection}
@@ -1606,301 +1875,366 @@ export function EditNodesDialog({
             onDragEnd={handleDragEnd}
           >
             <DragStateContext.Provider value={dragStateValue}>
-            <DialogHeader>
-              <div className='flex items-start justify-between gap-4'>
-                <div className='flex-1'>
-                  <DialogTitle>{title}</DialogTitle>
-                  <DialogDescription>{description}</DialogDescription>
-                  <p className='mt-2 text-sm text-primary flex flex-wrap items-center gap-1'>
-                    <GripVertical className='h-4 w-4 inline' /> 为可拖动元素，
-                    <Settings2 className='h-4 w-4 inline' /> 切换代理组类型、双击代理组标题编辑代理组名称，拖动可用节点标题时，代表拖动可用节点内的所有节点
-                  </p>
-                </div>
-                {/* 快捷拖放区 */}
-                <div className='flex gap-2 mr-9'>
-                  <DroppableRemoveFromAllZone />
-                  <DroppableAllGroupsZone />
-                </div>
-              </div>
-            </DialogHeader>
-
-            <div className='flex-1 flex flex-col py-4 min-h-0'>
-              {/* 列数选择 */}
-              <div className='flex items-center justify-end gap-1 mb-2 flex-shrink-0'>
-                <span className='text-xs text-muted-foreground mr-1'>列数</span>
-                {Array.from({ length: maxColumns - 1 }, (_, i) => i + 2).map(n => (
-                  <Button
-                    key={n}
-                    variant={effectiveColumns === n ? 'default' : 'ghost'}
-                    size='icon'
-                    className='h-6 w-6 text-xs'
-                    onClick={() => handleColumnsChange(n)}
-                  >
-                    {n}
-                  </Button>
-                ))}
-              </div>
-
-              <div className='flex-1 flex gap-4 min-h-0'>
-              {/* 左侧：代理组 */}
-              <div ref={scrollContainerRef} className='flex-1 overflow-y-auto pr-2'>
-                <SortableContext
-                  items={proxyGroups.map(g => g.name)}
-                  strategy={rectSortingStrategy}
-                >
-                  <div className='grid gap-4' style={{ gridTemplateColumns: `repeat(${proxyGroupColumns}, 1fr)` }}>
-                    {proxyGroups.map((group) => (
-                      <SortableCard
-                        key={group.name}
-                        group={group}
-                        allGroups={proxyGroups}
-                        isEditing={editingGroupName === group.name}
-                        editingValue={editingGroupValue}
-                        onEditingValueChange={setEditingGroupValue}
-                        onSubmitEdit={submitEditingGroup}
-                        onCancelEdit={cancelEditingGroup}
-                        onStartEdit={startEditingGroup}
-                        onGroupTypeChange={handleGroupTypeChange}
-                        onRemoveGroup={wrappedRemoveGroup}
-                        onRemoveNodeFromGroup={wrappedRemoveNodeFromGroup}
-                        onRemoveUseItem={handleRemoveUseItem}
-                        mmwProviderNames={mmwProviderNames}
-                      />
-                    ))}
+              <DialogHeader>
+                <div className='flex items-start justify-between gap-4'>
+                  <div className='flex-1'>
+                    <DialogTitle>{title}</DialogTitle>
+                    <DialogDescription>{description}</DialogDescription>
+                    <p className='text-primary mt-2 flex flex-wrap items-center gap-1 text-sm'>
+                      <GripVertical className='inline h-4 w-4' /> 为可拖动元素，
+                      <Settings2 className='inline h-4 w-4' />{' '}
+                      切换代理组类型、双击代理组标题编辑代理组名称，拖动可用节点标题时，代表拖动可用节点内的所有节点
+                    </p>
                   </div>
-                </SortableContext>
-              </div>
-
-              {/* 右侧：可用节点 */}
-              <div className='border-l pl-4 flex flex-col overflow-hidden' style={{ flex: `0 0 ${100 / effectiveColumns}%` }}>
-                {/* 操作按钮 */}
-                <div className='flex-shrink-0 mb-4'>
-                  <div className='flex gap-2'>
-                    <Button
-                      variant='outline'
-                      onClick={() => setAddGroupDialogOpen(true)}
-                      className='flex-1'
-                    >
-                      <Plus className='h-4 w-4 mr-1' />
-                      添加代理组
-                    </Button>
-                    <Button onClick={onSave} disabled={isSaving} className='flex-1'>
-                      {isSaving ? '保存中...' : saveButtonText}
-                    </Button>
+                  {/* 快捷拖放区 */}
+                  <div className='mr-9 flex gap-2'>
+                    <DroppableRemoveFromAllZone />
+                    <DroppableAllGroupsZone />
                   </div>
                 </div>
+              </DialogHeader>
 
-                {/* 隐藏/显示已添加节点按钮 */}
-                {showAllNodes !== undefined && onShowAllNodesChange && (
-                  <div className='flex-shrink-0 mb-4'>
-                    <Button
-                      variant='outline'
-                      className='w-full relative'
-                      onClick={() => onShowAllNodesChange(!showAllNodes)}
-                    >
-                      {showAllNodes ? <Eye className='h-4 w-4 mr-2' /> : <EyeOff className='h-4 w-4 mr-2' />}
-                      {showAllNodes ? '显示已添加节点' : '隐藏已添加节点'}
-                      {!showAllNodes && (
-                        <span className='absolute -top-1 -right-1 h-4 w-4 bg-green-500 rounded-full flex items-center justify-center'>
-                          <Check className='h-3 w-3 text-white' />
-                        </span>
-                      )}
-                    </Button>
-                  </div>
-                )}
-
-                {/* 配置链式代理按钮 */}
-                {onConfigureChainProxy && (
-                  <div className='flex-shrink-0 mb-4'>
-                    <Button
-                      variant='outline'
-                      className='w-full'
-                      onClick={onConfigureChainProxy}
-                    >
-                      配置链式代理
-                    </Button>
-                  </div>
-                )}
-
-                {/* 筛选控件 */}
-                <div className='flex-shrink-0 mb-4 flex gap-2 items-center'>
-                  <div className='relative flex-1'>
-                    <Search className='absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground' />
-                    <Input
-                      placeholder='按名称筛选...'
-                      value={nodeNameFilter}
-                      onChange={(e) => setNodeNameFilter(e.target.value)}
-                      className='pl-8 h-9 text-sm'
-                    />
-                  </div>
-
-                  {(uniqueTags.length > 0 || showSpecialNodesAtBottom || proxyProviderConfigs.length > 0) && (
-                    <Select value={nodeTagFilter} onValueChange={setNodeTagFilter}>
-                      <SelectTrigger className='h-9 text-sm w-[120px]'>
-                        <SelectValue placeholder='所有标签' />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value='all'>所有</SelectItem>
-                        {uniqueTags.map(tag => (
-                          <SelectItem key={tag} value={tag}>
-                            {tag}
-                          </SelectItem>
-                        ))}
-                        {showSpecialNodesAtBottom && (
-                          <SelectItem value='__special__'>特殊节点</SelectItem>
-                        )}
-                        {proxyProviderConfigs.length > 0 && (
-                          <SelectItem value='__provider__'>代理集合</SelectItem>
-                        )}
-                      </SelectContent>
-                    </Select>
+              <div className='flex min-h-0 flex-1 flex-col py-4'>
+                {/* 列数选择 */}
+                <div className='mb-2 flex flex-shrink-0 items-center justify-end gap-1'>
+                  <span className='text-muted-foreground mr-1 text-xs'>
+                    列数
+                  </span>
+                  {Array.from({ length: maxColumns - 1 }, (_, i) => i + 2).map(
+                    (n) => (
+                      <Button
+                        key={n}
+                        variant={effectiveColumns === n ? 'default' : 'ghost'}
+                        size='icon'
+                        className='h-6 w-6 text-xs'
+                        onClick={() => handleColumnsChange(n)}
+                      >
+                        {n}
+                      </Button>
+                    )
                   )}
                 </div>
 
-                {/* 可用节点卡片 */}
-                <DroppableAvailableZone>
-                  <CardHeader className='pb-3 flex-shrink-0'>
-                    <DraggableAvailableHeader
-                      filteredNodes={filteredAvailableNodes}
-                      totalNodes={availableNodes.length}
-                    />
-                  </CardHeader>
-                  <CardContent ref={availableNodesScrollRef} className='flex-1 overflow-y-auto space-y-1 min-h-0'>
-                    {/* 普通节点 - 仅在非特殊筛选时显示 */}
-                    {nodeTagFilter !== '__special__' && nodeTagFilter !== '__provider__' && (
-                      filteredAvailableNodes.map((proxy, idx) => (
-                        <DraggableAvailableNode
-                          key={`available-${proxy}-${idx}`}
-                          proxy={proxy}
-                          index={idx}
-                        />
-                      ))
-                    )}
-
-                    {/* 代理集合区块 */}
-                    {proxyProviderConfigs.length > 0 && (nodeTagFilter === 'all' || nodeTagFilter === '__provider__') && (
-                      <>
-                        {nodeTagFilter === 'all' && (
-                          <div className='pt-3 pb-1 border-t mt-3'>
-                            <span className='text-xs text-purple-600 dark:text-purple-400 font-medium'>📦 代理集合</span>
-                          </div>
-                        )}
-                        {proxyProviderConfigs.map((config) => (
-                          <DraggableProxyProvider
-                            key={`provider-${config.id}`}
-                            name={config.name}
+                <div className='flex min-h-0 flex-1 gap-4'>
+                  {/* 左侧：代理组 */}
+                  <div
+                    ref={scrollContainerRef}
+                    className='flex-1 overflow-y-auto pr-2'
+                  >
+                    <SortableContext
+                      items={proxyGroups.map((g) => g.name)}
+                      strategy={rectSortingStrategy}
+                    >
+                      <div
+                        className='grid gap-4'
+                        style={{
+                          gridTemplateColumns: `repeat(${proxyGroupColumns}, 1fr)`,
+                        }}
+                      >
+                        {proxyGroups.map((group) => (
+                          <SortableCard
+                            key={group.name}
+                            group={group}
+                            allGroups={proxyGroups}
+                            isEditing={editingGroupName === group.name}
+                            editingValue={editingGroupValue}
+                            onEditingValueChange={setEditingGroupValue}
+                            onSubmitEdit={submitEditingGroup}
+                            onCancelEdit={cancelEditingGroup}
+                            onStartEdit={startEditingGroup}
+                            onGroupTypeChange={handleGroupTypeChange}
+                            onRemoveGroup={wrappedRemoveGroup}
+                            onRemoveNodeFromGroup={wrappedRemoveNodeFromGroup}
+                            onRemoveUseItem={handleRemoveUseItem}
+                            mmwProviderNames={mmwProviderNames}
                           />
                         ))}
-                      </>
-                    )}
-
-                    {/* 特殊节点区块 */}
-                    {showSpecialNodesAtBottom && (nodeTagFilter === 'all' || nodeTagFilter === '__special__') && (
-                      <>
-                        {nodeTagFilter === 'all' && (
-                          <div className='pt-3 pb-1 border-t mt-3'>
-                            <span className='text-xs text-muted-foreground font-medium'>特殊节点</span>
-                          </div>
-                        )}
-                        {SPECIAL_NODES.map((node, idx) => (
-                          <DraggableAvailableNode
-                            key={`special-${node}-${idx}`}
-                            proxy={node}
-                            index={availableNodes.length + idx}
-                          />
-                        ))}
-                      </>
-                    )}
-                  </CardContent>
-                </DroppableAvailableZone>
-              </div>
-            </div>
-            </div>
-
-            {/* DragOverlay */}
-            <DragOverlay dropAnimation={null} style={{ cursor: 'grabbing' }}>
-              {activeDragItem?.data.type === 'available-node' && (
-                <div className='flex items-center gap-2 p-2 rounded border bg-background shadow-2xl pointer-events-none'>
-                  <GripVertical className='h-4 w-4 text-muted-foreground flex-shrink-0' />
-                  <span className='text-sm truncate'><Twemoji>{activeDragItem.data.nodeName}</Twemoji></span>
-                </div>
-              )}
-              {activeDragItem?.data.type === 'available-header' && (
-                <div className='flex items-center gap-2 p-2 rounded border bg-background shadow-2xl pointer-events-none'>
-                  <GripVertical className='h-4 w-4 text-muted-foreground flex-shrink-0' />
-                  <span className='text-sm'>
-                    批量添加 {activeDragItem.data.nodeNames?.length || 0} 个节点
-                  </span>
-                </div>
-              )}
-              {activeDragItem?.data.type === 'group-node' && (
-                <div className='flex items-center gap-2 p-2 rounded border bg-background shadow-2xl pointer-events-none'>
-                  <GripVertical className='h-4 w-4 text-muted-foreground flex-shrink-0' />
-                  <span className='text-sm truncate'><Twemoji>{activeDragItem.data.nodeName}</Twemoji></span>
-                </div>
-              )}
-              {activeDragItem?.data.type === 'group-title' && (
-                <div className='flex items-center gap-2 p-2 rounded border bg-background shadow-2xl pointer-events-none'>
-                  <GripVertical className='h-4 w-4 text-muted-foreground flex-shrink-0' />
-                  <span className='text-sm truncate'><Twemoji>{activeDragItem.data.groupName}</Twemoji></span>
-                </div>
-              )}
-              {activeDragItem?.data.type === 'proxy-provider' && (
-                <div className='flex items-center gap-2 p-2 rounded border border-purple-400 bg-purple-50 dark:bg-purple-950/50 shadow-2xl pointer-events-none'>
-                  <GripVertical className='h-4 w-4 text-purple-500 flex-shrink-0' />
-                  <span className='text-sm truncate text-purple-700 dark:text-purple-300'>📦 {activeDragItem.data.providerName}</span>
-                </div>
-              )}
-              {activeDragItem?.data.type === 'use-item' && (
-                <div className='flex items-center gap-2 p-2 rounded border border-purple-400 bg-purple-50 dark:bg-purple-950/50 shadow-2xl pointer-events-none'>
-                  <GripVertical className='h-4 w-4 text-purple-500 flex-shrink-0' />
-                  <span className='text-sm truncate text-purple-700 dark:text-purple-300'>📦 {activeDragItem.data.providerName}</span>
-                </div>
-              )}
-              {activeDragItem?.data.type === 'group-card' && (() => {
-                const group = proxyGroups.find(g => g.name === activeDragItem.data.groupName)
-                return (
-                  <Card className='w-[240px] shadow-2xl opacity-95 pointer-events-none max-h-[400px] overflow-hidden'>
-                    <CardHeader className='pb-3'>
-                      <div className='flex justify-center -mt-2 mb-2'>
-                        <div className='bg-accent rounded-md px-3 py-1'>
-                          <GripVertical className='h-4 w-4 text-foreground' />
-                        </div>
                       </div>
-                      <div className='flex items-start justify-between gap-2'>
-                        <div className='flex-1 min-w-0'>
-                          <CardTitle className='text-base truncate'><Twemoji>{activeDragItem.data.groupName}</Twemoji></CardTitle>
-                          <CardDescription className='text-xs'>
-                            {group?.type || 'select'} ({group?.proxies.length || 0} 个节点)
-                          </CardDescription>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className='space-y-1 max-h-[280px] overflow-hidden'>
-                      {group?.proxies.slice(0, 8).map((proxy, idx) => (
-                        <div
-                          key={`overlay-${proxy}-${idx}`}
-                          className='flex items-center gap-2 p-2 rounded border bg-background'
+                    </SortableContext>
+                  </div>
+
+                  {/* 右侧：可用节点 */}
+                  <div
+                    className='flex flex-col overflow-hidden border-l pl-4'
+                    style={{ flex: `0 0 ${100 / effectiveColumns}%` }}
+                  >
+                    {/* 操作按钮 */}
+                    <div className='mb-4 flex-shrink-0'>
+                      <div className='flex gap-2'>
+                        <Button
+                          variant='outline'
+                          onClick={() => setAddGroupDialogOpen(true)}
+                          className='flex-1'
                         >
-                          <GripVertical className='h-4 w-4 text-muted-foreground flex-shrink-0' />
-                          <span className='text-sm truncate flex-1'><Twemoji>{proxy}</Twemoji></span>
-                        </div>
-                      ))}
-                      {(group?.proxies.length || 0) > 8 && (
-                        <div className='text-xs text-center text-muted-foreground py-1'>
-                          还有 {(group?.proxies.length || 0) - 8} 个节点...
-                        </div>
+                          <Plus className='mr-1 h-4 w-4' />
+                          添加代理组
+                        </Button>
+                        <Button
+                          onClick={onSave}
+                          disabled={isSaving}
+                          className='flex-1'
+                        >
+                          {isSaving ? '保存中...' : saveButtonText}
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* 隐藏/显示已添加节点按钮 */}
+                    {showAllNodes !== undefined && onShowAllNodesChange && (
+                      <div className='mb-4 flex-shrink-0'>
+                        <Button
+                          variant='outline'
+                          className='relative w-full'
+                          onClick={() => onShowAllNodesChange(!showAllNodes)}
+                        >
+                          {showAllNodes ? (
+                            <Eye className='mr-2 h-4 w-4' />
+                          ) : (
+                            <EyeOff className='mr-2 h-4 w-4' />
+                          )}
+                          {showAllNodes ? '显示已添加节点' : '隐藏已添加节点'}
+                          {!showAllNodes && (
+                            <span className='absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-green-500'>
+                              <Check className='h-3 w-3 text-white' />
+                            </span>
+                          )}
+                        </Button>
+                      </div>
+                    )}
+
+                    {/* 配置链式代理按钮 */}
+                    {onConfigureChainProxy && (
+                      <div className='mb-4 flex-shrink-0'>
+                        <Button
+                          variant='outline'
+                          className='w-full'
+                          onClick={onConfigureChainProxy}
+                        >
+                          配置链式代理
+                        </Button>
+                      </div>
+                    )}
+
+                    {/* 筛选控件 */}
+                    <div className='mb-4 flex flex-shrink-0 items-center gap-2'>
+                      <div className='relative flex-1'>
+                        <Search className='text-muted-foreground absolute top-1/2 left-2 h-4 w-4 -translate-y-1/2' />
+                        <Input
+                          placeholder='按名称筛选...'
+                          value={nodeNameFilter}
+                          onChange={(e) => setNodeNameFilter(e.target.value)}
+                          className='h-9 pl-8 text-sm'
+                        />
+                      </div>
+
+                      {(uniqueTags.length > 0 ||
+                        showSpecialNodesAtBottom ||
+                        proxyProviderConfigs.length > 0) && (
+                        <Select
+                          value={nodeTagFilter}
+                          onValueChange={setNodeTagFilter}
+                        >
+                          <SelectTrigger className='h-9 w-[120px] text-sm'>
+                            <SelectValue placeholder='所有标签' />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value='all'>所有</SelectItem>
+                            {uniqueTags.map((tag) => (
+                              <SelectItem key={tag} value={tag}>
+                                {tag}
+                              </SelectItem>
+                            ))}
+                            {showSpecialNodesAtBottom && (
+                              <SelectItem value='__special__'>
+                                特殊节点
+                              </SelectItem>
+                            )}
+                            {proxyProviderConfigs.length > 0 && (
+                              <SelectItem value='__provider__'>
+                                代理集合
+                              </SelectItem>
+                            )}
+                          </SelectContent>
+                        </Select>
                       )}
-                      {(group?.proxies.length || 0) === 0 && (
-                        <div className='text-sm text-center py-4 text-muted-foreground'>
-                          暂无节点
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                )
-              })()}
-            </DragOverlay>
+                    </div>
+
+                    {/* 可用节点卡片 */}
+                    <DroppableAvailableZone>
+                      <CardHeader className='flex-shrink-0 pb-3'>
+                        <DraggableAvailableHeader
+                          filteredNodes={filteredAvailableNodes}
+                          totalNodes={availableNodes.length}
+                        />
+                      </CardHeader>
+                      <CardContent
+                        ref={availableNodesScrollRef}
+                        className='min-h-0 flex-1 space-y-1 overflow-y-auto'
+                      >
+                        {/* 普通节点 - 仅在非特殊筛选时显示 */}
+                        {nodeTagFilter !== '__special__' &&
+                          nodeTagFilter !== '__provider__' &&
+                          filteredAvailableNodes.map((proxy, idx) => (
+                            <DraggableAvailableNode
+                              key={`available-${proxy}-${idx}`}
+                              proxy={proxy}
+                              index={idx}
+                            />
+                          ))}
+
+                        {/* 代理集合区块 */}
+                        {proxyProviderConfigs.length > 0 &&
+                          (nodeTagFilter === 'all' ||
+                            nodeTagFilter === '__provider__') && (
+                            <>
+                              {nodeTagFilter === 'all' && (
+                                <div className='mt-3 border-t pt-3 pb-1'>
+                                  <span className='text-xs font-medium text-purple-600 dark:text-purple-400'>
+                                    📦 代理集合
+                                  </span>
+                                </div>
+                              )}
+                              {proxyProviderConfigs.map((config) => (
+                                <DraggableProxyProvider
+                                  key={`provider-${config.id}`}
+                                  name={config.name}
+                                />
+                              ))}
+                            </>
+                          )}
+
+                        {/* 特殊节点区块 */}
+                        {showSpecialNodesAtBottom &&
+                          (nodeTagFilter === 'all' ||
+                            nodeTagFilter === '__special__') && (
+                            <>
+                              {nodeTagFilter === 'all' && (
+                                <div className='mt-3 border-t pt-3 pb-1'>
+                                  <span className='text-muted-foreground text-xs font-medium'>
+                                    特殊节点
+                                  </span>
+                                </div>
+                              )}
+                              {SPECIAL_NODES.map((node, idx) => (
+                                <DraggableAvailableNode
+                                  key={`special-${node}-${idx}`}
+                                  proxy={node}
+                                  index={availableNodes.length + idx}
+                                />
+                              ))}
+                            </>
+                          )}
+                      </CardContent>
+                    </DroppableAvailableZone>
+                  </div>
+                </div>
+              </div>
+
+              {/* DragOverlay */}
+              <DragOverlay dropAnimation={null} style={{ cursor: 'grabbing' }}>
+                {activeDragItem?.data.type === 'available-node' && (
+                  <div className='bg-background pointer-events-none flex items-center gap-2 rounded border p-2 shadow-2xl'>
+                    <GripVertical className='text-muted-foreground h-4 w-4 flex-shrink-0' />
+                    <span className='truncate text-sm'>
+                      <Twemoji>{activeDragItem.data.nodeName}</Twemoji>
+                    </span>
+                  </div>
+                )}
+                {activeDragItem?.data.type === 'available-header' && (
+                  <div className='bg-background pointer-events-none flex items-center gap-2 rounded border p-2 shadow-2xl'>
+                    <GripVertical className='text-muted-foreground h-4 w-4 flex-shrink-0' />
+                    <span className='text-sm'>
+                      批量添加 {activeDragItem.data.nodeNames?.length || 0}{' '}
+                      个节点
+                    </span>
+                  </div>
+                )}
+                {activeDragItem?.data.type === 'group-node' && (
+                  <div className='bg-background pointer-events-none flex items-center gap-2 rounded border p-2 shadow-2xl'>
+                    <GripVertical className='text-muted-foreground h-4 w-4 flex-shrink-0' />
+                    <span className='truncate text-sm'>
+                      <Twemoji>{activeDragItem.data.nodeName}</Twemoji>
+                    </span>
+                  </div>
+                )}
+                {activeDragItem?.data.type === 'group-title' && (
+                  <div className='bg-background pointer-events-none flex items-center gap-2 rounded border p-2 shadow-2xl'>
+                    <GripVertical className='text-muted-foreground h-4 w-4 flex-shrink-0' />
+                    <span className='truncate text-sm'>
+                      <Twemoji>{activeDragItem.data.groupName}</Twemoji>
+                    </span>
+                  </div>
+                )}
+                {activeDragItem?.data.type === 'proxy-provider' && (
+                  <div className='pointer-events-none flex items-center gap-2 rounded border border-purple-400 bg-purple-50 p-2 shadow-2xl dark:bg-purple-950/50'>
+                    <GripVertical className='h-4 w-4 flex-shrink-0 text-purple-500' />
+                    <span className='truncate text-sm text-purple-700 dark:text-purple-300'>
+                      📦 {activeDragItem.data.providerName}
+                    </span>
+                  </div>
+                )}
+                {activeDragItem?.data.type === 'use-item' && (
+                  <div className='pointer-events-none flex items-center gap-2 rounded border border-purple-400 bg-purple-50 p-2 shadow-2xl dark:bg-purple-950/50'>
+                    <GripVertical className='h-4 w-4 flex-shrink-0 text-purple-500' />
+                    <span className='truncate text-sm text-purple-700 dark:text-purple-300'>
+                      📦 {activeDragItem.data.providerName}
+                    </span>
+                  </div>
+                )}
+                {activeDragItem?.data.type === 'group-card' &&
+                  (() => {
+                    const group = proxyGroups.find(
+                      (g) => g.name === activeDragItem.data.groupName
+                    )
+                    return (
+                      <Card className='pointer-events-none max-h-[400px] w-[240px] overflow-hidden opacity-95 shadow-2xl'>
+                        <CardHeader className='pb-3'>
+                          <div className='-mt-2 mb-2 flex justify-center'>
+                            <div className='bg-accent rounded-md px-3 py-1'>
+                              <GripVertical className='text-foreground h-4 w-4' />
+                            </div>
+                          </div>
+                          <div className='flex items-start justify-between gap-2'>
+                            <div className='min-w-0 flex-1'>
+                              <CardTitle className='truncate text-base'>
+                                <Twemoji>
+                                  {activeDragItem.data.groupName}
+                                </Twemoji>
+                              </CardTitle>
+                              <CardDescription className='text-xs'>
+                                {group?.type || 'select'} (
+                                {group?.proxies.length || 0} 个节点)
+                              </CardDescription>
+                            </div>
+                          </div>
+                        </CardHeader>
+                        <CardContent className='max-h-[280px] space-y-1 overflow-hidden'>
+                          {group?.proxies.slice(0, 8).map((proxy, idx) => (
+                            <div
+                              key={`overlay-${proxy}-${idx}`}
+                              className='bg-background flex items-center gap-2 rounded border p-2'
+                            >
+                              <GripVertical className='text-muted-foreground h-4 w-4 flex-shrink-0' />
+                              <span className='flex-1 truncate text-sm'>
+                                <Twemoji>{proxy}</Twemoji>
+                              </span>
+                            </div>
+                          ))}
+                          {(group?.proxies.length || 0) > 8 && (
+                            <div className='text-muted-foreground py-1 text-center text-xs'>
+                              还有 {(group?.proxies.length || 0) - 8} 个节点...
+                            </div>
+                          )}
+                          {(group?.proxies.length || 0) === 0 && (
+                            <div className='text-muted-foreground py-4 text-center text-sm'>
+                              暂无节点
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    )
+                  })()}
+              </DragOverlay>
             </DragStateContext.Provider>
           </DndContext>
         </DialogContent>
@@ -1930,11 +2264,15 @@ export function EditNodesDialog({
               <div className='flex items-center gap-2'>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant='outline' size='icon' className='shrink-0 h-10 w-10'>
+                    <Button
+                      variant='outline'
+                      size='icon'
+                      className='h-10 w-10 shrink-0'
+                    >
                       {selectedEmoji ? (
                         <Twemoji className='text-base'>{selectedEmoji}</Twemoji>
                       ) : (
-                        <Smile className='h-4 w-4 text-muted-foreground' />
+                        <Smile className='text-muted-foreground h-4 w-4' />
                       )}
                     </Button>
                   </PopoverTrigger>
@@ -1943,7 +2281,9 @@ export function EditNodesDialog({
                       {allServiceEmojis.map(({ emoji, label }) => (
                         <Button
                           key={emoji}
-                          variant={selectedEmoji === emoji ? 'secondary' : 'ghost'}
+                          variant={
+                            selectedEmoji === emoji ? 'secondary' : 'ghost'
+                          }
                           size='sm'
                           className='h-9 w-9 p-0'
                           title={label}
@@ -1957,7 +2297,7 @@ export function EditNodesDialog({
                       <Button
                         variant='ghost'
                         size='sm'
-                        className='w-full mt-2 text-muted-foreground'
+                        className='text-muted-foreground mt-2 w-full'
                         onClick={() => setSelectedEmoji('')}
                       >
                         清除选择
@@ -1970,28 +2310,37 @@ export function EditNodesDialog({
                   value={newGroupName}
                   onChange={(e) => setNewGroupName(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !isGroupNameDuplicate && finalGroupName) handleAddGroup()
+                    if (
+                      e.key === 'Enter' &&
+                      !isGroupNameDuplicate &&
+                      finalGroupName
+                    )
+                      handleAddGroup()
                   }}
                   className={`flex-1 ${isGroupNameDuplicate ? 'border-destructive' : ''}`}
                 />
               </div>
               {isGroupNameDuplicate && (
-                <p className='text-sm text-destructive mt-1'>已存在同名代理组</p>
+                <p className='text-destructive mt-1 text-sm'>
+                  已存在同名代理组
+                </p>
               )}
             </div>
 
             <div>
-              <p className='text-sm text-muted-foreground mb-2'>快速选择：</p>
-              <div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2'>
+              <p className='text-muted-foreground mb-2 text-sm'>快速选择：</p>
+              <div className='grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4'>
                 {proxyGroupCategories.map((category) => {
                   const groupLabel = category.group_label
-                  const isDuplicate = proxyGroups.some(g => g.name === groupLabel)
+                  const isDuplicate = proxyGroups.some(
+                    (g) => g.name === groupLabel
+                  )
                   return (
                     <Button
                       key={category.name}
                       variant='outline'
                       size='sm'
-                      className={`justify-start text-left h-auto py-2 px-3 ${isDuplicate ? 'opacity-50' : ''}`}
+                      className={`h-auto justify-start px-3 py-2 text-left ${isDuplicate ? 'opacity-50' : ''}`}
                       onClick={() => handleQuickSelect(groupLabel)}
                       disabled={isDuplicate}
                     >
@@ -2004,10 +2353,16 @@ export function EditNodesDialog({
           </div>
 
           <DialogFooter>
-            <Button variant='outline' onClick={() => setAddGroupDialogOpen(false)}>
+            <Button
+              variant='outline'
+              onClick={() => setAddGroupDialogOpen(false)}
+            >
               取消
             </Button>
-            <Button onClick={handleAddGroup} disabled={!finalGroupName || isGroupNameDuplicate}>
+            <Button
+              onClick={handleAddGroup}
+              disabled={!finalGroupName || isGroupNameDuplicate}
+            >
               保存
             </Button>
           </DialogFooter>

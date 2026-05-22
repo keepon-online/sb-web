@@ -2,7 +2,6 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
-import { QRCodeCanvas } from 'qrcode.react'
 import {
   Copy,
   Download,
@@ -15,12 +14,27 @@ import {
   Laptop,
   Wifi,
   Radio,
-  Shield
+  Shield,
 } from 'lucide-react'
+import { QRCodeCanvas } from 'qrcode.react'
 import { toast } from 'sonner'
-import { Topbar } from '@/components/layout/topbar'
-import { api } from '@/lib/api'
+// Import local icons
+import clashIcon from '@/assets/icons/clash_color.png'
+import egernIcon from '@/assets/icons/egern_color.png'
+import loonIcon from '@/assets/icons/loon_color.png'
+import quanxIcon from '@/assets/icons/quanx_color.png'
+import shadowrocketIcon from '@/assets/icons/shadowrocket_color.png'
+import singboxIcon from '@/assets/icons/sing-box_color.png'
+import stashIcon from '@/assets/icons/stash_color.png'
+import surfboardIcon from '@/assets/icons/surfboard_color.png'
+import surgeIcon from '@/assets/icons/surge_color.png'
+import surgeMacIcon from '@/assets/icons/surgeformac_icon_color.png'
+import uriIcon from '@/assets/icons/uri-color.svg'
+import v2rayIcon from '@/assets/icons/v2ray_color.png'
 import { useAuthStore } from '@/stores/auth-store'
+import { api } from '@/lib/api'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import {
   Card,
   CardContent,
@@ -28,8 +42,6 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import {
   Dialog,
   DialogContent,
@@ -48,20 +60,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-
-// Import local icons
-import clashIcon from '@/assets/icons/clash_color.png'
-import stashIcon from '@/assets/icons/stash_color.png'
-import shadowrocketIcon from '@/assets/icons/shadowrocket_color.png'
-import surfboardIcon from '@/assets/icons/surfboard_color.png'
-import surgeIcon from '@/assets/icons/surge_color.png'
-import surgeMacIcon from '@/assets/icons/surgeformac_icon_color.png'
-import loonIcon from '@/assets/icons/loon_color.png'
-import quanxIcon from '@/assets/icons/quanx_color.png'
-import egernIcon from '@/assets/icons/egern_color.png'
-import singboxIcon from '@/assets/icons/sing-box_color.png'
-import v2rayIcon from '@/assets/icons/v2ray_color.png'
-import uriIcon from '@/assets/icons/uri-color.svg'
+import { Topbar } from '@/components/layout/topbar'
 
 // @ts-ignore - retained simple route definition
 export const Route = createFileRoute('/subscription/')({
@@ -122,7 +121,10 @@ function SubscriptionPage() {
     queryKey: ['user-subscriptions'],
     queryFn: async () => {
       const response = await api.get('/api/subscriptions')
-      return response.data as { subscriptions: SubscribeFile[]; user_short_code: string }
+      return response.data as {
+        subscriptions: SubscribeFile[]
+        user_short_code: string
+      }
     },
     enabled: Boolean(auth.accessToken),
     staleTime: 60 * 1000,
@@ -138,7 +140,10 @@ function SubscriptionPage() {
       const response = await api.get('/api/user/token')
       return response.data as { token: string }
     },
-    enabled: Boolean(auth.accessToken) && subscribeFilesData !== undefined && !userShortCode,
+    enabled:
+      Boolean(auth.accessToken) &&
+      subscribeFilesData !== undefined &&
+      !userShortCode,
     staleTime: 5 * 60 * 1000,
   })
 
@@ -160,7 +165,12 @@ function SubscriptionPage() {
       ? `${window.location.protocol}//${window.location.host}`
       : 'http://localhost:8080')
 
-  const buildSubscriptionURL = (filename: string, fileShortCode: string | undefined, customShortCode: string | undefined, clientType?: string) => {
+  const buildSubscriptionURL = (
+    filename: string,
+    fileShortCode: string | undefined,
+    customShortCode: string | undefined,
+    clientType?: string
+  ) => {
     // Use custom short code or file short code + user short code for composite short link
     const fileCode = customShortCode || fileShortCode
     if (fileCode && userShortCode) {
@@ -184,9 +194,13 @@ function SubscriptionPage() {
     return url.toString()
   }
 
-  const handleCopy = async (fileId: number, urlText: string, clientName: string) => {
+  const handleCopy = async (
+    fileId: number,
+    urlText: string,
+    clientName: string
+  ) => {
     // 更新该订阅文件显示的URL
-    setDisplayURLs(prev => ({ ...prev, [fileId]: urlText }))
+    setDisplayURLs((prev) => ({ ...prev, [fileId]: urlText }))
 
     if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
       try {
@@ -202,27 +216,35 @@ function SubscriptionPage() {
   }
 
   return (
-    <div className='min-h-svh bg-background'>
+    <div className='bg-background min-h-svh'>
       <Topbar />
-      <main className='mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 pt-24'>
+      <main className='mx-auto w-full max-w-5xl px-4 py-8 pt-24 sm:px-6'>
         <section className='space-y-4 text-center sm:text-left'>
           <h1 className='text-3xl font-semibold tracking-tight'>订阅链接</h1>
-          <p className='mt-2 text-sm font-semibold text-destructive'>转换客户端代理是从substore抄过来的, 没有完全测试，有BUG请联系开发者</p>
+          <p className='text-destructive mt-2 text-sm font-semibold'>
+            转换客户端代理是从substore抄过来的, 没有完全测试，有BUG请联系开发者
+          </p>
         </section>
 
         <section className='mt-8 grid gap-6 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3'>
           {subscribeFiles.length === 0 ? (
-            <Card className='sm:col-span-1 md:col-span-2 lg:col-span-3 border-dashed shadow-none w-full'>
+            <Card className='w-full border-dashed shadow-none sm:col-span-1 md:col-span-2 lg:col-span-3'>
               <CardHeader>
                 <CardTitle>暂无可用订阅</CardTitle>
-                <CardDescription>管理员尚未为您分配订阅链接，请联系管理员进行分配。</CardDescription>
+                <CardDescription>
+                  管理员尚未为您分配订阅链接，请联系管理员进行分配。
+                </CardDescription>
               </CardHeader>
             </Card>
           ) : null}
 
           {subscribeFiles.map((file) => {
             const Icon = ICON_MAP[file.name] ?? QrCode
-            const subscribeURL = buildSubscriptionURL(file.filename, file.file_short_code, file.custom_short_code)
+            const subscribeURL = buildSubscriptionURL(
+              file.filename,
+              file.file_short_code,
+              file.custom_short_code
+            )
             // 使用当前显示的URL，如果没有则使用默认URL
             const displayURL = displayURLs[file.id] || subscribeURL
             const clashURL = `clash://install-config?url=${encodeURIComponent(subscribeURL)}`
@@ -240,26 +262,28 @@ function SubscriptionPage() {
                   <div className='flex items-start gap-3 overflow-hidden'>
                     <button
                       onClick={() => setQrValue(displayURL)}
-                      className='flex size-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary transition-all hover:bg-primary/20 hover:scale-110 active:scale-95 cursor-pointer'
+                      className='bg-primary/10 text-primary hover:bg-primary/20 flex size-12 shrink-0 cursor-pointer items-center justify-center rounded-xl transition-all hover:scale-110 active:scale-95'
                       title='点击显示二维码'
                     >
                       <Icon className='size-6' />
                     </button>
-                    <div className='flex-1 min-w-0 space-y-1 text-left'>
+                    <div className='min-w-0 flex-1 space-y-1 text-left'>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <CardTitle className='text-lg truncate'>
+                          <CardTitle className='truncate text-lg'>
                             {file.name}
                           </CardTitle>
                         </TooltipTrigger>
                         <TooltipContent>{file.name}</TooltipContent>
                       </Tooltip>
-                      <CardDescription>{file.description || '—'}</CardDescription>
+                      <CardDescription>
+                        {file.description || '—'}
+                      </CardDescription>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent className='space-y-4'>
-                  <div className='flex items-center justify-end gap-2 flex-wrap'>
+                  <div className='flex flex-wrap items-center justify-end gap-2'>
                     {file.expire_at ? (
                       new Date(file.expire_at) < new Date() ? (
                         <Badge variant='destructive'>已过期</Badge>
@@ -269,12 +293,15 @@ function SubscriptionPage() {
                         </Badge>
                       )
                     ) : (
-                      <Badge variant='outline' className='text-muted-foreground'>
+                      <Badge
+                        variant='outline'
+                        className='text-muted-foreground'
+                      >
                         永久有效
                       </Badge>
                     )}
                     {updatedLabel ? (
-                      <p className='text-xs text-muted-foreground'>
+                      <p className='text-muted-foreground text-xs'>
                         {updatedLabel}
                       </p>
                     ) : null}
@@ -284,15 +311,17 @@ function SubscriptionPage() {
                       </Badge>
                     ) : null}
                   </div>
-                  <div className='break-all rounded-lg border bg-muted/40 p-3 font-mono text-xs shadow-inner sm:text-sm'>
+                  <div className='bg-muted/40 rounded-lg border p-3 font-mono text-xs break-all shadow-inner sm:text-sm'>
                     {displayURL}
                   </div>
                   <div className='grid grid-cols-2 gap-2'>
                     {file.raw_output ? (
                       <Button
                         size='sm'
-                        className='w-full col-span-2 transition-transform hover:-translate-y-0.5 hover:shadow-md active:translate-y-0.5 active:scale-95'
-                        onClick={() => handleCopy(file.id, subscribeURL, '订阅链接')}
+                        className='col-span-2 w-full transition-transform hover:-translate-y-0.5 hover:shadow-md active:translate-y-0.5 active:scale-95'
+                        onClick={() =>
+                          handleCopy(file.id, subscribeURL, '订阅链接')
+                        }
                       >
                         <Copy className='mr-2 size-4' />
                         复制订阅链接
@@ -313,14 +342,29 @@ function SubscriptionPage() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align='end' className='w-56'>
                               {CLIENT_TYPES.map((client) => {
-                                const clientURL = buildSubscriptionURL(file.filename, file.file_short_code, file.custom_short_code, client.type)
+                                const clientURL = buildSubscriptionURL(
+                                  file.filename,
+                                  file.file_short_code,
+                                  file.custom_short_code,
+                                  client.type
+                                )
                                 return (
                                   <DropdownMenuItem
                                     key={client.type}
-                                    onClick={() => handleCopy(file.id, clientURL, client.name)}
+                                    onClick={() =>
+                                      handleCopy(
+                                        file.id,
+                                        clientURL,
+                                        client.name
+                                      )
+                                    }
                                     className='cursor-pointer'
                                   >
-                                    <img src={client.icon} alt={client.name} className='mr-2 size-4' />
+                                    <img
+                                      src={client.icon}
+                                      alt={client.name}
+                                      className='mr-2 size-4'
+                                    />
                                     {client.name}
                                   </DropdownMenuItem>
                                 )
@@ -336,7 +380,8 @@ function SubscriptionPage() {
                             asChild
                           >
                             <a href={clashURL}>
-                              <Download className='mr-2 size-4' />导入 Clash
+                              <Download className='mr-2 size-4' />
+                              导入 Clash
                             </a>
                           </Button>
                         ) : null}
@@ -361,14 +406,21 @@ function SubscriptionPage() {
         <DialogContent className='sm:max-w-sm'>
           <DialogHeader>
             <DialogTitle>订阅二维码</DialogTitle>
-            <DialogDescription>使用手机扫描二维码快速导入订阅链接。</DialogDescription>
+            <DialogDescription>
+              使用手机扫描二维码快速导入订阅链接。
+            </DialogDescription>
           </DialogHeader>
           {qrValue ? (
             <div className='flex flex-col items-center gap-4'>
               <div className='rounded-xl border bg-white p-4 shadow-inner'>
-                <QRCodeCanvas value={qrValue} size={220} level='M' includeMargin />
+                <QRCodeCanvas
+                  value={qrValue}
+                  size={220}
+                  level='M'
+                  includeMargin
+                />
               </div>
-              <div className='font-mono text-xs break-all text-center text-muted-foreground'>
+              <div className='text-muted-foreground text-center font-mono text-xs break-all'>
                 {qrValue}
               </div>
             </div>

@@ -5,8 +5,8 @@ export interface RuleCategory {
   name: string
   label: string
   icon: string
-  site_rules: string[]  // GeoSite rules
-  ip_rules: string[]    // GeoIP rules
+  site_rules: string[] // GeoSite rules
+  ip_rules: string[] // GeoIP rules
 }
 
 export const RULE_CATEGORIES: RuleCategory[] = [
@@ -112,7 +112,13 @@ export const RULE_CATEGORIES: RuleCategory[] = [
     name: 'education',
     label: '教育资源',
     icon: '📚',
-    site_rules: ['coursera', 'edx', 'udemy', 'khanacademy', 'category-scholar-!cn'],
+    site_rules: [
+      'coursera',
+      'edx',
+      'udemy',
+      'khanacademy',
+      'category-scholar-!cn',
+    ],
     ip_rules: [],
   },
   {
@@ -142,7 +148,9 @@ export const RULE_CATEGORIES: RuleCategory[] = [
  * Build Clash rules from selected categories
  * Converts GeoSite and GeoIP rules to Clash format
  */
-export function buildCustomRulesFromCategories(selectedCategories: string[]): string[] {
+export function buildCustomRulesFromCategories(
+  selectedCategories: string[]
+): string[] {
   const rules: string[] = []
 
   for (const categoryName of selectedCategories) {
@@ -187,6 +195,15 @@ export function buildCustomRulesFromCategories(selectedCategories: string[]): st
 export const PREDEFINED_RULE_SETS = {
   // 按 RULE_CATEGORIES 顺序：ads, ai, bilibili, youtube, google, private, domestic, telegram, github...
   minimal: ['private', 'domestic', 'overseas'],
-  balanced: ['ai', 'youtube', 'google', 'private', 'domestic', 'telegram', 'github', 'overseas'],
+  balanced: [
+    'ai',
+    'youtube',
+    'google',
+    'private',
+    'domestic',
+    'telegram',
+    'github',
+    'overseas',
+  ],
   comprehensive: RULE_CATEGORIES.map((rule) => rule.name),
 }

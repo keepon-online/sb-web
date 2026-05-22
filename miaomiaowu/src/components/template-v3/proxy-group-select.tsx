@@ -1,18 +1,4 @@
 import { useState, useEffect, useRef } from 'react'
-import { Label } from '@/components/ui/label'
-import { Button } from '@/components/ui/button'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
-import { Check, ChevronsUpDown, GripVertical, X } from 'lucide-react'
-import { cn } from '@/lib/utils'
-import {
-  PROXY_NODES_MARKER,
-  PROXY_PROVIDERS_MARKER,
-  REGION_PROXY_GROUPS_MARKER,
-  PROXY_NODES_DISPLAY,
-  PROXY_PROVIDERS_DISPLAY,
-  REGION_PROXY_GROUPS_DISPLAY,
-} from '@/lib/template-v3-utils'
 import {
   DndContext,
   DragOverlay,
@@ -33,6 +19,31 @@ import {
   rectSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import { Check, ChevronsUpDown, GripVertical, X } from 'lucide-react'
+import {
+  PROXY_NODES_MARKER,
+  PROXY_PROVIDERS_MARKER,
+  REGION_PROXY_GROUPS_MARKER,
+  PROXY_NODES_DISPLAY,
+  PROXY_PROVIDERS_DISPLAY,
+  REGION_PROXY_GROUPS_DISPLAY,
+} from '@/lib/template-v3-utils'
+import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command'
+import { Label } from '@/components/ui/label'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 
 interface ProxyGroupSelectProps {
   label: string
@@ -51,8 +62,18 @@ interface SortableItemProps {
 }
 
 function SortableItem({ id, onRemove }: SortableItemProps) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
-  const isMarker = id === PROXY_NODES_MARKER || id === PROXY_PROVIDERS_MARKER || id === REGION_PROXY_GROUPS_MARKER
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id })
+  const isMarker =
+    id === PROXY_NODES_MARKER ||
+    id === PROXY_PROVIDERS_MARKER ||
+    id === REGION_PROXY_GROUPS_MARKER
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -82,16 +103,20 @@ function SortableItem({ id, onRemove }: SortableItemProps) {
       style={style}
       className={cn('flex items-center gap-1 rounded-md px-2 py-1', bgClass)}
     >
-      <GripVertical className="h-3 w-3 cursor-grab text-muted-foreground" {...attributes} {...listeners} />
-      <span className="text-sm">{getDisplayName()}</span>
+      <GripVertical
+        className='text-muted-foreground h-3 w-3 cursor-grab'
+        {...attributes}
+        {...listeners}
+      />
+      <span className='text-sm'>{getDisplayName()}</span>
       {!isMarker && onRemove && (
         <Button
-          variant="ghost"
-          size="icon"
-          className="h-4 w-4 p-0 hover:bg-transparent"
+          variant='ghost'
+          size='icon'
+          className='h-4 w-4 p-0 hover:bg-transparent'
           onClick={() => onRemove(id)}
         >
-          <X className="h-3 w-3" />
+          <X className='h-3 w-3' />
         </Button>
       )}
     </div>
@@ -99,7 +124,10 @@ function SortableItem({ id, onRemove }: SortableItemProps) {
 }
 
 function DragOverlayItem({ id }: { id: string }) {
-  const isMarker = id === PROXY_NODES_MARKER || id === PROXY_PROVIDERS_MARKER || id === REGION_PROXY_GROUPS_MARKER
+  const isMarker =
+    id === PROXY_NODES_MARKER ||
+    id === PROXY_PROVIDERS_MARKER ||
+    id === REGION_PROXY_GROUPS_MARKER
 
   const getDisplayName = () => {
     if (id === PROXY_NODES_MARKER) return PROXY_NODES_DISPLAY
@@ -117,9 +145,14 @@ function DragOverlayItem({ id }: { id: string }) {
     : 'bg-secondary'
 
   return (
-    <div className={cn('flex items-center gap-1 rounded-md px-2 py-1 shadow-lg', bgClass)}>
-      <GripVertical className="h-3 w-3 cursor-grab text-muted-foreground" />
-      <span className="text-sm">{getDisplayName()}</span>
+    <div
+      className={cn(
+        'flex items-center gap-1 rounded-md px-2 py-1 shadow-lg',
+        bgClass
+      )}
+    >
+      <GripVertical className='text-muted-foreground h-3 w-3 cursor-grab' />
+      <span className='text-sm'>{getDisplayName()}</span>
     </div>
   )
 }
@@ -181,18 +214,18 @@ export function ProxyGroupSelect({
 
   const handleSelect = (groupName: string) => {
     if (value.includes(groupName)) {
-      onChange(value.filter(v => v !== groupName))
+      onChange(value.filter((v) => v !== groupName))
     } else {
       onChange([...value, groupName])
     }
   }
 
   const handleRemove = (groupName: string) => {
-    onChange(value.filter(v => v !== groupName))
+    onChange(value.filter((v) => v !== groupName))
   }
 
   // Build display items: include markers if they should be shown and are in internalOrder
-  const displayItems = internalOrder.filter(item => {
+  const displayItems = internalOrder.filter((item) => {
     if (item === PROXY_NODES_MARKER) return showNodesMarker
     if (item === PROXY_PROVIDERS_MARKER) return showProvidersMarker
     if (item === REGION_PROXY_GROUPS_MARKER) return showRegionGroupsMarker
@@ -202,7 +235,10 @@ export function ProxyGroupSelect({
   // Ensure markers are in value if they should be shown
   const ensureMarkers = (newValue: string[]) => {
     let result = [...newValue]
-    if (showRegionGroupsMarker && !result.includes(REGION_PROXY_GROUPS_MARKER)) {
+    if (
+      showRegionGroupsMarker &&
+      !result.includes(REGION_PROXY_GROUPS_MARKER)
+    ) {
       result.push(REGION_PROXY_GROUPS_MARKER)
     }
     if (showNodesMarker && !result.includes(PROXY_NODES_MARKER)) {
@@ -213,13 +249,13 @@ export function ProxyGroupSelect({
     }
     // Remove markers that shouldn't be shown
     if (!showNodesMarker) {
-      result = result.filter(v => v !== PROXY_NODES_MARKER)
+      result = result.filter((v) => v !== PROXY_NODES_MARKER)
     }
     if (!showProvidersMarker) {
-      result = result.filter(v => v !== PROXY_PROVIDERS_MARKER)
+      result = result.filter((v) => v !== PROXY_PROVIDERS_MARKER)
     }
     if (!showRegionGroupsMarker) {
-      result = result.filter(v => v !== REGION_PROXY_GROUPS_MARKER)
+      result = result.filter((v) => v !== REGION_PROXY_GROUPS_MARKER)
     }
     return result
   }
@@ -232,14 +268,23 @@ export function ProxyGroupSelect({
   }
 
   return (
-    <div className="space-y-2">
+    <div className='space-y-2'>
       <Label>{label}</Label>
-      <div className="flex flex-col gap-2">
+      <div className='flex flex-col gap-2'>
         {displayItems.length > 0 && (
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
-            <SortableContext items={displayItems} strategy={rectSortingStrategy}>
-              <div className="flex flex-wrap gap-2">
-                {displayItems.map(item => (
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
+            onDragOver={handleDragOver}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={displayItems}
+              strategy={rectSortingStrategy}
+            >
+              <div className='flex flex-wrap gap-2'>
+                {displayItems.map((item) => (
                   <SortableItem key={item} id={item} onRemove={handleRemove} />
                 ))}
               </div>
@@ -251,20 +296,36 @@ export function ProxyGroupSelect({
         )}
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>
-            <Button variant="outline" role="combobox" aria-expanded={open} className="justify-between">
+            <Button
+              variant='outline'
+              role='combobox'
+              aria-expanded={open}
+              className='justify-between'
+            >
               {placeholder}
-              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              <ChevronsUpDown className='ml-2 h-4 w-4 shrink-0 opacity-50' />
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-[300px] p-0">
+          <PopoverContent className='w-[300px] p-0'>
             <Command>
-              <CommandInput placeholder="搜索代理组..." />
+              <CommandInput placeholder='搜索代理组...' />
               <CommandList>
                 <CommandEmpty>没有找到代理组</CommandEmpty>
                 <CommandGroup>
-                  {availableGroups.map(groupName => (
-                    <CommandItem key={groupName} value={groupName} onSelect={() => handleSelect(groupName)}>
-                      <Check className={cn('mr-2 h-4 w-4', value.includes(groupName) ? 'opacity-100' : 'opacity-0')} />
+                  {availableGroups.map((groupName) => (
+                    <CommandItem
+                      key={groupName}
+                      value={groupName}
+                      onSelect={() => handleSelect(groupName)}
+                    >
+                      <Check
+                        className={cn(
+                          'mr-2 h-4 w-4',
+                          value.includes(groupName)
+                            ? 'opacity-100'
+                            : 'opacity-0'
+                        )}
+                      />
                       {groupName}
                     </CommandItem>
                   ))}

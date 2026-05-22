@@ -1,9 +1,13 @@
 import { useState } from 'react'
 import { Flag } from 'lucide-react'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Button } from '@/components/ui/button'
-import { Twemoji } from '@/components/twemoji'
 import { FLAG_OPTIONS, countryCodeToFlag } from '@/lib/country-flag'
+import { Button } from '@/components/ui/button'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+import { Twemoji } from '@/components/twemoji'
 
 interface FlagEmojiPickerProps {
   onSelect: (flag: string) => void
@@ -14,7 +18,14 @@ interface FlagEmojiPickerProps {
   stopPropagation?: boolean
 }
 
-export function FlagEmojiPicker({ onSelect, onAutoDetect, disabled, loading, className, stopPropagation }: FlagEmojiPickerProps) {
+export function FlagEmojiPicker({
+  onSelect,
+  onAutoDetect,
+  disabled,
+  loading,
+  className,
+  stopPropagation,
+}: FlagEmojiPickerProps) {
   const [open, setOpen] = useState(false)
 
   return (
@@ -30,9 +41,21 @@ export function FlagEmojiPicker({ onSelect, onAutoDetect, disabled, loading, cla
           <Flag className={`size-4 ${loading ? 'animate-pulse' : ''}`} />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className='w-72 p-2' align='start' onClick={stopPropagation ? (e) => e.stopPropagation() : undefined}>
+      <PopoverContent
+        className='w-72 p-2'
+        align='start'
+        onClick={stopPropagation ? (e) => e.stopPropagation() : undefined}
+      >
         {onAutoDetect && (
-          <Button variant='outline' size='sm' className='w-full mb-2 text-xs' onClick={() => { onAutoDetect(); setOpen(false) }}>
+          <Button
+            variant='outline'
+            size='sm'
+            className='mb-2 w-full text-xs'
+            onClick={() => {
+              onAutoDetect()
+              setOpen(false)
+            }}
+          >
             🌐 自动检测地区
           </Button>
         )}
@@ -40,8 +63,11 @@ export function FlagEmojiPicker({ onSelect, onAutoDetect, disabled, loading, cla
           {FLAG_OPTIONS.map(({ code, label }) => (
             <button
               key={code}
-              className='size-8 flex items-center justify-center rounded hover:bg-accent text-lg cursor-pointer'
-              onClick={() => { onSelect(countryCodeToFlag(code)); setOpen(false) }}
+              className='hover:bg-accent flex size-8 cursor-pointer items-center justify-center rounded text-lg'
+              onClick={() => {
+                onSelect(countryCodeToFlag(code))
+                setOpen(false)
+              }}
               title={label}
             >
               <Twemoji>{countryCodeToFlag(code)}</Twemoji>
