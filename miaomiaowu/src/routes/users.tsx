@@ -41,7 +41,6 @@ import {
 } from '@/components/ui/tooltip'
 import { DataTable } from '@/components/data-table'
 import type { DataTableColumn } from '@/components/data-table'
-import { Topbar } from '@/components/layout/topbar'
 
 // @ts-ignore - retained simple route definition
 export const Route = createFileRoute('/users')({
@@ -364,8 +363,7 @@ function UsersPage() {
   if (profileLoading) {
     return (
       <div className='bg-background min-h-svh'>
-        <Topbar />
-        <main className='mx-auto w-full max-w-5xl px-4 py-8 pt-24 sm:px-6'>
+        <main className='mx-auto w-full max-w-5xl px-4 py-8 sm:px-6'>
           <Card className='border-dashed shadow-none'>
             <CardHeader>
               <CardTitle>加载中…</CardTitle>
@@ -387,8 +385,7 @@ function UsersPage() {
   if (!isAdmin || profileError) {
     return (
       <div className='bg-background min-h-svh'>
-        <Topbar />
-        <main className='mx-auto flex w-full max-w-3xl flex-col items-center justify-center gap-4 px-4 py-20 pt-24 text-center sm:px-6'>
+        <main className='mx-auto flex w-full max-w-3xl flex-col items-center justify-center gap-4 px-4 py-20 text-center sm:px-6'>
           <Card className='w-full border-dashed shadow-none'>
             <CardHeader>
               <CardTitle>权限不足</CardTitle>
@@ -404,8 +401,7 @@ function UsersPage() {
 
   return (
     <div className='bg-background min-h-svh'>
-      <Topbar />
-      <main className='mx-auto w-full max-w-6xl px-4 py-8 pt-24 sm:px-6'>
+      <main className='mx-auto w-full max-w-6xl px-4 py-8 sm:px-6'>
         <section className='space-y-3'>
           <h1 className='text-3xl font-semibold tracking-tight'>用户管理</h1>
           <p className='text-muted-foreground'>

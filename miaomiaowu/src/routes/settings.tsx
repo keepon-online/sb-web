@@ -18,7 +18,6 @@ import {
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Topbar } from '@/components/layout/topbar'
 
 type ProfileFormValues = {
   username: string
@@ -238,8 +237,7 @@ function SettingsPage() {
 
   return (
     <div className='bg-background min-h-svh'>
-      <Topbar />
-      <main className='mx-auto w-full max-w-4xl px-4 py-8 pt-24 sm:px-6'>
+      <main className='mx-auto w-full max-w-4xl px-4 py-8 sm:px-6'>
         <section className='space-y-2'>
           <h1 className='text-3xl font-semibold tracking-tight'>个人设置</h1>
         </section>

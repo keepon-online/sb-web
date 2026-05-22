@@ -65,7 +65,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { DataTable } from '@/components/data-table'
 import type { DataTableColumn } from '@/components/data-table'
-import { Topbar } from '@/components/layout/topbar'
 import { ProxyGroupEditor } from '@/components/template-v3/proxy-group-editor'
 import { TemplatePreview } from '@/components/template-v3/template-preview'
 import { TemplateUploadDialog } from '@/components/template-v3/template-upload-dialog'
@@ -694,8 +693,7 @@ function TemplatesV3Page() {
 
   return (
     <div className='bg-background min-h-svh'>
-      <Topbar />
-      <main className='mx-auto w-full max-w-7xl px-4 py-8 pt-24 sm:px-6'>
+      <main className='mx-auto w-full max-w-7xl px-4 py-8 sm:px-6'>
         <Card>
           <CardHeader className='flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between'>
             <div>

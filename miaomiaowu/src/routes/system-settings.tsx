@@ -24,7 +24,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { Topbar } from '@/components/layout/topbar'
 
 interface UserConfig {
   force_sync_external: boolean
@@ -198,8 +197,7 @@ function SystemSettingsPage() {
 
   return (
     <div className='bg-background min-h-svh'>
-      <Topbar />
-      <main className='mx-auto w-full max-w-4xl px-4 py-8 pt-24 sm:px-6'>
+      <main className='mx-auto w-full max-w-4xl px-4 py-8 sm:px-6'>
         <section className='space-y-2'>
           <h1 className='text-3xl font-semibold tracking-tight'>系统设置</h1>
           <p className='text-muted-foreground'>管理订阅同步和功能开关</p>

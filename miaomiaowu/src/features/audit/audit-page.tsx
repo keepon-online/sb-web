@@ -41,7 +41,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Topbar } from '@/components/layout/topbar'
 
 type AuditStep = {
   id: string
@@ -147,7 +146,6 @@ export function AuditPage() {
 
   return (
     <div className='bg-background min-h-screen'>
-      <Topbar />
       <main className='container mx-auto space-y-6 p-6'>
         <Card>
           <CardHeader>

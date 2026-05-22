@@ -60,7 +60,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { Topbar } from '@/components/layout/topbar'
 
 // @ts-ignore - retained simple route definition
 export const Route = createFileRoute('/subscription/')({
@@ -217,8 +216,7 @@ function SubscriptionPage() {
 
   return (
     <div className='bg-background min-h-svh'>
-      <Topbar />
-      <main className='mx-auto w-full max-w-5xl px-4 py-8 pt-24 sm:px-6'>
+      <main className='mx-auto w-full max-w-5xl px-4 py-8 sm:px-6'>
         <section className='space-y-4 text-center sm:text-left'>
           <h1 className='text-3xl font-semibold tracking-tight'>订阅链接</h1>
           <p className='text-destructive mt-2 text-sm font-semibold'>

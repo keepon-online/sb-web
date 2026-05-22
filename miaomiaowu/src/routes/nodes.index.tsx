@@ -140,7 +140,6 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { FlagEmojiPicker } from '@/components/flag-emoji-picker'
-import { Topbar } from '@/components/layout/topbar'
 import { Twemoji } from '@/components/twemoji'
 
 const CLASH_DRAFT_KEY_PREFIX = 'mmw_clash_config_draft_'
@@ -3115,8 +3114,7 @@ function NodesPage() {
 
   return (
     <div className='bg-background min-h-svh'>
-      <Topbar />
-      <main className='mx-auto w-full max-w-7xl px-4 py-8 pt-24 sm:px-6'>
+      <main className='mx-auto w-full max-w-7xl px-4 py-8 sm:px-6'>
         <section className='space-y-4'>
           <div>
             <h1 className='text-3xl font-semibold tracking-tight'>节点管理</h1>

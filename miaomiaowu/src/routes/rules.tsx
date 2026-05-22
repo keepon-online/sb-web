@@ -22,7 +22,6 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
-import { Topbar } from '@/components/layout/topbar'
 
 // @ts-ignore - retained simple route definition
 export const Route = createFileRoute('/rules')({
@@ -246,8 +245,7 @@ function RulesPage() {
   if (profileLoading) {
     return (
       <div className='bg-background min-h-svh'>
-        <Topbar />
-        <main className='mx-auto w-full max-w-6xl px-4 py-8 pt-24 sm:px-6'>
+        <main className='mx-auto w-full max-w-6xl px-4 py-8 sm:px-6'>
           <Skeleton className='h-48 w-full' />
         </main>
       </div>
@@ -257,8 +255,7 @@ function RulesPage() {
   if (!isAdmin || profileError) {
     return (
       <div className='bg-background min-h-svh'>
-        <Topbar />
-        <main className='mx-auto flex w-full max-w-3xl flex-col items-center justify-center gap-4 px-4 py-20 pt-24 text-center sm:px-6'>
+        <main className='mx-auto flex w-full max-w-3xl flex-col items-center justify-center gap-4 px-4 py-20 text-center sm:px-6'>
           <Card className='w-full border-dashed shadow-none'>
             <CardHeader>
               <CardTitle>权限不足</CardTitle>
@@ -274,8 +271,7 @@ function RulesPage() {
 
   return (
     <div className='bg-background min-h-svh'>
-      <Topbar />
-      <main className='mx-auto w-full max-w-6xl px-4 py-8 pt-24 sm:px-6'>
+      <main className='mx-auto w-full max-w-6xl px-4 py-8 sm:px-6'>
         <section className='space-y-4'>
           <h1 className='text-3xl font-semibold tracking-tight'>规则配置</h1>
           <p className='text-muted-foreground'>

@@ -83,7 +83,6 @@ import { CustomRulesEditor } from '@/components/custom-rules-editor'
 import { DataTable } from '@/components/data-table'
 import type { DataTableColumn } from '@/components/data-table'
 import { EditNodesDialog } from '@/components/edit-nodes-dialog'
-import { Topbar } from '@/components/layout/topbar'
 import { MobileEditNodesDialog } from '@/components/mobile-edit-nodes-dialog'
 import { RuleSelector } from '@/components/rule-selector'
 import { Twemoji } from '@/components/twemoji'
@@ -2465,9 +2464,7 @@ function SubscriptionGeneratorPage() {
 
   return (
     <div className='bg-background flex min-h-screen flex-col'>
-      <Topbar />
-
-      <main className='mx-auto w-full max-w-7xl px-4 py-8 pt-24 sm:px-6'>
+      <main className='mx-auto w-full max-w-7xl px-4 py-8 sm:px-6'>
         <div className='mx-auto space-y-6'>
           <div className='space-y-2'>
             <h1 className='text-3xl font-bold tracking-tight'>

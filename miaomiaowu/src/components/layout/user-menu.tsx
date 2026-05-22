@@ -30,8 +30,12 @@ import { Switch } from '@/components/ui/switch'
 import { BackupDialog } from '@/components/backup-dialog'
 import { SignOutDialog } from '@/components/sign-out-dialog'
 import { UpdateDialog } from '@/components/update-dialog'
+import { useSidebar } from '@/components/ui/sidebar'
+import { cn } from '@/lib/utils'
 
 export function UserMenu() {
+  const { state } = useSidebar()
+  const isCollapsed = state === 'collapsed'
   const [open, setOpen] = useDialogState<boolean>()
   const [backupDialogOpen, setBackupDialogOpen] = useState(false)
   const [updateDialogOpen, setUpdateDialogOpen] = useState(false)
@@ -125,21 +129,26 @@ export function UserMenu() {
             variant='outline'
             size='sm'
             aria-label={`用户菜单: ${displayName}`}
-            className='h-9 min-w-0 justify-center gap-2 overflow-hidden rounded-md px-2 py-2 sm:min-w-[120px] sm:gap-2 sm:px-3'
+            className={cn(
+              'h-9 min-w-0 justify-center gap-2 overflow-hidden rounded-md px-2 py-2 transition-all',
+              isCollapsed ? 'w-9' : 'sm:min-w-[120px] sm:gap-2 sm:px-3'
+            )}
           >
             <span className='sr-only'>{`用户菜单: ${displayName}`}</span>
             <Avatar className='border-primary/20 size-7 border shadow-sm'>
               <AvatarImage src={avatarSrc} alt={displayName} />
               <AvatarFallback>{fallbackText || '用户'}</AvatarFallback>
             </Avatar>
-            <div className='hidden sm:flex sm:flex-col sm:items-center sm:leading-tight'>
-              <span className='max-w-[70px] truncate text-sm font-semibold'>
-                {displayName}
-              </span>
-              <span className='text-muted-foreground text-[10px] font-bold tracking-wider uppercase'>
-                {levelText}
-              </span>
-            </div>
+            {!isCollapsed && (
+              <div className='hidden sm:flex sm:flex-col sm:items-center sm:leading-tight'>
+                <span className='max-w-[70px] truncate text-sm font-semibold'>
+                  {displayName}
+                </span>
+                <span className='text-muted-foreground text-[10px] font-bold tracking-wider uppercase'>
+                  {levelText}
+                </span>
+              </div>
+            )}
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align='end' className='w-56 space-y-3 p-4'>

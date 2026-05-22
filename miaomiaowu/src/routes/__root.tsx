@@ -6,6 +6,7 @@ import { TanStackRouterDevtools } from '@tanstack/react-router-devtools'
 import { Toaster } from '@/components/ui/sonner'
 import { DebugFloatingViewer } from '@/components/debug-floating-viewer'
 import { NavigationProgress } from '@/components/navigation-progress'
+import { MainLayout } from '@/components/layout/main-layout'
 
 function RootComponent() {
   const [isMobile, setIsMobile] = useState(false)
@@ -24,7 +25,9 @@ function RootComponent() {
   return (
     <>
       <NavigationProgress />
-      <Outlet />
+      <MainLayout>
+        <Outlet />
+      </MainLayout>
       <DebugFloatingViewer />
       <Toaster
         duration={5000}

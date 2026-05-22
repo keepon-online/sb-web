@@ -23,7 +23,6 @@ import {
 } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Topbar } from '@/components/layout/topbar'
 
 // @ts-ignore - retained simple route definition
 export const Route = createFileRoute('/')({
@@ -103,9 +102,8 @@ function DashboardPage() {
   const hasHistory = chartData.length > 0
 
   return (
-    <div className='bg-background min-h-svh'>
-      <Topbar />
-      <main className='mx-auto w-full max-w-5xl px-4 py-8 pt-24 sm:px-6'>
+    <div className='w-full'>
+      <main className='mx-auto w-full max-w-5xl px-0 py-4 sm:px-0'>
         <section className='grid gap-4 sm:grid-cols-2 lg:grid-cols-4'>
           {isLoading
             ? Array.from({ length: 4 }).map((_, index) => (
