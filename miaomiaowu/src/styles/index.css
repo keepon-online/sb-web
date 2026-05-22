@@ -20,7 +20,7 @@
   font-display: swap;
 }
 
-@custom-variant dark (&:is(.dark *));
+@custom-variant dark (&:where(.dark, .dark *));
 
 @layer base {
   :root {
@@ -40,15 +40,15 @@
     background-image:
       radial-gradient(
         1100px circle at 5% -10%,
-        var(--slate-200),
+        var(--brand-200),
         transparent 60%
       ),
       radial-gradient(
         900px circle at 90% 0%,
-        var(--slate-100),
+        var(--brand-100),
         transparent 65%
       ),
-      linear-gradient(180deg, var(--background), var(--slate-50));
+      linear-gradient(180deg, var(--background), var(--brand-50));
     background-attachment: fixed;
     background-size: cover;
   }
@@ -93,9 +93,9 @@
 
 .dark body {
   background-image:
-    radial-gradient(900px circle at 15% -5%, var(--slate-900), transparent 65%),
-    radial-gradient(800px circle at 82% 0%, var(--slate-900), transparent 70%),
-    linear-gradient(180deg, var(--background), var(--slate-950));
+    radial-gradient(900px circle at 15% -5%, var(--brand-900), transparent 65%),
+    radial-gradient(800px circle at 82% 0%, var(--brand-900), transparent 70%),
+    linear-gradient(180deg, var(--background), var(--brand-950));
 }
 
 @utility container {
@@ -222,3 +222,39 @@
 [data-sidebar-gap] {
   @apply transition-all duration-300 ease-in-out;
 }
+
+/* Make main content area transparent to let body gradients shine through */
+[data-slot='sidebar-inset'] {
+  background-color: transparent !important;
+}
+
+/* Premium glassmorphic cards */
+.bg-card, [data-slot='card'] {
+  background-color: color-mix(in srgb, var(--card) 75%, transparent) !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-color: color-mix(in srgb, var(--border) 60%, transparent) !important;
+}
+
+/* Dark mode overrides for legacy hardcoded white/gray layout styles */
+.dark {
+  .bg-white {
+    background-color: var(--card) !important;
+  }
+  .bg-gray-50, .bg-gray-100 {
+    background-color: var(--muted) !important;
+  }
+  .text-gray-900, .text-gray-800, .text-gray-700 {
+    color: var(--foreground) !important;
+  }
+  .text-gray-600, .text-gray-500 {
+    color: var(--muted-foreground) !important;
+  }
+  .border-gray-200, .border-gray-300 {
+    border-color: var(--border) !important;
+  }
+  .divide-gray-200 > :not([hidden]) ~ :not([hidden]) {
+    border-color: var(--border) !important;
+  }
+}
+

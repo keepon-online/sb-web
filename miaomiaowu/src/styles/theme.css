@@ -14,7 +14,7 @@
   --slate-900: #0f172a;
   --slate-950: #020617;
 
-  /* Brand Colors (now using Slate for Monochrome look) */
+  /* Brand Colors (now using Slate for Monochrome look by default) */
   --brand-50: var(--slate-50);
   --brand-100: var(--slate-100);
   --brand-200: var(--slate-200);
@@ -40,8 +40,8 @@
   --popover: #ffffff;
   --popover-foreground: var(--slate-950);
 
-  --primary: var(--slate-900);
-  --primary-foreground: var(--slate-50);
+  --primary: var(--brand-600);
+  --primary-foreground: #ffffff;
 
   --secondary: var(--slate-100);
   --secondary-foreground: var(--slate-900);
@@ -49,30 +49,30 @@
   --muted: var(--slate-100);
   --muted-foreground: var(--slate-500);
 
-  --accent: var(--slate-100);
-  --accent-foreground: var(--slate-900);
+  --accent: var(--brand-100);
+  --accent-foreground: var(--brand-900);
 
   --destructive: #ef4444;
   --destructive-foreground: #f8fafc;
 
   --border: var(--slate-200);
   --input: var(--slate-200);
-  --ring: var(--slate-400);
+  --ring: var(--brand-400);
 
-  --chart-1: #0f172a;
-  --chart-2: #334155;
-  --chart-3: #64748b;
-  --chart-4: #94a3b8;
-  --chart-5: #cbd5e1;
+  --chart-1: var(--brand-500);
+  --chart-2: var(--brand-600);
+  --chart-3: var(--slate-500);
+  --chart-4: var(--slate-400);
+  --chart-5: var(--slate-300);
 
   --sidebar: var(--slate-50);
   --sidebar-foreground: var(--slate-600);
-  --sidebar-primary: var(--slate-900);
-  --sidebar-primary-foreground: var(--slate-50);
-  --sidebar-accent: var(--slate-200);
-  --sidebar-accent-foreground: var(--slate-900);
+  --sidebar-primary: var(--brand-600);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: var(--brand-100);
+  --sidebar-accent-foreground: var(--brand-900);
   --sidebar-border: var(--slate-200);
-  --sidebar-ring: var(--slate-400);
+  --sidebar-ring: var(--brand-400);
 
   --font-sans:
     'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
@@ -92,7 +92,7 @@
   --popover: var(--slate-950);
   --popover-foreground: var(--slate-50);
 
-  --primary: var(--slate-50);
+  --primary: var(--brand-500);
   --primary-foreground: var(--slate-950);
 
   --secondary: var(--slate-900);
@@ -101,33 +101,112 @@
   --muted: var(--slate-900);
   --muted-foreground: var(--slate-400);
 
-  --accent: var(--slate-900);
-  --accent-foreground: var(--slate-50);
+  --accent: var(--brand-950);
+  --accent-foreground: var(--brand-300);
 
   --destructive: #991b1b;
   --destructive-foreground: var(--slate-50);
 
   --border: var(--slate-800);
   --input: var(--slate-800);
-  --ring: var(--slate-300);
+  --ring: var(--brand-600);
 
-  --chart-1: #f8fafc;
-  --chart-2: #cbd5e1;
-  --chart-3: #94a3b8;
-  --chart-4: #64748b;
-  --chart-5: #334155;
+  --chart-1: var(--brand-400);
+  --chart-2: var(--brand-500);
+  --chart-3: var(--slate-600);
+  --chart-4: var(--slate-700);
+  --chart-5: var(--slate-800);
 
   --sidebar: var(--slate-950);
   --sidebar-foreground: var(--slate-400);
-  --sidebar-primary: var(--slate-50);
+  --sidebar-primary: var(--brand-500);
   --sidebar-primary-foreground: var(--slate-950);
-  --sidebar-accent: var(--slate-900);
-  --sidebar-accent-foreground: var(--slate-50);
+  --sidebar-accent: var(--brand-950);
+  --sidebar-accent-foreground: var(--brand-300);
   --sidebar-border: var(--slate-800);
-  --sidebar-ring: var(--slate-300);
+  --sidebar-ring: var(--brand-600);
 }
 
-@theme inline {
+/* ==========================================================================
+   Color Themes (:root.theme-* gives high specificity override)
+   ========================================================================== */
+
+/* --- Indigo Theme --- */
+:root.theme-indigo {
+  --brand-50: #f5f3ff;
+  --brand-100: #ede9fe;
+  --brand-200: #ddd6fe;
+  --brand-300: #c4b5fd;
+  --brand-400: #a78bfa;
+  --brand-500: #818cf8;
+  --brand-600: #6366f1;
+  --brand-700: #4f46e5;
+  --brand-800: #4338ca;
+  --brand-900: #3730a3;
+  --brand-950: #1e1b4b;
+}
+
+/* --- Emerald Theme --- */
+:root.theme-emerald {
+  --brand-50: #ecfdf5;
+  --brand-100: #d1fae5;
+  --brand-200: #a7f3d0;
+  --brand-300: #6ee7b7;
+  --brand-400: #34d399;
+  --brand-500: #10b981;
+  --brand-600: #059669;
+  --brand-700: #047857;
+  --brand-800: #065f46;
+  --brand-900: #064e3b;
+  --brand-950: #022c22;
+}
+
+/* --- Rose Theme --- */
+:root.theme-rose {
+  --brand-50: #fff1f2;
+  --brand-100: #ffe4e6;
+  --brand-200: #fecdd3;
+  --brand-300: #fda4af;
+  --brand-400: #fb7185;
+  --brand-500: #f43f5e;
+  --brand-600: #e11d48;
+  --brand-700: #be123c;
+  --brand-800: #9f1239;
+  --brand-900: #881337;
+  --brand-950: #4c0519;
+}
+
+/* --- Amber Theme --- */
+:root.theme-amber {
+  --brand-50: #fffbeb;
+  --brand-100: #fef3c7;
+  --brand-200: #fde68a;
+  --brand-300: #fcd34d;
+  --brand-400: #fbbf24;
+  --brand-500: #f59e0b;
+  --brand-600: #d97706;
+  --brand-700: #b45309;
+  --brand-800: #92400e;
+  --brand-900: #78350f;
+  --brand-950: #451a03;
+}
+
+/* --- Slate Theme (Default Monochrome) --- */
+:root.theme-slate {
+  --brand-50: var(--slate-5); /* wait, slate-50 is better */
+  --brand-50: var(--slate-50);
+  --brand-100: var(--slate-100);
+  --brand-200: var(--slate-200);
+  --brand-300: var(--slate-300);
+  --brand-400: var(--slate-400);
+  --brand-500: var(--slate-600);
+  --brand-600: var(--slate-700);
+  --brand-700: var(--slate-800);
+  --brand-800: var(--slate-900);
+  --brand-900: var(--slate-950);
+}
+
+@theme {
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
   --font-inter: var(--font-sans);

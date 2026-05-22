@@ -31,6 +31,7 @@ import {
 } from '@/components/ui/sidebar'
 import { UserMenu } from './user-menu'
 import { ThemeSwitch } from '@/components/theme-switch'
+import { ColorThemeSelector } from '@/components/color-theme-selector'
 import { useAuthStore } from '@/stores/auth-store'
 import { profileQueryFn } from '@/lib/profile'
 import { api } from '@/lib/api'
@@ -218,7 +219,8 @@ export function AppSidebar() {
       <SidebarFooter className='p-4 border-t border-border'>
         <div className='flex items-center justify-between group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-4'>
           <UserMenu />
-          <div className='group-data-[collapsible=icon]:hidden'>
+          <div className='flex items-center gap-2 group-data-[collapsible=icon]:hidden'>
+            <ColorThemeSelector />
             <ThemeSwitch />
           </div>
         </div>
