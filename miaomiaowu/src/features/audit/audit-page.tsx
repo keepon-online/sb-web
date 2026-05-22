@@ -5,8 +5,10 @@
 // Metadata included as of Sprint 12's audit.go extension).
 import { useMemo, useState } from 'react'
 import { format } from 'date-fns'
+import { AlertTriangle } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -74,6 +76,26 @@ type AuditListResponse = {
   count: number
 }
 
+type AcmeCertificate = {
+  domain: string
+  not_after: string
+  days_left: number
+  issuer?: string
+  expired: boolean
+  expiring: boolean
+  parse_error?: string
+}
+
+type AcmeStatusResponse = {
+  ready: boolean
+  started?: string
+  cache_dir: string
+  email?: string
+  allowed_hosts: string[]
+  cached_domains?: string[]
+  certificates?: AcmeCertificate[]
+}
+
 const STATUS_VARIANT: Record<
   string,
   'default' | 'destructive' | 'secondary' | 'outline'
@@ -108,6 +130,33 @@ function formatTimestamp(ts: string): string {
   }
 }
 
+function formatQueryError(error: unknown): string {
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'response' in error &&
+    typeof error.response === 'object' &&
+    error.response !== null &&
+    'data' in error.response
+  ) {
+    const data = error.response.data
+    if (
+      typeof data === 'object' &&
+      data !== null &&
+      'error' in data &&
+      typeof data.error === 'string'
+    ) {
+      return data.error
+    }
+  }
+
+  if (error instanceof Error && error.message) {
+    return error.message
+  }
+
+  return '证书状态加载失败'
+}
+
 async function fetchAudits(params: {
   status?: string
   planName?: string
@@ -120,6 +169,11 @@ async function fetchAudits(params: {
   const qs = search.toString()
   const url = `/api/admin/audit/operations${qs ? `?${qs}` : ''}`
   const { data } = await api.get<AuditListResponse>(url)
+  return data
+}
+
+async function fetchAcmeStatus(): Promise<AcmeStatusResponse> {
+  const { data } = await api.get<AcmeStatusResponse>('/api/admin/acmemgr/status')
   return data
 }
 
@@ -139,14 +193,62 @@ export function AuditPage() {
     staleTime: 30_000,
   })
 
+  const { data: acmeStatus, isError: isAcmeStatusError, error: acmeStatusError } =
+    useQuery({
+      queryKey: ['acmemgr-status'],
+      queryFn: fetchAcmeStatus,
+      staleTime: 30_000,
+    })
+
   const planNames = useMemo(() => {
     if (!data?.items) return [] as string[]
     return Array.from(new Set(data.items.map((r) => r.plan_name))).sort()
   }, [data])
 
+  const certificateWarnings = useMemo(() => {
+    const certificates = acmeStatus?.certificates ?? []
+    return certificates.filter(
+      (cert) => cert.expired || cert.expiring || cert.parse_error
+    )
+  }, [acmeStatus])
+
   return (
     <div className='bg-background min-h-screen'>
       <main className='container mx-auto space-y-6 p-6'>
+        {isAcmeStatusError && (
+          <Alert variant='destructive'>
+            <AlertTriangle />
+            <AlertTitle>证书状态不可用</AlertTitle>
+            <AlertDescription>
+              {formatQueryError(acmeStatusError)}
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {certificateWarnings.length > 0 && (
+          <Alert variant='destructive'>
+            <AlertTriangle />
+            <AlertTitle>证书续期告警</AlertTitle>
+            <AlertDescription>
+              <div className='space-y-2'>
+                {certificateWarnings.map((cert) => (
+                  <div key={cert.domain} className='flex flex-wrap gap-x-2 gap-y-1'>
+                    <span className='font-mono'>{cert.domain}</span>
+                    {cert.expired && <span>已过期</span>}
+                    {!cert.expired && cert.expiring && (
+                      <span>将在 {cert.days_left} 天后过期</span>
+                    )}
+                    {cert.parse_error && <span>解析失败：{cert.parse_error}</span>}
+                    {!cert.parse_error && cert.not_after && (
+                      <span>到期时间：{formatTimestamp(cert.not_after)}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
+
         <Card>
           <CardHeader>
             <div className='flex flex-wrap items-start justify-between gap-4'>
